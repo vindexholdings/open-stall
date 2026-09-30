@@ -4,7 +4,7 @@ Status: TODO | IN PROGRESS | BLOCKED | DONE
 ## Phase 0 Foundation
 OS-001 DONE Verify dedicated repo/remote and isolation.
 OS-002 DONE Scaffold Expo + TypeScript with web.
-OS-003 TODO Establish workspace/shared domain structure.
+OS-003 DONE Establish workspace/shared domain structure.
 OS-004 TODO Bind dedicated Supabase project/local config.
 OS-005 TODO Bind dedicated Vercel project.
 OS-006 TODO Bind Expo/EAS project/identifiers.
