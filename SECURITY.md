@@ -1,0 +1,10 @@
+# Security / Privacy / Moderation
+Never commit secrets or expose Supabase service-role key. Use RLS and least privilege. Validate privileged actions server-side. Production changes need approval.
+Prefer ephemeral precise user location; do not persist unless a defined feature requires it. Avoid analytics tying precise coordinates to identifiable users.
+All user-added locations/edits stay pending until moderation.
+Private-residence controls: warning, place/address checks where feasible, residential flagging, admin review, takedown/report. Automation is not a guarantee.
+Favor structured factual reports. Moderate any free text. Maintain admin audit trail and correction/dispute path.
+Use Supabase Auth, secure redirects/deep links, independent admin authorization.
+Billing entitlements must rely on trusted provider/server state.
+Abuse-control submissions, check-ins, referrals, points, reports and account creation as needed.
+Before launch: Terms, Privacy, Community Guidelines, data-source licensing/attribution review, store privacy disclosures.
