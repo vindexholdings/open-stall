@@ -5,9 +5,9 @@ Status: TODO | IN PROGRESS | BLOCKED | DONE
 OS-001 DONE Verify dedicated repo/remote and isolation.
 OS-002 DONE Scaffold Expo + TypeScript with web.
 OS-003 DONE Establish workspace/shared domain structure.
-OS-004 TODO Bind dedicated Supabase project/local config. — PARTIAL: local config done; remote link BLOCKED on Supabase project ref
-OS-005 TODO Bind dedicated Vercel project.
-OS-006 TODO Bind Expo/EAS project/identifiers.
+OS-004 PARTIAL Bind dedicated Supabase project/local config. — PARTIAL: local config done; remote link BLOCKED on Supabase project ref
+OS-005 BLOCKED Bind dedicated Vercel project. — BLOCKED: needs Vercel project + admin app (OS-010 decision)
+OS-006 PARTIAL Bind Expo/EAS project/identifiers. — PARTIAL: eas.json profiles added; BLOCKED on Expo project ID, iOS bundle ID, Android package
 OS-007 TODO Env example, secrets rules, lint/typecheck/tests.
 OS-008 TODO CI checks for PRs.
 OS-009 TODO Design tokens/navigation shell.
