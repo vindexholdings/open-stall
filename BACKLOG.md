@@ -10,7 +10,7 @@ OS-005 BLOCKED Bind dedicated Vercel project. — BLOCKED: needs Vercel project 
 OS-006 PARTIAL Bind Expo/EAS project/identifiers. — PARTIAL: eas.json profiles added; BLOCKED on Expo project ID, iOS bundle ID, Android package
 OS-007 DONE Env example, secrets rules, lint/typecheck/tests.
 OS-008 DONE CI checks for PRs.
-OS-009 TODO Design tokens/navigation shell.
+OS-009 DONE Design tokens/navigation shell.
 OS-010 TODO HUMAN ARCHITECTURE CHECKPOINT.
 
 ## Phase 1 Discovery core

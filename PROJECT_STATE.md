@@ -1,24 +1,29 @@
 # Project State
-Last updated: 2026-09-30 (OS-002)
+Last updated: 2026-09-30 (OS-009)
 Current phase: Phase 0
-Current task: OS-003 (awaiting approval)
-Branch: claude/pensive-brahmagupta-wrrhxn
-Last commit: see git log (OS-002 commit)
+Current task: OS-010 HUMAN ARCHITECTURE CHECKPOINT (awaiting human)
+Branch: claude/pensive-brahmagupta-wrrhxn (draft PR vindexholdings/open-stall#1)
+Last commit: see git log (OS-009 commit)
 
 Completed:
-- Product definition, stack, autonomy boundaries established. No VibeCode code; no user photos.
-- OS-001: Repo/remote verified = github.com/vindexholdings/open-stall; feature branch; no other Vindex repo accessed.
-- OS-002: apps/mobile scaffolded (create-expo-app blank-typescript, Expo SDK 57, RN 0.86, React 19.2, TS strict). Web via react-native-web + react-dom (metro bundler). Name "Open Stall", slug open-stall. Template LICENSE and .claude plugin settings removed; AGENTS.md (Expo guidance) kept. Scripts: start/android/ios/web/typecheck. Standalone npm package (no root workspace yet).
+- OS-001 repo/remote verified. OS-002 Expo SDK 57 + TS strict + web in apps/mobile.
+- OS-003 npm workspaces (apps/*, packages/*), root lockfile; packages/domain (zod coords, Haversine, rating/status/mode rules).
+- OS-004 PARTIAL: Supabase CLI 2.118.0 pinned; supabase/config.toml local-only (storage off, Expo web auth URLs), empty migrations/seed.
+- OS-005 BLOCKED: no Vercel project; admin app framework not chosen (OS-010).
+- OS-006 PARTIAL: apps/mobile/eas.json profiles (development/preview/production); no IDs.
+- OS-007 root ESLint (eslint-config-expo), .env.example (names only), scripts/check-secrets.mjs, `npm run check`; secrets rules in SECURITY.md.
+- OS-008 .github/workflows/ci.yml: npm ci, lint, typecheck, test, secret check, web export on PRs/main.
+- OS-009 packages/ui tokens (AA-contrast tested), Expo Router tabs shell (Nearby/Favorites/Settings) in apps/mobile/src/app, scheme "openstall".
 
 Notes:
-- Proxy blocks Expo API; use EXPO_OFFLINE=1 for `expo install` / `expo export` in this environment.
-- No bundle IDs/EAS project ID set (OS-006).
+- Proxy blocks Expo API here; use EXPO_OFFLINE=1 for `expo install`/`expo export`.
+- Brand blue #1E90FF fails AA with white text; use primaryStrong #0B63C4 for text/buttons.
 
-Blockers:
-- Supabase ref, Vercel project ID, Expo project ID, iOS bundle ID, Android package still TODO in ENVIRONMENT.md (needed OS-004..OS-006).
+Blockers (human):
+- Supabase project ref (OS-004 link). Vercel project + admin framework decision (OS-005). Expo project ID, iOS bundle ID, Android package (OS-006).
 
 Next exact action:
-On approval, OS-003: add root npm workspaces (apps/*, packages/*), create packages/domain (shared types/validation), move apps/mobile lockfile to root.
+Human OS-010 checkpoint review. Then finish OS-004/005/006 bindings once values provided.
 
-Last tests: `npm run typecheck` (apps/mobile) pass; `EXPO_OFFLINE=1 npx expo export --platform web` pass.
+Last tests: `npm run check` (lint, typecheck, domain 6 + ui 14 tests, secret check) pass; web export pass; headless render of shell OK.
 Never infer IDs or reuse another Vindex resource.
