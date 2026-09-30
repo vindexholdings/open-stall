@@ -1,7 +1,7 @@
 # Project Bindings — NO SECRETS
 GitHub organization: Vindex Holdings organization
 Repository: open-stall
-Expected remote: TODO
+Expected remote: https://github.com/vindexholdings/open-stall (verified OS-001)
 
 Supabase organization: Vindex organization
 Project: Open Stall

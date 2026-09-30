@@ -2,7 +2,7 @@
 Status: TODO | IN PROGRESS | BLOCKED | DONE
 
 ## Phase 0 Foundation
-OS-001 TODO Verify dedicated repo/remote and isolation.
+OS-001 DONE Verify dedicated repo/remote and isolation.
 OS-002 TODO Scaffold Expo + TypeScript with web.
 OS-003 TODO Establish workspace/shared domain structure.
 OS-004 TODO Bind dedicated Supabase project/local config.
