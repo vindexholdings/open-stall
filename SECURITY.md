@@ -8,3 +8,9 @@ Use Supabase Auth, secure redirects/deep links, independent admin authorization.
 Billing entitlements must rely on trusted provider/server state.
 Abuse-control submissions, check-ins, referrals, points, reports and account creation as needed.
 Before launch: Terms, Privacy, Community Guidelines, data-source licensing/attribution review, store privacy disclosures.
+
+## Secrets rules (OS-007)
+- `.env.example` lists variable NAMES only; real values live in `.env.local` (git-ignored) or provider secret stores.
+- `EXPO_PUBLIC_*` values are bundled into clients and are public; only the Supabase URL and anon/publishable key may use it.
+- Service-role/secret keys are server/admin only and must never carry a public prefix.
+- `npm run check:secrets` scans tracked files; it runs in `npm run check` and CI.
