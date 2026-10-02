@@ -7,7 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vindexholdings.openstall"
     },
     "android": {
       "adaptiveIcon": {
@@ -16,7 +17,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.vindexholdings.openstall"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -25,6 +27,11 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "openstall"
+    "scheme": "openstall",
+    "extra": {
+      "eas": {
+        "projectId": "33614785-78d2-4c9c-9821-5d1341b21680"
+      }
+    }
   }
 }
