@@ -9,7 +9,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "supabase": "supabase",
-    "lint": "eslint .",
+    "lint": "eslint . && npm run lint -w @open-stall/admin",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run check:secrets"
   },
