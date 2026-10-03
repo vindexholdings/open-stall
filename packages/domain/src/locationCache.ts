@@ -60,7 +60,7 @@ export function parseCache(raw: unknown): CacheEntry[] {
   return out;
 }
 
-// Cached entries are stored as camelCase PublicLocation; toPublicLocation validates snake_case rows.
+// Cached entries are stored as camelCase PublicLocation; toPublicLocation validates snake_case RPC rows.
 function rowFromLocation(l: unknown): unknown {
   if (typeof l !== 'object' || l === null) return null;
   const x = l as PublicLocation;
@@ -68,11 +68,11 @@ function rowFromLocation(l: unknown): unknown {
   return {
     id: x.id, name: x.name, address_line: x.addressLine, city: x.city, region: x.region,
     postal_code: x.postalCode, latitude: x.coordinates.latitude, longitude: x.coordinates.longitude,
-    status: x.verification, restroom_evidence: 'explicit', restroom_verified: x.verification === 'verified',
-    last_verified_at: x.lastVerifiedAt, source: 'cache', source_attribution: x.attribution,
+    verification: x.verification, last_verified_at: x.lastVerifiedAt, opening_hours: x.openingHours,
+    fee_required: x.feeRequired, key_required: x.keyRequired, purchase_required: x.purchaseRequired,
     wheelchair_accessible: x.wheelchairAccessible, gender_neutral: x.genderNeutral,
     baby_changing: x.babyChanging, has_hot_water: x.hasHotWater, has_cold_water: x.hasColdWater,
-    key_required: x.keyRequired, purchase_required: x.purchaseRequired,
     access_location: x.accessLocation, average_rating: x.averageRating, rating_count: x.ratingCount,
+    attribution: x.attribution,
   };
 }

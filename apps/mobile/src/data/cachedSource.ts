@@ -1,4 +1,5 @@
 import {
+  boundingBox,
   findCached,
   parseCache,
   readCache,
@@ -42,16 +43,34 @@ export function withOfflineCache(
   };
 
   return {
-    async listPublicInBounds(bounds, signal) {
+    async listNearby(query, signal) {
+      // Bounds are derived for cache bookkeeping only; the origin/area is never stored.
+      const bounds = boundingBox(query.origin, query.radiusMeters);
       try {
-        const result = await source.listPublicInBounds(bounds, signal);
-        await save(updateCache(await load(), result.locations, bounds, now()));
+        const result = await source.listNearby(query, signal);
+        const existing = await load();
+        // A verified-only fetch lacks unverified rows, so merge instead of replacing the area.
+        const next = query.verifiedOnly
+          ? result.locations.reduce((acc, l) => upsertCached(acc, l, now()), existing)
+          : updateCache(existing, result.locations, bounds, now());
+        await save(next);
         return result;
       } catch (error) {
         if (signal?.aborted) throw error;
-        const cached = readCache(await load(), bounds, now());
-        if (cached.length === 0) throw error;
-        return { locations: cached, fromCache: true };
+        const inArea = readCache(await load(), bounds, now());
+        if (inArea.length === 0) throw error;
+        // Saved data exists for this area: show it (possibly with nothing matching verified-only).
+        const locations = inArea.filter((l) => !query.verifiedOnly || l.verification === 'verified');
+        return { locations, fromCache: true };
+      }
+    },
+
+    async nearestVerified(origin, signal) {
+      try {
+        return await source.nearestVerified(origin, signal);
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        return null; // offline: no context rather than an error
       }
     },
 

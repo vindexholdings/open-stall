@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { describeFacts, ratingLabel, verificationBadge } from './facts';
+import { describeFacts, hoursLabel, ratingLabel, verificationBadge } from './facts';
 import type { PublicLocation } from './publicLocation';
 
-const loc = { keyRequired: true, purchaseRequired: false, wheelchairAccessible: null } as PublicLocation;
+const loc = { keyRequired: true, purchaseRequired: false, wheelchairAccessible: null, feeRequired: true } as PublicLocation;
 
 describe('describeFacts', () => {
   it('distinguishes yes, no and not reported', () => {
@@ -11,6 +11,7 @@ describe('describeFacts', () => {
     expect(by.key).toBe('Yes');
     expect(by.purchase).toBe('No');
     expect(by.wheelchair).toBe('Not reported');
+    expect(by.fee).toBe('Yes');
   });
 });
 
@@ -25,5 +26,13 @@ describe('labels', () => {
     expect(ratingLabel(null, 0)).toBe('No ratings yet');
     expect(ratingLabel(4.25, 1)).toBe('4.3 / 5 (1 rating)');
     expect(ratingLabel(3, 12)).toBe('3.0 / 5 (12 ratings)');
+  });
+});
+
+describe('hoursLabel', () => {
+  it('flags source hours as possibly inaccurate and reports missing hours honestly', () => {
+    expect(hoursLabel('Mo-Su 08:00-20:00')).toEqual({ text: 'Mo-Su 08:00-20:00 (from map data, may be inaccurate)', reported: true });
+    expect(hoursLabel(null)).toEqual({ text: 'Not reported', reported: false });
+    expect(hoursLabel('  ').reported).toBe(false);
   });
 });

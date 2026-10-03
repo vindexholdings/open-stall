@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { distanceMeters } from './geo';
-import { boundingBox, estimateTravelMinutes, formatDistance, rankNearby } from './nearby';
+import { boundingBox, estimateTravelMinutes, formatDistance, nearestVerifiedContext, rankNearby } from './nearby';
 import { toPublicLocation, type PublicLocation } from './publicLocation';
 
 // Synthetic fixtures: exist only in memory inside tests.
@@ -15,6 +15,8 @@ const loc = (name: string, dLat: number): PublicLocation => ({
   postalCode: null,
   coordinates: { latitude: origin.latitude + dLat, longitude: origin.longitude },
   lastVerifiedAt: null,
+  openingHours: null,
+  feeRequired: null,
   attribution: null,
   wheelchairAccessible: null,
   genderNeutral: null,
@@ -65,46 +67,57 @@ describe('formatting and ETA', () => {
   });
 });
 
-describe('toPublicLocation', () => {
+describe('toPublicLocation (public RPC rows)', () => {
   const row = {
     id: '3f2b8c1e-8a4d-4a8b-9a53-0d6f3c5f1a11',
     name: 'TEST row',
     address_line: null, city: null, region: null, postal_code: null,
     latitude: 1, longitude: 2,
-    status: 'verified', restroom_evidence: 'explicit', restroom_verified: true, last_verified_at: '2026-01-01T00:00:00Z',
-    source: 'admin', source_attribution: null,
+    verification: 'verified', last_verified_at: '2026-01-01T00:00:00Z',
+    opening_hours: 'Mo-Su 08:00-20:00', fee_required: null, key_required: null, purchase_required: false,
     wheelchair_accessible: null, gender_neutral: true, baby_changing: false,
-    has_hot_water: null, has_cold_water: null, key_required: null, purchase_required: null,
-    access_location: null, average_rating: null, rating_count: 0,
+    has_hot_water: null, has_cold_water: null,
+    access_location: null, average_rating: null, rating_count: 0, attribution: '(c) TEST', distance_m: 12.5,
   };
 
-  it('maps verified rows and keeps unknown amenities as null', () => {
+  it('maps rows, keeping unknown amenities as null and carrying hours/fee/attribution', () => {
     const l = toPublicLocation(row);
+    expect(l?.verification).toBe('verified');
     expect(l?.wheelchairAccessible).toBeNull();
     expect(l?.genderNeutral).toBe(true);
     expect(l?.babyChanging).toBe(false);
+    expect(l?.openingHours).toBe('Mo-Su 08:00-20:00');
+    expect(l?.feeRequired).toBeNull();
+    expect(l?.attribution).toBe('(c) TEST');
   });
 
-  it('maps unverified rows with explicit evidence and marks them unverified', () => {
-    const l = toPublicLocation({ ...row, status: 'unverified', restroom_verified: false, last_verified_at: null });
-    expect(l?.verification).toBe('unverified');
-    expect(toPublicLocation(row)?.verification).toBe('verified');
-  });
-
-  it('refuses hidden states even if returned by mistake', () => {
-    for (const status of ['candidate', 'pending', 'closed']) {
-      expect(toPublicLocation({ ...row, status, restroom_verified: false })).toBeNull();
+  it('accepts unverified rows and rejects every other verification value', () => {
+    expect(toPublicLocation({ ...row, verification: 'unverified' })?.verification).toBe('unverified');
+    for (const v of ['candidate', 'pending', 'closed', 'hidden', '', null]) {
+      expect(toPublicLocation({ ...row, verification: v })).toBeNull();
     }
-    // Unverified needs explicit evidence and must not claim Open Stall verification.
-    expect(toPublicLocation({ ...row, status: 'unverified', restroom_verified: false, restroom_evidence: 'inferred' })).toBeNull();
-    expect(toPublicLocation({ ...row, status: 'unverified', restroom_verified: false, restroom_evidence: 'none' })).toBeNull();
-    expect(toPublicLocation({ ...row, status: 'unverified', restroom_verified: true })).toBeNull();
-    // Verified must be confirmed.
-    expect(toPublicLocation({ ...row, restroom_verified: false })).toBeNull();
   });
 
   it('rejects malformed rows', () => {
     expect(toPublicLocation({ ...row, latitude: 'x' })).toBeNull();
+    expect(toPublicLocation({ ...row, latitude: 200 })).toBeNull();
+    expect(toPublicLocation({ ...row, id: 'not-a-uuid' })).toBeNull();
+    expect(toPublicLocation({ ...row, average_rating: 9 })).toBeNull();
     expect(toPublicLocation(null)).toBeNull();
+  });
+});
+
+describe('nearestVerifiedContext', () => {
+  const l = (name: string, verification: 'verified' | 'unverified', dLat: number) => ({ ...loc(name, dLat), verification, distanceMeters: dLat * 111_000 });
+  it('is not needed when the nearest result is verified', () => {
+    expect(nearestVerifiedContext([l('a', 'verified', 0.01), l('b', 'unverified', 0.02)])).toEqual({ kind: 'not-needed' });
+  });
+  it('points to the nearest verified in the list when the top result is unverified', () => {
+    const ctx = nearestVerifiedContext([l('u', 'unverified', 0.01), l('v1', 'verified', 0.02), l('v2', 'verified', 0.03)]);
+    expect(ctx.kind === 'in-list' && ctx.location.name).toBe('v1');
+  });
+  it('asks for a lookup when only unverified results (or none) are present', () => {
+    expect(nearestVerifiedContext([l('u', 'unverified', 0.01)])).toEqual({ kind: 'lookup' });
+    expect(nearestVerifiedContext([])).toEqual({ kind: 'lookup' });
   });
 });

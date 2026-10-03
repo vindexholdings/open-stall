@@ -1,16 +1,15 @@
 import { z } from 'zod';
 import { coordinatesSchema, type Coordinates } from './geo';
-import {
-  isPubliclyVisible,
-  ratingSchema,
-  restroomEvidenceSchema,
-  verificationStatusSchema,
-} from './location';
+import { ratingSchema } from './location';
 
 /** Nullable boolean: null means unknown, which is different from false. */
 const tri = z.boolean().nullable();
 
-/** Row shape returned by the public (RLS-filtered) read of public.locations. */
+/**
+ * Row returned by the public RPCs (nearby_locations / get_public_location). The database only
+ * ever returns verified or displayable-unverified rows; clients reject anything else.
+ * Internal fields (status internals, evidence level, sources, timestamps) are not exposed.
+ */
 export const publicLocationRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
@@ -20,26 +19,24 @@ export const publicLocationRowSchema = z.object({
   postal_code: z.string().nullable(),
   latitude: z.number(),
   longitude: z.number(),
-  status: verificationStatusSchema,
-  restroom_evidence: restroomEvidenceSchema,
-  restroom_verified: z.boolean(),
+  verification: z.enum(['verified', 'unverified']),
   last_verified_at: z.string().nullable(),
-  source: z.string(),
-  source_attribution: z.string().nullable(),
+  opening_hours: z.string().nullable(),
+  fee_required: tri,
+  key_required: tri,
+  purchase_required: tri,
   wheelchair_accessible: tri,
   gender_neutral: tri,
   baby_changing: tri,
   has_hot_water: tri,
   has_cold_water: tri,
-  key_required: tri,
-  purchase_required: tri,
   access_location: z.string().nullable(),
   average_rating: z.number().nullable(),
   rating_count: z.number().int().nonnegative(),
+  attribution: z.string().nullable(),
+  distance_m: z.number().nullable().optional(),
 });
 export type PublicLocationRow = z.infer<typeof publicLocationRowSchema>;
-
-export const PUBLIC_LOCATION_COLUMNS = Object.keys(publicLocationRowSchema.shape).join(',');
 
 export type Verification = 'verified' | 'unverified';
 
@@ -54,6 +51,9 @@ export type PublicLocation = {
   postalCode: string | null;
   coordinates: Coordinates;
   lastVerifiedAt: string | null;
+  /** Raw source text (e.g. OSM); display as "may be inaccurate". */
+  openingHours: string | null;
+  feeRequired: boolean | null;
   attribution: string | null;
   wheelchairAccessible: boolean | null;
   genderNeutral: boolean | null;
@@ -67,26 +67,17 @@ export type PublicLocation = {
   ratingCount: number;
 };
 
-/**
- * Validates a raw row and maps it. Returns null for invalid rows and for anything not publicly
- * displayable, so a misconfigured query can never surface candidates or pending rows:
- * - verified requires restroom_verified;
- * - unverified requires explicit external evidence and must NOT claim Open Stall verification.
- */
+/** Validates an RPC row and maps it. Returns null for malformed rows or unexpected verification values. */
 export function toPublicLocation(raw: unknown): PublicLocation | null {
   const parsed = publicLocationRowSchema.safeParse(raw);
   if (!parsed.success) return null;
   const r = parsed.data;
-  if (!isPubliclyVisible(r.status, r.restroom_evidence)) return null;
-  const verification: Verification = r.status === 'verified' ? 'verified' : 'unverified';
-  if (verification === 'verified' && !r.restroom_verified) return null;
-  if (verification === 'unverified' && r.restroom_verified) return null;
   const coordinates = coordinatesSchema.safeParse({ latitude: r.latitude, longitude: r.longitude });
   if (!coordinates.success) return null;
   if (r.average_rating !== null && !ratingSchema.safeParse(Math.round(r.average_rating)).success) return null;
   return {
     id: r.id,
-    verification,
+    verification: r.verification,
     name: r.name,
     addressLine: r.address_line,
     city: r.city,
@@ -94,7 +85,9 @@ export function toPublicLocation(raw: unknown): PublicLocation | null {
     postalCode: r.postal_code,
     coordinates: coordinates.data,
     lastVerifiedAt: r.last_verified_at,
-    attribution: r.source_attribution,
+    openingHours: r.opening_hours,
+    feeRequired: r.fee_required,
+    attribution: r.attribution,
     wheelchairAccessible: r.wheelchair_accessible,
     genderNeutral: r.gender_neutral,
     babyChanging: r.baby_changing,

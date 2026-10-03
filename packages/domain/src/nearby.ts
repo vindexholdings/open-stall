@@ -55,3 +55,20 @@ export function formatDistance(meters: number): string {
   const miles = meters / METERS_PER_MILE;
   return `${miles < 10 ? miles.toFixed(1) : Math.round(miles)} mi`;
 }
+
+export type NearestVerifiedContext =
+  | { kind: 'not-needed' }
+  | { kind: 'in-list'; location: NearbyLocation }
+  | { kind: 'lookup' };
+
+/**
+ * Ranking stays distance-first. When the nearest result is Unverified, surface context about the
+ * nearest Verified option: use the list if it contains one, otherwise the caller should look one up.
+ */
+export function nearestVerifiedContext(ranked: readonly NearbyLocation[]): NearestVerifiedContext {
+  const top = ranked[0];
+  if (top && top.verification === 'verified') return { kind: 'not-needed' };
+  const verified = ranked.find((l) => l.verification === 'verified');
+  if (verified) return { kind: 'in-list', location: verified };
+  return { kind: 'lookup' };
+}

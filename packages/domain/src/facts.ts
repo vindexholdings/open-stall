@@ -21,6 +21,7 @@ export function describeFacts(l: PublicLocation): { access: Fact[]; amenities: F
     access: [
       fact('key', 'Key required', l.keyRequired),
       fact('purchase', 'Purchase required', l.purchaseRequired),
+      fact('fee', 'Fee to use', l.feeRequired),
       fact('wheelchair', 'Wheelchair accessible', l.wheelchairAccessible),
       fact('genderNeutral', 'Gender-neutral', l.genderNeutral),
     ],
@@ -51,4 +52,10 @@ export const UNVERIFIED_EXPLANATION =
 export function ratingLabel(average: number | null, count: number): string {
   if (average === null || count === 0) return 'No ratings yet';
   return `${average.toFixed(1)} / 5 (${count} ${count === 1 ? 'rating' : 'ratings'})`;
+}
+
+/** Raw source opening hours with an honesty caveat; null means hours are not reported. */
+export function hoursLabel(openingHours: string | null): { text: string; reported: boolean } {
+  const t = openingHours?.trim();
+  return t ? { text: `${t} (from map data, may be inaccurate)`, reported: true } : { text: 'Not reported', reported: false };
 }

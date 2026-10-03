@@ -4,6 +4,7 @@ import {
   estimateTravelMinutes,
   buildNavigationUrl,
   formatDistance,
+  hoursLabel,
   parseLocationId,
   ratingLabel,
   UNVERIFIED_EXPLANATION,
@@ -157,6 +158,10 @@ export default function LocationDetail() {
           <FactRow key={f.key} fact={f} />
         ))}
         {l.accessLocation ? <Text style={styles.body}>Where: {l.accessLocation}</Text> : null}
+        <View style={styles.factRow} accessible accessibilityLabel={`Hours: ${hoursLabel(l.openingHours).text}`}>
+          <Text style={styles.factLabel}>Hours</Text>
+          <Text style={[styles.hours, !hoursLabel(l.openingHours).reported && styles.unknown]}>{hoursLabel(l.openingHours).text}</Text>
+        </View>
       </Section>
 
       <Section title="Amenities">
@@ -208,6 +213,7 @@ const styles = StyleSheet.create({
   factLabel: { ...typography.body, color: colors.text, flex: 1 },
   factValue: { ...typography.label, color: colors.text },
   unknown: { color: colors.textMuted, fontWeight: '400' },
+  hours: { ...typography.body, color: colors.text, flex: 2, textAlign: 'right' },
   attribution: { ...typography.label, color: colors.textMuted },
   offline: { ...typography.label, color: colors.status.pending.fg },
 });

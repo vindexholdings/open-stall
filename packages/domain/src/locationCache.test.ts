@@ -8,7 +8,7 @@ const mk = (n: number, lat = 10, lng = 10): PublicLocation => ({
   verification: 'verified',
   name: `TEST ${n}`,
   addressLine: null, city: null, region: null, postalCode: null,
-  coordinates: { latitude: lat, longitude: lng }, lastVerifiedAt: null, attribution: null,
+  coordinates: { latitude: lat, longitude: lng }, lastVerifiedAt: null, openingHours: null, feeRequired: null, attribution: null,
   wheelchairAccessible: null, genderNeutral: null, babyChanging: null, hasHotWater: null,
   hasColdWater: null, keyRequired: null, purchaseRequired: null, accessLocation: null,
   averageRating: null, ratingCount: 0,

@@ -15,4 +15,4 @@ export const locationSource: LocationSource | null =
       })
     : null;
 
-export type { LocationSource };
+export type { LocationSource, NearestVerified, NearbyQuery } from './LocationSource';

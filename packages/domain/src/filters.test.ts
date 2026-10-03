@@ -5,7 +5,7 @@ import type { NearbyLocation } from './nearby';
 // Synthetic, in-memory fixtures only.
 const base = {
   addressLine: null, city: null, region: null, postalCode: null,
-  coordinates: { latitude: 0, longitude: 0 }, lastVerifiedAt: null, attribution: null,
+  coordinates: { latitude: 0, longitude: 0 }, lastVerifiedAt: null, openingHours: null, feeRequired: null, attribution: null,
   wheelchairAccessible: null, genderNeutral: null, babyChanging: null,
   hasHotWater: null, hasColdWater: null, keyRequired: null, purchaseRequired: null,
   accessLocation: null, averageRating: null, ratingCount: 0, distanceMeters: 100,

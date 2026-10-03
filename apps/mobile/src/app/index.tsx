@@ -3,13 +3,14 @@ import {
   DEFAULT_FILTERS,
   estimateTravelMinutes,
   formatDistance,
+  nearestVerifiedContext,
   verificationBadge,
   type LocationFilters,
 } from '@open-stall/domain';
-import { colors, typography } from '@open-stall/ui';
+import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { FilterPanel } from '../components/FilterPanel';
 import { LocationList, type LocationListItem } from '../components/LocationList';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -29,11 +30,24 @@ export default function NearbyScreen() {
   );
   const origin = state.kind === 'ready' ? state.coordinates : null;
   const [filters, setFilters] = useState<LocationFilters>(DEFAULT_FILTERS);
-  const nearby = useNearbyLocations(locationSource, origin, filters.radiusMeters);
+  const nearby = useNearbyLocations(locationSource, origin, {
+    radiusMeters: filters.radiusMeters,
+    verifiedOnly: filters.verifiedOnly,
+  });
   const results = useMemo(
     () => applyFilters(nearby.state.locations, filters),
     [nearby.state.locations, filters],
   );
+
+  // Distance-first ranking is preserved; when the nearest shown result is Unverified, say where the
+  // nearest Verified option is (from the visible list, else the server lookup).
+  const verifiedHint = useMemo(() => {
+    const ctx = nearestVerifiedContext(results);
+    if (ctx.kind === 'in-list') {
+      return { id: ctx.location.id, name: ctx.location.name, distanceMeters: ctx.location.distanceMeters };
+    }
+    return ctx.kind === 'lookup' ? nearby.state.nearestVerified : null;
+  }, [results, nearby.state.nearestVerified]);
 
   const markers = useMemo<MapMarker[]>(
     () => results.map((l) => ({ id: l.id, coordinates: l.coordinates, label: l.verification === 'unverified' ? `${l.name} (unverified)` : l.name,
@@ -88,6 +102,18 @@ export default function NearbyScreen() {
             markers={markers}
             onSelectMarker={openLocation}
           />
+          {verifiedHint && results.length > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Nearest verified restroom: ${verifiedHint.name}, ${formatDistance(verifiedHint.distanceMeters)}`}
+              onPress={() => openLocation(verifiedHint.id)}
+              style={styles.hint}
+            >
+              <Text style={styles.hintText}>
+                {`Nearest verified: ${formatDistance(verifiedHint.distanceMeters)} · ${verifiedHint.name}`}
+              </Text>
+            </Pressable>
+          ) : null}
           <LocationList
             items={items}
             emptyMessage={emptyMessage}
@@ -105,4 +131,14 @@ export default function NearbyScreen() {
 const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.textMuted },
   offline: { ...typography.label, color: colors.status.pending.fg },
+  hint: {
+    minHeight: touchTarget.min,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.status.verified.bg,
+    borderWidth: 1,
+    borderColor: colors.status.verified.fg,
+  },
+  hintText: { ...typography.label, color: colors.status.verified.fg },
 });

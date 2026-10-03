@@ -1,44 +1,61 @@
-# Visibility rules and real-location import
+# Visibility, public data access, and real-location import
 
-## Visibility states (`locations.status`)
-| Status | Meaning | Public read? | UI |
+## 1. Visibility states (`locations.status`)
+| Status | Meaning | Public? | UI |
 |---|---|---|---|
-| verified | Open Stall/admin/approved process confirmed the restroom (`restroom_verified`, `last_verified_at`) | Yes | "Verified" badge |
-| unverified | Real location with EXPLICIT external restroom evidence (`restroom_evidence = explicit`), not yet confirmed by Open Stall | Yes | "Unverified" badge + explanation, filterable via "Verified only" |
-| candidate | Imported/inferred possible location without sufficient evidence | No | never shown |
+| verified | Open Stall/admin/approved process confirmed the restroom | Yes | "Verified" badge |
+| unverified | Real location with EXPLICIT external restroom evidence, not yet confirmed by Open Stall | Yes | "Unverified" badge + explanation; "Verified only" filter; nearest-verified hint |
+| candidate | Inferred, held (recent source edit) or possible-duplicate record | No | never shown |
 | pending | User submission awaiting moderation | No | never shown |
 | closed | No longer available | No | never shown |
 
-Public RLS policy: `(status='verified' AND restroom_verified) OR (status='unverified' AND restroom_evidence='explicit' AND NOT restroom_verified)`.
-DB constraints: verified needs confirmation; only verified/closed may claim `restroom_verified`; unverified needs explicit evidence.
-Domain (`isPubliclyVisible`, `toPublicLocation`) mirrors this and re-checks client-side. Public roles can read only listed columns (no importer/bookkeeping columns).
-A business existing is never evidence of a public restroom.
+A business existing is never evidence of a public restroom. DB constraints: verified needs confirmation; only verified/closed may claim `restroom_verified`; unverified needs explicit evidence; a flagged possible duplicate cannot be public-unverified.
 
-## OSM evidence rules (`packages/importer/src/osmClassify.ts`)
-- EXPLICIT (-> unverified): `amenity=toilets` with access unset/yes/permissive/public/customers; or `toilets=yes` with `toilets:access` public/customers. Customers-only sets `purchase_required=true`.
-- INFERRED (-> hidden candidate): `toilets=yes` with unknown access; or a named place of a type that often has restrooms (fuel, library, town hall, community centre, camp/caravan/picnic site, visitor centre, rest area/services).
-- SKIPPED (not stored): private/restricted/permit access, residential buildings, disused/abandoned, no coordinates, unnamed candidates, ordinary businesses (restaurants, cafes, shops, bars).
-- Provenance kept: source=osm, source_reference=`node|way|relation/<id>`, license `ODbL-1.0`, attribution `© OpenStreetMap contributors`, whitelisted source tags (no contact details), content hash.
+## 2. Public data access model (no direct table access)
+- `anon` and `authenticated` have NO privileges on `locations`, `location_sources` or `import_runs` (RLS enabled with no policies, grants revoked).
+- Clients call three `SECURITY DEFINER` functions (fixed `search_path`, input validation, hard caps):
+  - `nearby_locations(lat, lng, radius_m ≤ 100 km, limit ≤ 100, verified_only)`: nearest first, server-side.
+  - `get_public_location(id)`: one displayable location or nothing.
+  - `nearest_verified_location(lat, lng, max_m ≤ 100 km)`: the single nearest verified location.
+- They return only `verified`/explicit-evidence `unverified` rows and only these fields: id, name, address, lat/lng, `verification`, last_verified_at, opening_hours, fee/key/purchase, accessibility/amenities, access_location, rating, attribution, distance. NOT exposed: status internals, evidence level, sources/tags/hashes, edit flags, timestamps, country, duplicate links.
+- Import functions are `service_role`-only; internal helpers are not executable by clients.
 
-## Merge rules (enforced in SQL: `import_locations`, service_role only)
-- Idempotent on `(source, source_reference)`; reruns update, never duplicate; unchanged records only touch last-seen fields.
-- New: explicit -> unverified, else candidate.
-- Existing verified/pending/closed or admin-edited (`manually_edited_at`) records are NEVER overwritten; only provenance (tags, hash, last seen) refreshes.
-- Existing unverified/candidate records refresh from source; status follows current evidence (upgrade/downgrade).
-- `finalize_import_run` (only after a COMPLETE successful pass): records of that source inside the run bounds not seen again get `source_missing_since`; unverified ones are hidden (-> candidate); verified/admin-edited ones are only flagged for admin review. Rows outside the bounds are untouched.
+## 3. Data model
+- `locations`: canonical Open Stall records (what the app shows).
+- `location_sources`: per-source provenance (source, reference, license, attribution, raw tags, content hash, source edit time, hold reason, freshness, missing flag, primary flag). Many sources per location; new sources need no schema change.
+- `import_runs`: one row per run: standard bounds `{south,west,north,east}` (validated), scope, `complete` flag, stats.
 
-## Running the importer (human machine; sandbox cannot reach Overpass/Supabase)
+## 4. OSM evidence rules (`packages/importer/src/osmClassify.ts`)
+- EXPLICIT (-> unverified): `amenity=toilets` with access unset/yes/permissive/public/customers; or `toilets=yes` with public/customers `toilets:access`. Customers-only sets `purchase_required`.
+- INFERRED (-> hidden candidate): `toilets=yes` with unknown access; named fuel/library/town hall/community centre/camp, caravan, picnic site/visitor centre/rest area.
+- SKIPPED: private/restricted access, residential buildings, disused, no coordinates, unnamed candidates, ordinary businesses.
+- Also imported: `opening_hours` (raw, shown as "may be inaccurate") and `fee`. Contact details and editor identities are never stored.
+
+## 5. Import and refresh safety (enforced in SQL, `service_role` only)
+- Idempotent on `(source, source_reference)`; unchanged records only touch freshness fields.
+- NEVER overwritten: verified, pending, closed, or manually edited locations. A trigger stamps `manually_edited_at` automatically on any non-importer edit (including dashboard edits); only the source row refreshes.
+- Recent-edit hold: new or changed explicit records whose OSM timestamp is under 14 days old are held hidden (candidate) until they age; unchanged public records are not hidden by it.
+- Possible duplicates: a new explicit record within 30 m of an existing restroom-level location AND (within 10 m, or same/generic name) is inserted hidden with `possible_duplicate_of`. NEVER auto-merged. Place-level inferred candidates are not compared. An admin resolves flags (Phase 3).
+- Finalize (stale handling) requires a COMPLETE run (all tiles fetched, or a replay whose capture covers the run's area/scope). It judges only what the run queried (scope), flags missing sources, hides only unprotected unverified locations whose sources are all missing, and refuses to hide more than max(5, 10%) of the area's public unverified records, or anything when the run saw nothing, unless forced (`--force-finalize`). Verified/edited records are only flagged for review.
+
+## 6. Running the importer (operator machine; the cloud sandbox cannot reach Overpass/Supabase)
 ```
 npm run import:osm -- --area cody-area                         # dry run, writes nothing
 npm run import:osm -- --bbox 44.45,-109.25,44.62,-108.85 --save-raw raw.json --report report.json
-npm run import:osm -- --from-file raw.json --area cody-area    # replay offline
+npm run import:osm -- --from-file raw.json --area cody-area    # replay (finalize only if capture matches)
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
   npm run import:osm -- --area cody-area --apply --confirm-project xzzbcejgprilmolvdaes
 ```
-Safety: dry run is the default; apply requires the URL project to match `ENVIRONMENT.md` AND `--confirm-project`; all tiles are fetched before anything is written (any failed tile aborts); the service-role key is read from env only and never logged or committed. Presets (`cody-area`, `big-horn-basin`) are approximate conveniences; any `--bbox` works.
+Dry run is the default. Apply needs the URL project to match `ENVIRONMENT.md` AND `--confirm-project`; all tiles are fetched before anything is written; the service-role key comes from the environment only. Presets are approximate; any `--bbox` works. NOTHING HAS BEEN IMPORTED; any import needs separate human approval.
 
-## Refresh
-Re-run the same command periodically. Changed OSM data updates unverified/candidate records; verified data is never overwritten. A scheduled job (e.g. GitHub Action) needs the service-role secret and is a separate human-approved step.
+## 7. Licensing gate (ODbL): HUMAN APPROVAL REQUIRED
+OSM data is licensed under the ODbL (attribution + share-alike). Storing OSM-derived records separately in `location_sources` keeps provenance clean and lets OSM discovery be treated as a source layer, but it does NOT eliminate ODbL/share-alike obligations: a database that substantially incorporates OSM data, or combines it with other data, may be a "derived database".
+Before ANY of the following, get explicit human approval after legal/licensing review:
+1. commercial-scale OSM import (beyond a small development/validation area);
+2. public launch containing OSM-derived data;
+3. licensing, selling or sharing Open Stall location data;
+4. combining substantial OSM-derived data with proprietary, community or third-party commercial datasets.
+Until then: small geographic validation datasets only, after separate approval; attribution is stored (`location_sources.attribution`) and displayed in the app and on map tiles. Overpass use must follow its fair-use policy (descriptive User-Agent, tiled requests, delays, polite retries).
 
-## Licensing (review before launch)
-OSM data is ODbL: attribution is stored and shown in the app (detail screen, map tiles). A public derived database may carry share-alike obligations; include in the pre-launch licensing review (SECURITY.md). Overpass use must follow its fair-use policy (importer sends a descriptive User-Agent, tiles requests, delays, retries politely).
+## 8. Refresh
+Re-run the same command periodically; changed OSM data updates unprotected unverified/candidate records, never protected ones. A scheduled job needs the service-role secret and is a separate human-approved step.

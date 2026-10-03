@@ -24,8 +24,9 @@ OS-107 DONE Location detail (Report/Correct + Favorite deferred to Phase 2).
 OS-108 DONE (Apple/Google Maps external links, destination-only; openstall://location/<uuid> deep link, id validated) Navigation/deep links.
 OS-109 DONE (public verified data only; no position/area stored; 14-day expiry, 300 entries) Offline/cache.
 OS-110 DONE (remote RLS verification pending migration approval) Discovery tests.
-OS-110a DONE(code; not applied) Three-state visibility (verified/unverified/candidate) across schema, RLS, domain, UI, tests. Approved scope change.
-OS-110b DONE(code; not applied) OSM importer pulled forward from OS-306 (reusable, idempotent, refreshable). Approved scope change.
+OS-110a DONE(code; not applied) Three-state visibility + canonical/source split + constrained public functions + safety rules (approved scope change, Opus review applied).
+OS-110b DONE(code; not applied) OSM importer pulled forward from OS-306 (reusable, idempotent, refreshable, guarded). No import without separate approval.
+OS-110c HUMAN LEGAL/LICENSING GATE (ODbL): required before commercial-scale OSM import, public launch with OSM data, data licensing, or combining substantial OSM data with proprietary/community datasets.
 OS-111 HUMAN MVP-CORE CHECKPOINT.
 
 ## Phase 2 Accounts/contributions
@@ -73,6 +74,6 @@ OS-604 Accessibility audit.
 OS-605 Security/RLS audit.
 OS-606 Performance/release tests.
 OS-607 Store readiness.
-OS-608 HUMAN PRODUCTION RELEASE APPROVAL.
+OS-608 HUMAN PRODUCTION RELEASE APPROVAL (requires OS-110c ODbL/licensing sign-off).
 
 Do not silently pull future scope forward.
