@@ -7,6 +7,7 @@ import { toPublicLocation, type PublicLocation } from './publicLocation';
 const origin = { latitude: 40, longitude: -100 };
 const loc = (name: string, dLat: number): PublicLocation => ({
   id: name,
+  verification: 'verified',
   name,
   addressLine: null,
   city: null,
@@ -70,7 +71,7 @@ describe('toPublicLocation', () => {
     name: 'TEST row',
     address_line: null, city: null, region: null, postal_code: null,
     latitude: 1, longitude: 2,
-    status: 'verified', restroom_verified: true, last_verified_at: '2026-01-01T00:00:00Z',
+    status: 'verified', restroom_evidence: 'explicit', restroom_verified: true, last_verified_at: '2026-01-01T00:00:00Z',
     source: 'admin', source_attribution: null,
     wheelchair_accessible: null, gender_neutral: true, baby_changing: false,
     has_hot_water: null, has_cold_water: null, key_required: null, purchase_required: null,
@@ -84,10 +85,21 @@ describe('toPublicLocation', () => {
     expect(l?.babyChanging).toBe(false);
   });
 
-  it('refuses candidates, pending, closed, or unconfirmed rows even if returned by mistake', () => {
+  it('maps unverified rows with explicit evidence and marks them unverified', () => {
+    const l = toPublicLocation({ ...row, status: 'unverified', restroom_verified: false, last_verified_at: null });
+    expect(l?.verification).toBe('unverified');
+    expect(toPublicLocation(row)?.verification).toBe('verified');
+  });
+
+  it('refuses hidden states even if returned by mistake', () => {
     for (const status of ['candidate', 'pending', 'closed']) {
-      expect(toPublicLocation({ ...row, status })).toBeNull();
+      expect(toPublicLocation({ ...row, status, restroom_verified: false })).toBeNull();
     }
+    // Unverified needs explicit evidence and must not claim Open Stall verification.
+    expect(toPublicLocation({ ...row, status: 'unverified', restroom_verified: false, restroom_evidence: 'inferred' })).toBeNull();
+    expect(toPublicLocation({ ...row, status: 'unverified', restroom_verified: false, restroom_evidence: 'none' })).toBeNull();
+    expect(toPublicLocation({ ...row, status: 'unverified', restroom_verified: true })).toBeNull();
+    // Verified must be confirmed.
     expect(toPublicLocation({ ...row, restroom_verified: false })).toBeNull();
   });
 

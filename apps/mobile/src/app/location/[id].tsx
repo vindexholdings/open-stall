@@ -6,7 +6,8 @@ import {
   formatDistance,
   parseLocationId,
   ratingLabel,
-  verificationLabel,
+  UNVERIFIED_EXPLANATION,
+  verificationBadge,
   type Fact,
   type NavigationProvider,
   type PublicLocation,
@@ -19,6 +20,7 @@ import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { Chip } from '../../components/Chip';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { Screen } from '../../components/Screen';
+import { VerificationBadge } from '../../components/VerificationBadge';
 import { locationSource } from '../../data';
 import { useUserLocation } from '../../location/useUserLocation';
 
@@ -45,7 +47,7 @@ export default function LocationDetail() {
     if (!locationSource || !id) return;
     let cancelled = false;
     locationSource
-      .getVerifiedById(id)
+      .getPublicById(id)
             .then(({ location, fromCache }) => {
         if (!cancelled) setLoad(location ? { id, status: 'ready', location, fromCache } : { id, status: 'missing' });
       })
@@ -111,9 +113,15 @@ export default function LocationDetail() {
         </Text>
       ) : null}
       <View style={styles.badges}>
-        <Text style={styles.verified}>{verificationLabel(l.lastVerifiedAt)}</Text>
+        <VerificationBadge badge={verificationBadge(l)} />
         <Text style={styles.rating}>{ratingLabel(l.averageRating, l.ratingCount)}</Text>
       </View>
+
+      {l.verification === 'unverified' ? (
+        <View style={styles.unverifiedCard} accessibilityRole="alert">
+          <Text style={styles.unverifiedText}>{UNVERIFIED_EXPLANATION}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>
@@ -178,7 +186,14 @@ const styles = StyleSheet.create({
   strong: { ...typography.heading, color: colors.text },
   badges: { gap: spacing.xs },
   modes: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  verified: { ...typography.label, color: colors.status.verified.fg },
+  unverifiedCard: {
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.status.unverified.bg,
+    borderWidth: 1,
+    borderColor: colors.status.unverified.fg,
+  },
+  unverifiedText: { ...typography.body, color: colors.status.unverified.fg },
   rating: { ...typography.body, color: colors.text },
   section: {
     gap: spacing.sm,

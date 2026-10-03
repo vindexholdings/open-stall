@@ -9,10 +9,11 @@ export type ListResult = {
 /**
  * Data-source contract for public restroom locations. Screens depend only on this, so the
  * backing store (Supabase today) can change without touching UI code.
- * Implementations MUST return only verified, public locations.
+ * Implementations MUST return only publicly displayable locations (verified or
+ * explicit-evidence unverified); the UI badges the unverified ones.
  */
 export interface LocationSource {
-  listVerifiedInBounds(bounds: Bounds, signal?: AbortSignal): Promise<ListResult>;
+  listPublicInBounds(bounds: Bounds, signal?: AbortSignal): Promise<ListResult>;
   /** Null when the id does not exist or is not public. */
-  getVerifiedById(id: string, signal?: AbortSignal): Promise<{ location: PublicLocation | null; fromCache: boolean }>;
+  getPublicById(id: string, signal?: AbortSignal): Promise<{ location: PublicLocation | null; fromCache: boolean }>;
 }

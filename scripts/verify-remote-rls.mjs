@@ -25,14 +25,18 @@ const check = (name, ok, detail = '') => {
   failed ||= !ok;
 };
 
-const read = await call('GET', 'locations?select=id,status,restroom_verified&limit=1000');
+const read = await call('GET', 'locations?select=id,status,restroom_evidence,restroom_verified&limit=1000');
 check('anon can read locations endpoint', read.status === 200, JSON.stringify(read));
-check(
-  'anon sees only verified+confirmed rows',
-  Array.isArray(read.json) && read.json.every((l) => l.status === 'verified' && l.restroom_verified === true),
-);
-const hidden = await call('GET', 'locations?select=id&status=neq.verified');
-check('non-verified rows are invisible to anon', hidden.status === 200 && Array.isArray(hidden.json) && hidden.json.length === 0);
+const displayable = (l) =>
+  (l.status === 'verified' && l.restroom_verified === true) ||
+  (l.status === 'unverified' && l.restroom_evidence === 'explicit' && l.restroom_verified === false);
+check('anon sees only verified or explicit-evidence unverified rows', Array.isArray(read.json) && read.json.every(displayable));
+const hidden = await call('GET', 'locations?select=id&status=in.(candidate,pending,closed)');
+check('candidate/pending/closed rows are invisible to anon', hidden.status === 200 && Array.isArray(hidden.json) && hidden.json.length === 0);
+const tags = await call('GET', 'locations?select=source_tags&limit=1');
+check('importer columns are not readable by anon', tags.json?.code === '42501', JSON.stringify(tags));
+const fn = await call('POST', 'rpc/import_locations', { p_run: NIL, p_records: [] });
+check('anon cannot execute import_locations', fn.json?.code === '42501' || fn.status === 404, JSON.stringify(fn));
 
 const ins = await call('POST', 'locations', { name: 'probe', latitude: 999, longitude: 0, source: 'osm' });
 check('anon insert is denied by privileges (42501, not a constraint error)', ins.json?.code === '42501', JSON.stringify(ins));

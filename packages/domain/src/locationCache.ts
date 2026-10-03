@@ -46,7 +46,7 @@ export function findCached(existing: readonly CacheEntry[], id: string, now: num
   return existing.find((e) => fresh(e, now) && e.location.id === id)?.location ?? null;
 }
 
-/** Re-validates stored data; anything malformed or not verified is dropped. */
+/** Re-validates stored data; anything malformed or not publicly displayable is dropped. */
 export function parseCache(raw: unknown): CacheEntry[] {
   if (!Array.isArray(raw)) return [];
   const out: CacheEntry[] = [];
@@ -68,8 +68,8 @@ function rowFromLocation(l: unknown): unknown {
   return {
     id: x.id, name: x.name, address_line: x.addressLine, city: x.city, region: x.region,
     postal_code: x.postalCode, latitude: x.coordinates.latitude, longitude: x.coordinates.longitude,
-    status: 'verified', restroom_verified: true, last_verified_at: x.lastVerifiedAt,
-    source: 'cache', source_attribution: x.attribution,
+    status: x.verification, restroom_evidence: 'explicit', restroom_verified: x.verification === 'verified',
+    last_verified_at: x.lastVerifiedAt, source: 'cache', source_attribution: x.attribution,
     wheelchair_accessible: x.wheelchairAccessible, gender_neutral: x.genderNeutral,
     baby_changing: x.babyChanging, has_hot_water: x.hasHotWater, has_cold_water: x.hasColdWater,
     key_required: x.keyRequired, purchase_required: x.purchaseRequired,

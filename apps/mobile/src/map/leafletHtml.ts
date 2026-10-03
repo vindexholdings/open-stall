@@ -19,7 +19,7 @@ export function buildLeafletHtml(
   props: Pick<MapViewProps, 'center' | 'userLocation' | 'markers'>,
   tiles: TileConfig,
   zoom: number,
-  colors: { marker: string; selected: string; user: string },
+  colors: { marker: string; selected: string; unverified: string; user: string },
 ): string {
   const data = safeJson({ ...props, tiles, zoom, colors });
   return `<!doctype html>
@@ -36,7 +36,7 @@ export function buildLeafletHtml(
   var map = L.map('map').setView([d.center.latitude, d.center.longitude], d.zoom);
   L.tileLayer(d.tiles.urlTemplate, { attribution: d.tiles.attribution, maxZoom: d.tiles.maxZoom }).addTo(map);
   d.markers.forEach(function (m) {
-    var c = m.selected ? d.colors.selected : d.colors.marker;
+    var c = m.selected ? d.colors.selected : (m.variant === 'unverified' ? d.colors.unverified : d.colors.marker);
     var marker = L.circleMarker([m.coordinates.latitude, m.coordinates.longitude],
       { radius: m.selected ? 11 : 9, color: '#ffffff', weight: 2, fillColor: c, fillOpacity: 1 }).addTo(map);
     var el = document.createElement('span');

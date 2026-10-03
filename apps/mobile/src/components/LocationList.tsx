@@ -1,11 +1,14 @@
 import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
+import type { VerificationBadge as Badge } from '@open-stall/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { VerificationBadge } from './VerificationBadge';
 
 export type LocationListItem = {
   id: string;
   name: string;
   subtitle?: string;
   distanceLabel?: string;
+  badge: Badge;
 };
 
 type Props = { items: LocationListItem[]; onSelect?: (id: string) => void; emptyMessage: string };
@@ -20,12 +23,13 @@ export function LocationList({ items, onSelect, emptyMessage }: Props) {
         <Pressable
           key={item.id}
           accessibilityRole="button"
-          accessibilityLabel={[item.name, item.distanceLabel, item.subtitle].filter(Boolean).join(', ')}
+          accessibilityLabel={[item.name, item.badge.label, item.distanceLabel, item.subtitle].filter(Boolean).join(', ')}
           onPress={() => onSelect?.(item.id)}
           style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         >
           <View style={styles.text}>
             <Text style={styles.name}>{item.name}</Text>
+            <VerificationBadge badge={item.badge} />
             {item.subtitle ? <Text style={styles.subtitle}>{item.subtitle}</Text> : null}
           </View>
           {item.distanceLabel ? <Text style={styles.distance}>{item.distanceLabel}</Text> : null}

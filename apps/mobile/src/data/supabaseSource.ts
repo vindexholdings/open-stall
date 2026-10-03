@@ -3,10 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import type { LocationSource } from './LocationSource';
 
 const MAX_ROWS = 500;
+const PUBLIC_STATUSES = ['verified', 'unverified'];
 
 /**
- * Reads verified locations with the public anon key. Row-level security is the real
- * boundary (only verified rows are readable); the explicit filters and toPublicLocation()
+ * Reads public locations (verified + displayable unverified) with the public anon key.
+ * Row-level security is the real boundary (candidates/pending/closed are unreadable); the explicit filters and toPublicLocation()
  * are defense in depth. Auth/session persistence is off until accounts exist (Phase 2).
  */
 export function createSupabaseSource(url: string, anonKey: string): LocationSource {
@@ -15,12 +16,11 @@ export function createSupabaseSource(url: string, anonKey: string): LocationSour
   });
 
   return {
-    async listVerifiedInBounds(bounds, signal) {
+    async listPublicInBounds(bounds, signal) {
       let query = client
         .from('locations')
         .select(PUBLIC_LOCATION_COLUMNS)
-        .eq('status', 'verified')
-        .eq('restroom_verified', true)
+        .in('status', PUBLIC_STATUSES)
         .gte('latitude', bounds.minLat)
         .lte('latitude', bounds.maxLat)
         .gte('longitude', bounds.minLng)
@@ -36,13 +36,12 @@ export function createSupabaseSource(url: string, anonKey: string): LocationSour
       return { locations, fromCache: false };
     },
 
-    async getVerifiedById(id, signal) {
+    async getPublicById(id, signal) {
       let query = client
         .from('locations')
         .select(PUBLIC_LOCATION_COLUMNS)
         .eq('id', id)
-        .eq('status', 'verified')
-        .eq('restroom_verified', true);
+        .in('status', PUBLIC_STATUSES);
       if (signal) query = query.abortSignal(signal);
 
       const { data, error } = await query.maybeSingle();

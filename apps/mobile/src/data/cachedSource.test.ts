@@ -6,6 +6,7 @@ import type { LocationSource } from './LocationSource';
 // Synthetic, in-memory fixtures only; nothing touches a real database or device storage.
 const loc: PublicLocation = {
   id: '00000000-0000-4000-8000-000000000001',
+  verification: 'unverified',
   name: 'TEST cached',
   addressLine: null, city: null, region: null, postalCode: null,
   coordinates: { latitude: 10, longitude: 10 }, lastVerifiedAt: null, attribution: null,
@@ -23,11 +24,11 @@ const memoryStore = (): KeyValueStore & { data: Map<string, string> } => {
 function flaky() {
   let online = true;
   const source: LocationSource = {
-    listVerifiedInBounds: async () => {
+    listPublicInBounds: async () => {
       if (!online) throw new Error('offline');
       return { locations: [loc], fromCache: false };
     },
-    getVerifiedById: async () => {
+    getPublicById: async () => {
       if (!online) throw new Error('offline');
       return { location: loc, fromCache: false };
     },
@@ -39,9 +40,9 @@ describe('withOfflineCache', () => {
   it('serves saved results flagged fromCache when offline', async () => {
     const { source, setOnline } = flaky();
     const cached = withOfflineCache(source, memoryStore());
-    expect((await cached.listVerifiedInBounds(bounds)).fromCache).toBe(false);
+    expect((await cached.listPublicInBounds(bounds)).fromCache).toBe(false);
     setOnline(false);
-    const offline = await cached.listVerifiedInBounds(bounds);
+    const offline = await cached.listPublicInBounds(bounds);
     expect(offline.fromCache).toBe(true);
     expect(offline.locations.map((l) => l.name)).toEqual(['TEST cached']);
   });
@@ -49,21 +50,21 @@ describe('withOfflineCache', () => {
   it('still errors when offline with nothing saved', async () => {
     const { source, setOnline } = flaky();
     setOnline(false);
-    await expect(withOfflineCache(source, memoryStore()).listVerifiedInBounds(bounds)).rejects.toThrow('offline');
+    await expect(withOfflineCache(source, memoryStore()).listPublicInBounds(bounds)).rejects.toThrow('offline');
   });
 
   it('serves a detail record from cache when offline', async () => {
     const { source, setOnline } = flaky();
     const cached = withOfflineCache(source, memoryStore());
-    await cached.getVerifiedById(loc.id);
+    await cached.getPublicById(loc.id);
     setOnline(false);
-    expect((await cached.getVerifiedById(loc.id)).location?.name).toBe('TEST cached');
+    expect((await cached.getPublicById(loc.id)).location?.name).toBe('TEST cached');
   });
 
   it('stores only public location data, never the search area or position', async () => {
     const { source } = flaky();
     const store = memoryStore();
-    await withOfflineCache(source, store).listVerifiedInBounds(bounds);
+    await withOfflineCache(source, store).listPublicInBounds(bounds);
     const raw = [...store.data.values()].join('');
     expect(raw).not.toMatch(/minLat|maxLat|origin|userLocation/);
   });
@@ -71,10 +72,10 @@ describe('withOfflineCache', () => {
   it('does not mask aborts', async () => {
     const { source, setOnline } = flaky();
     const cached = withOfflineCache(source, memoryStore());
-    await cached.listVerifiedInBounds(bounds);
+    await cached.listPublicInBounds(bounds);
     setOnline(false);
     const c = new AbortController();
     c.abort();
-    await expect(cached.listVerifiedInBounds(bounds, c.signal)).rejects.toThrow();
+    await expect(cached.listPublicInBounds(bounds, c.signal)).rejects.toThrow();
   });
 });

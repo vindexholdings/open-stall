@@ -3,6 +3,7 @@ import {
   DEFAULT_FILTERS,
   estimateTravelMinutes,
   formatDistance,
+  verificationBadge,
   type LocationFilters,
 } from '@open-stall/domain';
 import { colors, typography } from '@open-stall/ui';
@@ -35,7 +36,9 @@ export default function NearbyScreen() {
   );
 
   const markers = useMemo<MapMarker[]>(
-    () => results.map((l) => ({ id: l.id, coordinates: l.coordinates, label: l.name })),
+    () => results.map((l) => ({ id: l.id, coordinates: l.coordinates, label: l.verification === 'unverified' ? `${l.name} (unverified)` : l.name,
+        variant: l.verification,
+      })),
     [results],
   );
   const items = useMemo<LocationListItem[]>(
@@ -43,6 +46,7 @@ export default function NearbyScreen() {
       results.map((l) => ({
         id: l.id,
         name: l.name,
+        badge: verificationBadge(l),
         subtitle: [l.addressLine, l.city].filter(Boolean).join(', ') || undefined,
         distanceLabel: `${formatDistance(l.distanceMeters)} · ~${estimateTravelMinutes(l.distanceMeters, 'walk')} min walk`,
       })),
@@ -57,7 +61,7 @@ export default function NearbyScreen() {
         ? 'Looking for restrooms…'
         : nearby.state.locations.length > 0
           ? 'No restrooms match your filters. Try clearing some.'
-          : 'No verified restrooms nearby yet.';
+          : 'No restrooms found nearby yet.';
 
   return (
     <Screen title="Open Stall">

@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { coordinatesSchema, type Coordinates } from './geo';
-import { isPubliclyVisible, ratingSchema, verificationStatusSchema } from './location';
+import {
+  isPubliclyVisible,
+  ratingSchema,
+  restroomEvidenceSchema,
+  verificationStatusSchema,
+} from './location';
 
 /** Nullable boolean: null means unknown, which is different from false. */
 const tri = z.boolean().nullable();
@@ -16,6 +21,7 @@ export const publicLocationRowSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
   status: verificationStatusSchema,
+  restroom_evidence: restroomEvidenceSchema,
   restroom_verified: z.boolean(),
   last_verified_at: z.string().nullable(),
   source: z.string(),
@@ -35,8 +41,12 @@ export type PublicLocationRow = z.infer<typeof publicLocationRowSchema>;
 
 export const PUBLIC_LOCATION_COLUMNS = Object.keys(publicLocationRowSchema.shape).join(',');
 
+export type Verification = 'verified' | 'unverified';
+
 export type PublicLocation = {
   id: string;
+  /** Unverified locations must be shown with an "Unverified" badge. */
+  verification: Verification;
   name: string;
   addressLine: string | null;
   city: string | null;
@@ -58,19 +68,25 @@ export type PublicLocation = {
 };
 
 /**
- * Validates a raw row and maps it. Returns null for invalid rows and for anything that is
- * not verified+confirmed, so a misconfigured query can never surface candidates/pending rows.
+ * Validates a raw row and maps it. Returns null for invalid rows and for anything not publicly
+ * displayable, so a misconfigured query can never surface candidates or pending rows:
+ * - verified requires restroom_verified;
+ * - unverified requires explicit external evidence and must NOT claim Open Stall verification.
  */
 export function toPublicLocation(raw: unknown): PublicLocation | null {
   const parsed = publicLocationRowSchema.safeParse(raw);
   if (!parsed.success) return null;
   const r = parsed.data;
-  if (!isPubliclyVisible(r.status) || !r.restroom_verified) return null;
+  if (!isPubliclyVisible(r.status, r.restroom_evidence)) return null;
+  const verification: Verification = r.status === 'verified' ? 'verified' : 'unverified';
+  if (verification === 'verified' && !r.restroom_verified) return null;
+  if (verification === 'unverified' && r.restroom_verified) return null;
   const coordinates = coordinatesSchema.safeParse({ latitude: r.latitude, longitude: r.longitude });
   if (!coordinates.success) return null;
   if (r.average_rating !== null && !ratingSchema.safeParse(Math.round(r.average_rating)).success) return null;
   return {
     id: r.id,
+    verification,
     name: r.name,
     addressLine: r.address_line,
     city: r.city,

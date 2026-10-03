@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { tileConfig } from './config';
 import { buildLeafletHtml, parseSelectMessage } from './leafletHtml';
 
-const colors = { marker: '#0B63C4', selected: '#00776E', user: '#111827' };
+const colors = { marker: '#0B63C4', selected: '#00776E', unverified: '#92400E', user: '#111827' };
 
 describe('buildLeafletHtml', () => {
   it('escapes hostile labels so they cannot break out of the script', () => {

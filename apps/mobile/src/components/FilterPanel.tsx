@@ -61,6 +61,7 @@ export function FilterPanel({ filters, onChange }: Props) {
           <View style={styles.group}>
             <Text style={styles.groupTitle}>Features</Text>
             <View style={styles.row}>
+              <Chip label="Verified only" selected={filters.verifiedOnly} onPress={() => set({ verifiedOnly: !filters.verifiedOnly })} />
               <Chip label="Wheelchair accessible" selected={filters.wheelchairAccessible} onPress={() => set({ wheelchairAccessible: !filters.wheelchairAccessible })} />
               <Chip label="Gender-neutral" selected={filters.genderNeutral} onPress={() => set({ genderNeutral: !filters.genderNeutral })} />
               <Chip label="Baby changing" selected={filters.babyChanging} onPress={() => set({ babyChanging: !filters.babyChanging })} />

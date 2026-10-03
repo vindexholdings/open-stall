@@ -5,6 +5,8 @@ export type MapMarker = {
   coordinates: Coordinates;
   label: string;
   selected?: boolean;
+  /** Unverified markers use a distinct color; the label also says so (never color alone). */
+  variant?: 'verified' | 'unverified';
 };
 
 /**

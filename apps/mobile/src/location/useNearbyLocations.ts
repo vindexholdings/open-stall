@@ -20,7 +20,7 @@ export type NearbyState = {
 type Settled = { key: string; status: 'ready' | 'error'; locations: NearbyLocation[]; fromCache: boolean };
 
 /**
- * Loads verified locations around `origin`, ranked by distance. Refreshes when the origin
+ * Loads public (verified + displayable unverified) locations around `origin`, ranked by distance. Refreshes when the origin
  * changes and about every 180 seconds while the app is active (no realtime sockets).
  * "Loading" is derived (no settled result for the current origin yet), so no state is set
  * synchronously inside the effect.
@@ -43,7 +43,7 @@ export function useNearbyLocations(
 
     const run = async () => {
       try {
-        const result = await source.listVerifiedInBounds(boundingBox(point, radiusMeters));
+        const result = await source.listPublicInBounds(boundingBox(point, radiusMeters));
         if (!cancelled) {
           setSettled({
             key,

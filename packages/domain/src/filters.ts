@@ -3,6 +3,8 @@ import { DEFAULT_RADIUS_METERS } from './nearby';
 
 export type LocationFilters = {
   radiusMeters: number;
+  /** Hide Unverified locations. */
+  verifiedOnly: boolean;
   minRating: number | null;
   wheelchairAccessible: boolean;
   genderNeutral: boolean;
@@ -17,6 +19,7 @@ export type LocationFilters = {
 
 export const DEFAULT_FILTERS: LocationFilters = {
   radiusMeters: DEFAULT_RADIUS_METERS,
+  verifiedOnly: false,
   minRating: null,
   wheelchairAccessible: false,
   genderNeutral: false,
@@ -28,10 +31,9 @@ export const DEFAULT_FILTERS: LocationFilters = {
 };
 
 /**
- * Applies filters to already-public (verified) results. A positive amenity filter requires the
+ * Applies filters to already-public results (verified and unverified). A positive amenity filter requires the
  * fact to be known-true: unknown (null) never matches, so nobody is sent to a restroom
- * that may not be accessible. All public results are verified, so there is no separate
- * verified-only switch. Filters never gate access to the information itself.
+ * that may not be accessible. Filters never gate access to the information itself.
  */
 export function applyFilters(
   locations: readonly NearbyLocation[],
@@ -39,6 +41,7 @@ export function applyFilters(
 ): NearbyLocation[] {
   return locations.filter((l) => {
     if (l.distanceMeters > f.radiusMeters) return false;
+    if (f.verifiedOnly && l.verification !== 'verified') return false;
     if (f.minRating !== null && (l.averageRating === null || l.averageRating < f.minRating)) return false;
     if (f.wheelchairAccessible && l.wheelchairAccessible !== true) return false;
     if (f.genderNeutral && l.genderNeutral !== true) return false;
@@ -56,6 +59,7 @@ export function applyFilters(
 export function countActiveFilters(f: LocationFilters): number {
   return [
     f.radiusMeters !== DEFAULT_FILTERS.radiusMeters,
+    f.verifiedOnly,
     f.minRating !== null,
     f.wheelchairAccessible,
     f.genderNeutral,

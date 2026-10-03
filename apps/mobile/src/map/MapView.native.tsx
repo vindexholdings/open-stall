@@ -12,6 +12,7 @@ export function MapView({ center, userLocation, markers, onSelectMarker, height 
       buildLeafletHtml({ center, userLocation, markers }, tileConfig, DEFAULT_ZOOM, {
         marker: colors.primaryStrong,
         selected: colors.accentStrong,
+        unverified: colors.status.unverified.fg,
         user: colors.text,
       }),
     [center, userLocation, markers],

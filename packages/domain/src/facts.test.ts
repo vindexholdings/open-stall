@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeFacts, ratingLabel, verificationLabel } from './facts';
+import { describeFacts, ratingLabel, verificationBadge } from './facts';
 import type { PublicLocation } from './publicLocation';
 
 const loc = { keyRequired: true, purchaseRequired: false, wheelchairAccessible: null } as PublicLocation;
@@ -15,10 +15,11 @@ describe('describeFacts', () => {
 });
 
 describe('labels', () => {
-  it('formats verification date in UTC', () => {
-    expect(verificationLabel('2026-03-15T12:00:00Z')).toBe('Verified Mar 2026');
-    expect(verificationLabel(null)).toBe('Verified');
-    expect(verificationLabel('garbage')).toBe('Verified');
+  it('badges verified (with UTC month) and unverified locations', () => {
+    expect(verificationBadge({ verification: 'verified', lastVerifiedAt: '2026-03-15T12:00:00Z' })).toEqual({ kind: 'verified', label: 'Verified Mar 2026' });
+    expect(verificationBadge({ verification: 'verified', lastVerifiedAt: null }).label).toBe('Verified');
+    expect(verificationBadge({ verification: 'verified', lastVerifiedAt: 'garbage' }).label).toBe('Verified');
+    expect(verificationBadge({ verification: 'unverified', lastVerifiedAt: '2026-03-15T12:00:00Z' })).toEqual({ kind: 'unverified', label: 'Unverified' });
   });
   it('formats ratings', () => {
     expect(ratingLabel(null, 0)).toBe('No ratings yet');

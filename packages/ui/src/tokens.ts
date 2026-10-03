@@ -39,6 +39,7 @@ export const colors = {
   /** Semantic status tokens: text color on matching background. */
   status: {
     verified: { fg: palette.green700, bg: palette.green50 },
+    unverified: { fg: palette.amber800, bg: palette.amber50 },
     pending: { fg: palette.amber800, bg: palette.amber50 },
     closed: { fg: palette.neutral600, bg: palette.neutral100 },
     danger: { fg: palette.red700, bg: palette.red50 },

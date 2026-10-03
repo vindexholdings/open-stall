@@ -21,7 +21,11 @@ export function MapView({ center, userLocation, markers, onSelectMarker, height 
         radius: m.selected ? 11 : 9,
         color: '#ffffff',
         weight: 2,
-        fillColor: m.selected ? colors.accentStrong : colors.primaryStrong,
+        fillColor: m.selected
+          ? colors.accentStrong
+          : m.variant === 'unverified'
+            ? colors.status.unverified.fg
+            : colors.primaryStrong,
         fillOpacity: 1,
       }).addTo(map);
       const label = document.createElement('span');

@@ -5,6 +5,7 @@ import type { PublicLocation } from './publicLocation';
 // Synthetic, in-memory fixtures only.
 const mk = (n: number, lat = 10, lng = 10): PublicLocation => ({
   id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
+  verification: 'verified',
   name: `TEST ${n}`,
   addressLine: null, city: null, region: null, postalCode: null,
   coordinates: { latitude: lat, longitude: lng }, lastVerifiedAt: null, attribution: null,

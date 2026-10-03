@@ -11,7 +11,7 @@ const base = {
   accessLocation: null, averageRating: null, ratingCount: 0, distanceMeters: 100,
 };
 const mk = (name: string, over: Partial<NearbyLocation> = {}): NearbyLocation => ({
-  ...base, id: name, name, ...over,
+  ...base, verification: 'verified' as const, id: name, name, ...over,
 });
 
 const names = (l: NearbyLocation[]) => l.map((x) => x.name);
@@ -54,6 +54,12 @@ describe('applyFilters', () => {
 
   it('min rating excludes unrated', () => {
     expect(names(applyFilters(data, { ...DEFAULT_FILTERS, minRating: 4 }))).toEqual(['good']);
+  });
+
+  it('verifiedOnly hides unverified locations', () => {
+    const mixed = [mk('v'), mk('u', { verification: 'unverified' })];
+    expect(names(applyFilters(mixed, DEFAULT_FILTERS))).toEqual(['v', 'u']);
+    expect(names(applyFilters(mixed, { ...DEFAULT_FILTERS, verifiedOnly: true }))).toEqual(['v']);
   });
 
   it('radius filter narrows by distance', () => {

@@ -42,9 +42,9 @@ export function withOfflineCache(
   };
 
   return {
-    async listVerifiedInBounds(bounds, signal) {
+    async listPublicInBounds(bounds, signal) {
       try {
-        const result = await source.listVerifiedInBounds(bounds, signal);
+        const result = await source.listPublicInBounds(bounds, signal);
         await save(updateCache(await load(), result.locations, bounds, now()));
         return result;
       } catch (error) {
@@ -55,9 +55,9 @@ export function withOfflineCache(
       }
     },
 
-    async getVerifiedById(id, signal) {
+    async getPublicById(id, signal) {
       try {
-        const result = await source.getVerifiedById(id, signal);
+        const result = await source.getPublicById(id, signal);
         if (result.location) await save(upsertCached(await load(), result.location, now()));
         return result;
       } catch (error) {

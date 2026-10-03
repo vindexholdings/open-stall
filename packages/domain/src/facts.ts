@@ -32,14 +32,21 @@ export function describeFacts(l: PublicLocation): { access: Fact[]; amenities: F
   };
 }
 
-/** e.g. "Verified Mar 2026"; falls back to "Verified" when the date is missing/invalid. */
-export function verificationLabel(lastVerifiedAt: string | null): string {
-  if (!lastVerifiedAt) return 'Verified';
-  const d = new Date(lastVerifiedAt);
-  if (Number.isNaN(d.getTime())) return 'Verified';
+export type VerificationBadge = { kind: 'verified' | 'unverified'; label: string };
+
+/** "Verified Mar 2026" (or "Verified"), or "Unverified". Shown with text, never color alone. */
+export function verificationBadge(l: Pick<PublicLocation, 'verification' | 'lastVerifiedAt'>): VerificationBadge {
+  if (l.verification === 'unverified') return { kind: 'unverified', label: 'Unverified' };
+  if (!l.lastVerifiedAt) return { kind: 'verified', label: 'Verified' };
+  const d = new Date(l.lastVerifiedAt);
+  if (Number.isNaN(d.getTime())) return { kind: 'verified', label: 'Verified' };
   const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-  return `Verified ${month} ${d.getUTCFullYear()}`;
+  return { kind: 'verified', label: `Verified ${month} ${d.getUTCFullYear()}` };
 }
+
+/** Plain-language explanation for Unverified listings, encouraging confirmation. */
+export const UNVERIFIED_EXPLANATION =
+  'Open Stall hasn’t confirmed this restroom yet. It comes from public map data, so access and condition may differ. Been here? Confirming or correcting it will help others once community verification opens.';
 
 export function ratingLabel(average: number | null, count: number): string {
   if (average === null || count === 0) return 'No ratings yet';
