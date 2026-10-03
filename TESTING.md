@@ -23,7 +23,8 @@ Fixtures: synthetic rows exist only in tests (in-memory, or the throwaway local 
 - 1 permission allow/deny: `locationAccess.test.ts` (state mapping). Device prompts need manual device testing.
 - 2 nearby verified sorting: `nearby.test.ts`, `publicLocation` row tests (non-verified rows rejected).
 - 3 filters: `filters.test.ts` (unknown never matches positive filters).
-- 4 pending invisible publicly: `supabase/tests/locations_rls.test.sql` (local). REMOTE VERIFICATION PENDING until migrations are approved and pushed.
+- 4 hidden states invisible publicly (candidate/pending/closed hidden; unverified only with explicit evidence): `supabase/tests/locations_rls.test.sql` (local, mutation-checked). REMOTE VERIFICATION PENDING until migrations are approved and pushed (`npm run verify:remote-rls`).
+- Importer: `packages/importer/src/*.test.ts` (classification, tiling, Overpass retries, apply guards, batching, abort-before-write) plus SQL merge tests (idempotency, no-overwrite of verified/pending/closed/admin-edited, upgrade/downgrade, stale handling) and an importer-to-database contract test in `npm run test:db`.
 - 6 navigation: `navigation.test.ts` (destination-only URLs, id validation).
 - Offline: `locationCache.test.ts`, `cachedSource.test.ts`.
 - Web smoke: home, tabs, favorites, settings, invalid location link.

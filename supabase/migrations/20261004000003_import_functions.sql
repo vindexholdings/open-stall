@@ -31,7 +31,7 @@ begin
   for r in
     select * from jsonb_to_recordset(p_records) as x(
       source text, source_reference text, name text, address_line text, city text,
-      region text, postal_code text, latitude double precision, longitude double precision,
+      region text, postal_code text, country_code text, latitude double precision, longitude double precision,
       evidence text, wheelchair_accessible boolean, gender_neutral boolean,
       baby_changing boolean, has_hot_water boolean, has_cold_water boolean,
       key_required boolean, purchase_required boolean, access_location text,
@@ -52,13 +52,13 @@ begin
 
     if not found then
       insert into public.locations (
-        name, address_line, city, region, postal_code, latitude, longitude,
+        name, address_line, city, region, postal_code, country_code, latitude, longitude,
         status, restroom_evidence, source, source_reference, source_license, source_attribution,
         source_tags, source_hash, last_seen_run, last_seen_at,
         wheelchair_accessible, gender_neutral, baby_changing, has_hot_water, has_cold_water,
         key_required, purchase_required, access_location
       ) values (
-        r.name, r.address_line, r.city, r.region, r.postal_code, r.latitude, r.longitude,
+        r.name, r.address_line, r.city, r.region, r.postal_code, coalesce(r.country_code, 'US'), r.latitude, r.longitude,
         new_status, r.evidence, r.source, r.source_reference, r.source_license, r.source_attribution,
         r.source_tags, r.source_hash, p_run, now(),
         r.wheelchair_accessible, r.gender_neutral, r.baby_changing, r.has_hot_water, r.has_cold_water,
@@ -82,7 +82,7 @@ begin
     else
       update public.locations set
         name = r.name, address_line = r.address_line, city = r.city, region = r.region,
-        postal_code = r.postal_code, latitude = r.latitude, longitude = r.longitude,
+        postal_code = r.postal_code, country_code = coalesce(r.country_code, country_code), latitude = r.latitude, longitude = r.longitude,
         status = new_status, restroom_evidence = r.evidence,
         source_license = r.source_license, source_attribution = r.source_attribution,
         source_tags = r.source_tags, source_hash = r.source_hash,

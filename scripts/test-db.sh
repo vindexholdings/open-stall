@@ -29,4 +29,9 @@ for f in "$ROOT"/supabase/tests/*.test.sql; do
   echo "test: $(basename "$f")"
   "${PSQL[@]}" -f "$f"
 done
+echo "contract: importer output -> import_locations"
+FIX="$WORK/contract.sql"
+(cd "$ROOT" && npx tsx packages/importer/src/contractFixture.ts) > "$FIX"
+chmod 644 "$FIX"
+"${PSQL[@]}" -f "$FIX"
 echo "DB validation passed."
