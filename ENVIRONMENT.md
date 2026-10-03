@@ -11,7 +11,9 @@ Link (human, local machine only; prompts for DB password): npx supabase link --p
 
 Vercel team: Vindex team
 Project: Open Stall web/admin
-Project ID/name: TODO
+Project ID: prj_aYX3LqJlAliTCo8leZYO7zlIk6SD (approved 2026-10-03)
+Root Directory: apps/admin (framework pinned in apps/admin/vercel.json)
+Production branch: main (has no app until a human-approved merge)
 
 Expo organization/account: approved Vindex account
 Project: Open Stall
