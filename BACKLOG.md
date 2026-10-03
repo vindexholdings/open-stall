@@ -6,12 +6,12 @@ OS-001 DONE Verify dedicated repo/remote and isolation.
 OS-002 DONE Scaffold Expo + TypeScript with web.
 OS-003 DONE Establish workspace/shared domain structure.
 OS-004 DONE Bind dedicated Supabase project/local config. (ref recorded; remote link run by human when migrations need pushing)
-OS-005 PARTIAL Bind dedicated Vercel project. — apps/admin Next.js scaffolded/builds; BLOCKED on human creating Vercel project + providing project ID
+OS-005 DONE Bind dedicated Vercel project. (prj_aYX3LqJlAliTCo8leZYO7zlIk6SD; Root Directory apps/admin)
 OS-006 DONE Bind Expo/EAS project/identifiers.
 OS-007 DONE Env example, secrets rules, lint/typecheck/tests.
 OS-008 DONE CI checks for PRs.
 OS-009 DONE Design tokens/navigation shell.
-OS-010 TODO HUMAN ARCHITECTURE CHECKPOINT.
+OS-010 DONE HUMAN ARCHITECTURE CHECKPOINT (approved 2026-10-02: Next.js admin at apps/admin on Vercel).
 
 ## Phase 1 Discovery core
 OS-101 DB migrations: locations/amenities.
