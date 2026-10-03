@@ -29,6 +29,8 @@ jobs:
       - run: npm run check:secrets
       - name: Database migrations + RLS tests (throwaway local Postgres)
         run: npm run test:db
+      - name: Web smoke test (headless Chrome)
+        run: npm run test:e2e
       - name: Admin build
         run: npm run build -w @open-stall/admin
         env:
