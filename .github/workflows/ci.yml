@@ -27,6 +27,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run check:secrets
+      - name: Database migrations + RLS tests (throwaway local Postgres)
+        run: npm run test:db
       - name: Admin build
         run: npm run build -w @open-stall/admin
         env:

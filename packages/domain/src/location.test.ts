@@ -4,6 +4,7 @@ import { DEFAULT_DISPLAY_MODE, isPubliclyVisible, ratingSchema } from './locatio
 describe('location rules', () => {
   it('only verified locations are public', () => {
     expect(isPubliclyVisible('verified')).toBe(true);
+    expect(isPubliclyVisible('candidate')).toBe(false);
     expect(isPubliclyVisible('pending')).toBe(false);
     expect(isPubliclyVisible('closed')).toBe(false);
   });
