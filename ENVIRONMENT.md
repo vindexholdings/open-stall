@@ -24,3 +24,7 @@ Android package: com.vindexholdings.openstall
 
 Put variable NAMES only in .env.example. Secrets stay in approved local/provider secret stores.
 If actual CLI/project bindings do not match this file, STOP. Never pick the closest project.
+
+Map tiles: configurable via EXPO_PUBLIC_MAP_TILE_URL / EXPO_PUBLIC_MAP_ATTRIBUTION (names only in .env.example).
+Default public OSM tile server is DEVELOPMENT ONLY (OSM tile policy). Production tile provider = human decision (no paid service without approval).
+Navigation: Apple Maps / Google Maps are external destinations only (OS-108); no map SDK keys used.

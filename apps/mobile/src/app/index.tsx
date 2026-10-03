@@ -1,9 +1,11 @@
 import { colors, typography } from '@open-stall/ui';
 import { StyleSheet, Text } from 'react-native';
-import { LocationNotice } from '../location/LocationNotice';
-import { useUserLocation } from '../location/useUserLocation';
+import { LocationList } from '../components/LocationList';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
+import { LocationNotice } from '../location/LocationNotice';
+import { useUserLocation } from '../location/useUserLocation';
+import { MapView } from '../map';
 
 export default function NearbyScreen() {
   const { state, request } = useUserLocation();
@@ -20,7 +22,11 @@ export default function NearbyScreen() {
       ) : null}
       <LocationNotice state={state} onRetry={() => void request()} />
       {state.kind === 'ready' ? (
-        <Text style={styles.body}>Location ready. Nearby results arrive in the next steps.</Text>
+        <>
+          <MapView center={state.coordinates} userLocation={state.coordinates} markers={[]} />
+          {/* Verified results are wired in OS-105. No placeholder or sample locations are shown. */}
+          <LocationList items={[]} emptyMessage="No verified restrooms nearby yet." />
+        </>
       ) : null}
     </Screen>
   );

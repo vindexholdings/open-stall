@@ -17,7 +17,7 @@ OS-010 DONE HUMAN ARCHITECTURE CHECKPOINT (approved 2026-10-02: Next.js admin at
 OS-101 DONE (migration written+validated locally; NOT pushed to remote) DB migrations: locations/amenities.
 OS-102 DONE (local tests pass; remote push awaits human approval) RLS/public verified reads.
 OS-103 DONE Location permission UX.
-OS-104 Map abstraction + map/list home.
+OS-104 DONE (provider-neutral MapView; Leaflet+configurable tiles; default OSM tiles dev-only) Map abstraction + map/list home.
 OS-105 Nearby query/distance sort.
 OS-106 Filters.
 OS-107 Location detail.
