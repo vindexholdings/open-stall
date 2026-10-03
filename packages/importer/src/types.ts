@@ -5,6 +5,8 @@ export type OsmElement = {
   lon?: number;
   center?: { lat: number; lon: number };
   tags?: Record<string, string>;
+  /** OSM edit timestamp (ISO). Editor identity is never read or stored. */
+  timestamp?: string;
 };
 
 /** Evidence level of a restroom: explicit => publicly visible "unverified"; inferred => hidden candidate. */
@@ -30,15 +32,22 @@ export type ImportRecord = {
   has_cold_water: boolean | null;
   key_required: boolean | null;
   purchase_required: boolean | null;
+  fee_required: boolean | null;
   access_location: string | null;
-  source_license: string;
-  source_attribution: string;
-  source_tags: Record<string, string>;
-  source_hash: string;
+  opening_hours: string | null;
+  license: string;
+  attribution: string;
+  tags: Record<string, string>;
+  /** Hash of source-derived content (excludes timestamps and hold state). */
+  content_hash: string;
+  source_edited_at: string | null;
+  /** Set when a recent source edit holds this record hidden until it ages (vandalism guard). */
+  hold_reason: 'recent_edit' | null;
 };
 
 export type Classification =
   | { kind: 'record'; record: ImportRecord; reason: string }
   | { kind: 'skip'; reason: string };
 
+/** Standard area shape, also enforced by the database (import_runs.bounds). */
 export type Bbox = { south: number; west: number; north: number; east: number };

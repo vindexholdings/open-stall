@@ -4,7 +4,7 @@ import { parseArgs } from 'node:util';
 import { assertApplyTarget, createSupabaseStore } from './apply';
 import { AREA_PRESETS, parseBbox, validateBbox } from './areas';
 import { DEFAULT_OVERPASS_URL } from './overpass';
-import { executeImport, type ImportPlan } from './run';
+import { executeImport, type ImportPlan, type RawMeta } from './run';
 import type { OsmElement } from './types';
 
 const HELP = `OpenStreetMap -> Open Stall importer (dry run by default; writes nothing).
@@ -17,7 +17,7 @@ const HELP = `OpenStreetMap -> Open Stall importer (dry run by default; writes n
 Options: --area <preset> | --bbox s,w,n,e   --area-name <label>   --no-candidates
          --tile-size <deg>  --delay-ms <ms>  --overpass-url <url>  --country <ISO2>
          --from-file <json> --save-raw <json> --report <json>
-         --apply --confirm-project <ref> [--no-finalize]
+         --apply --confirm-project <ref> [--no-finalize] [--force-finalize]
 Apply needs env: SUPABASE_URL (or EXPO_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY (never printed).
 Presets: ${Object.keys(AREA_PRESETS).join(', ')}`;
 
@@ -38,6 +38,7 @@ async function main() {
       apply: { type: 'boolean' },
       'confirm-project': { type: 'string' },
       'no-finalize': { type: 'boolean' },
+      'force-finalize': { type: 'boolean' },
       help: { type: 'boolean' },
     },
   });
@@ -56,12 +57,14 @@ async function main() {
     fetch: { url: values['overpass-url'] ?? process.env.OVERPASS_URL ?? DEFAULT_OVERPASS_URL },
     delayMs: Number(values['delay-ms'] ?? 1500),
     saveRaw: values['save-raw']
-      ? (elements) => writeFileSync(values['save-raw']!, JSON.stringify({ elements }))
+      ? (elements, meta) => writeFileSync(values['save-raw']!, JSON.stringify({ meta, elements }))
       : undefined,
     loadElements: values['from-file']
       ? async () => {
-          const json = JSON.parse(readFileSync(values['from-file']!, 'utf8')) as { elements?: OsmElement[] } | OsmElement[];
-          return Array.isArray(json) ? json : (json.elements ?? []);
+          const json = JSON.parse(readFileSync(values['from-file']!, 'utf8')) as
+            | { elements?: OsmElement[]; meta?: RawMeta }
+            | OsmElement[];
+          return Array.isArray(json) ? { elements: json } : { elements: json.elements ?? [], meta: json.meta };
         }
       : undefined,
   };
@@ -79,7 +82,7 @@ async function main() {
     store = createSupabaseStore(url, key);
   }
 
-  const { report, records } = await executeImport(plan, store, { finalize: !values['no-finalize'] });
+  const { report, records } = await executeImport(plan, store, { finalize: !values['no-finalize'], forceFinalize: values['force-finalize'] });
   console.log(JSON.stringify(report, null, 2));
   if (values.report) writeFileSync(values.report, JSON.stringify({ report, records }, null, 2));
   console.log(store ? 'APPLIED to Supabase (see counts above).' : 'DRY RUN: nothing was written to any database.');

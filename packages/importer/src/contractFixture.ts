@@ -12,27 +12,42 @@ const elements: OsmElement[] = [
   { type: 'node', id: 9005, lat: 30.5, lon: 30.5, tags: { amenity: 'restaurant', name: 'Test restaurant' } },
 ];
 
-const { records } = classifyAll(elements, { defaultCountry: 'US' });
+const { records } = classifyAll(elements, { defaultCountry: 'US', now: new Date('2026-10-04T00:00:00Z') });
+// The exact run payload the importer sends (standard bounds shape, complete flag, scope).
+const bounds = { south: 30, west: 30, north: 31, east: 31 };
+const runPayload = JSON.stringify({ source: 'osm', area_name: 'contract', bounds, scope: { include_candidates: true }, complete: true, tool_version: 'contract-test' });
 const json = JSON.stringify(records);
+
+const seenAgain = JSON.stringify(records.filter((r) => r.source_reference !== 'way/9002'));
 
 process.stdout.write(`
 \\set ON_ERROR_STOP on
 set role service_role;
-do $$ declare run uuid; res jsonb; begin
-  insert into public.import_runs (source, area_name, bounds)
-    values ('osm', 'contract', '{"min_lat": 30, "max_lat": 31, "min_lng": 30, "max_lng": 31}') returning id into run;
+do $$ declare run uuid; run2 uuid; res jsonb; begin
+  insert into public.import_runs (source, area_name, bounds, scope, complete, tool_version)
+    select source, area_name, bounds, scope, complete, tool_version
+    from jsonb_populate_record(null::public.import_runs, $payload$${runPayload}$payload$::jsonb) returning id into run;
   res := public.import_locations(run, $json$${json}$json$::jsonb);
   assert (res->>'inserted')::int = 4, format('importer records must insert (restaurant skipped): %s', res);
-  assert (select count(*) from public.locations where source_reference in ('node/9001','way/9002')
-            and status = 'unverified' and restroom_evidence = 'explicit') = 2, 'explicit -> unverified';
-  assert (select count(*) from public.locations where source_reference in ('node/9003','node/9004')
-            and status = 'candidate') = 2, 'inferred -> candidate';
-  assert (select purchase_required from public.locations where source_reference = 'way/9002'), 'customers -> purchase_required';
-  assert (select country_code = 'US' and source_license = 'ODbL-1.0' and source_tags->>'amenity' = 'toilets'
-            from public.locations where source_reference = 'node/9001'), 'provenance preserved';
-  -- rerun is idempotent
+  assert (select count(*) from public.location_sources s join public.locations l on l.id = s.location_id
+            where s.source_reference in ('node/9001','way/9002') and l.status = 'unverified' and l.restroom_evidence = 'explicit') = 2, 'explicit -> unverified';
+  assert (select count(*) from public.location_sources s join public.locations l on l.id = s.location_id
+            where s.source_reference in ('node/9003','node/9004') and l.status = 'candidate') = 2, 'inferred -> candidate';
+  assert (select l.purchase_required from public.locations l join public.location_sources s on s.location_id = l.id where s.source_reference = 'way/9002'), 'customers -> purchase_required';
+  assert (select l.country_code = 'US' and s.license = 'ODbL-1.0' and s.tags->>'amenity' = 'toilets' and s.is_primary
+            from public.locations l join public.location_sources s on s.location_id = l.id where s.source_reference = 'node/9001'), 'provenance preserved in location_sources';
   res := public.import_locations(run, $json$${json}$json$::jsonb);
   assert (res->>'inserted')::int = 0 and (res->>'unchanged')::int = 4, format('rerun unchanged: %s', res);
+
+  -- Refresh: second complete run sees everything except way/9002; finalize uses the importer's own bounds shape.
+  insert into public.import_runs (source, area_name, bounds, scope, complete, tool_version)
+    select source, area_name, bounds, scope, complete, tool_version
+    from jsonb_populate_record(null::public.import_runs, $payload$${runPayload}$payload$::jsonb) returning id into run2;
+  perform public.import_locations(run2, $seen$${seenAgain}$seen$::jsonb);
+  res := public.finalize_import_run(run2);
+  assert (res->>'flagged_sources')::int = 1 and (res->>'hidden_locations')::int = 1, format('finalize works end to end: %s', res);
+  assert (select l.status from public.location_sources s join public.locations l on l.id = s.location_id where s.source_reference = 'way/9002') = 'candidate', 'vanished unverified record hidden';
+  assert (select l.status from public.location_sources s join public.locations l on l.id = s.location_id where s.source_reference = 'node/9001') = 'unverified', 'seen record still public';
 end $$;
 reset role;
 \\echo importer contract: OK

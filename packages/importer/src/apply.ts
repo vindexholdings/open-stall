@@ -1,14 +1,31 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Bbox, ImportRecord } from './types';
 
-export type ImportCounts = { inserted: number; updated: number; unchanged: number; protected: number };
-export type FinalizeCounts = { hidden_missing: number; flagged_missing: number };
+export type ImportCounts = {
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  protected: number;
+  duplicates_flagged: number;
+  held_recent_edit: number;
+};
+export type FinalizeCounts = { flagged_sources: number; hidden_locations: number; public_in_area: number };
+
+export type RunScope = { include_candidates: boolean };
 
 /** Narrow persistence interface so the orchestration can be tested without a database. */
 export interface ImportStore {
-  createRun(run: { source: 'osm'; area_name: string; bounds: Bbox; tool_version: string }): Promise<string>;
+  createRun(run: {
+    source: 'osm';
+    area_name: string;
+    bounds: Bbox;
+    scope: RunScope;
+    /** True only when the whole area was fetched (or replayed from a matching capture). */
+    complete: boolean;
+    tool_version: string;
+  }): Promise<string>;
   importBatch(runId: string, records: ImportRecord[]): Promise<ImportCounts>;
-  finalizeRun(runId: string): Promise<FinalizeCounts>;
+  finalizeRun(runId: string, force: boolean): Promise<FinalizeCounts>;
 }
 
 export function projectRefFromUrl(url: string): string {
@@ -53,8 +70,8 @@ export function createSupabaseStore(url: string, serviceRoleKey: string): Import
       if (error) throw new Error(`import_locations: ${error.message}`);
       return data as ImportCounts;
     },
-    async finalizeRun(runId) {
-      const { data, error } = await client.rpc('finalize_import_run', { p_run: runId });
+    async finalizeRun(runId, force) {
+      const { data, error } = await client.rpc('finalize_import_run', { p_run: runId, p_force: force });
       if (error) throw new Error(`finalize_import_run: ${error.message}`);
       return data as FinalizeCounts;
     },

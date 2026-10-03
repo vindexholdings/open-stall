@@ -6,11 +6,11 @@ const ok = (elements: unknown[]) => ({ ok: true, status: 200, json: async () => 
 const status = (code: number) => ({ ok: false, status: code, json: async () => ({}) }) as Response;
 
 describe('buildOverpassQuery', () => {
-  it('always asks for explicit toilet evidence and outputs center + tags', () => {
+  it('always asks for explicit toilet evidence and outputs center + meta (timestamp for the recent-edit guard)', () => {
     const q = buildOverpassQuery(tile, { includeCandidates: false });
     expect(q).toContain('nwr["amenity"="toilets"](1,2,3,4);');
     expect(q).toContain('nwr["toilets"="yes"](1,2,3,4);');
-    expect(q).toContain('out center tags;');
+    expect(q).toContain('out center meta;');
     expect(q).not.toContain('fuel');
   });
   it('adds candidate selectors by default', () => {

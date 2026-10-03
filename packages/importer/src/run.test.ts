@@ -5,15 +5,17 @@ import type { OsmElement } from './types';
 
 const els = (n: number): OsmElement[] =>
   Array.from({ length: n }, (_, i) => ({ type: 'node', id: i + 1, lat: 10, lon: 10, tags: { amenity: 'toilets' } }));
-const plan = (elements: OsmElement[], extra: Partial<ImportPlan> = {}): ImportPlan => ({
-  areaName: 'test', bbox: { south: 0, west: 0, north: 1, east: 1 }, tileDegrees: 0.25,
-  classify: {}, loadElements: async () => elements, ...extra,
+const BOX = { south: 0, west: 0, north: 1, east: 1 };
+const META = { bbox: BOX, includeCandidates: true, fetchedAt: '2026-01-01T00:00:00Z' };
+const plan = (elements: OsmElement[], extra: Partial<ImportPlan> = {}, meta: typeof META | null = META): ImportPlan => ({
+  areaName: 'test', bbox: BOX, tileDegrees: 0.25,
+  classify: {}, loadElements: async () => ({ elements, meta: meta ?? undefined }), ...extra,
 });
 const fakeStore = () => {
   const store = {
     createRun: vi.fn(async () => 'run-1'),
-    importBatch: vi.fn(async (_r: string, recs: unknown[]) => ({ inserted: recs.length, updated: 0, unchanged: 0, protected: 0 })),
-    finalizeRun: vi.fn(async () => ({ hidden_missing: 0, flagged_missing: 0 })),
+    importBatch: vi.fn(async (_r: string, recs: unknown[]) => ({ inserted: recs.length, updated: 0, unchanged: 0, protected: 0, duplicates_flagged: 0, held_recent_edit: 0 })),
+    finalizeRun: vi.fn(async (_r: string, _force: boolean) => ({ flagged_sources: 0, hidden_locations: 0, public_in_area: 0 })),
   };
   return store satisfies ImportStore;
 };
@@ -30,8 +32,37 @@ describe('executeImport', () => {
     const { report } = await executeImport(plan(els(BATCH_SIZE + 5)), store);
     expect(store.createRun).toHaveBeenCalledTimes(1);
     expect(store.importBatch).toHaveBeenCalledTimes(2);
-    expect(store.finalizeRun).toHaveBeenCalledWith('run-1');
+    expect(store.finalizeRun).toHaveBeenCalledWith('run-1', false);
+    expect(store.createRun).toHaveBeenCalledWith(expect.objectContaining({ complete: true, bounds: BOX, scope: { include_candidates: true } }));
     expect(report.applied?.counts.inserted).toBe(BATCH_SIZE + 5);
+  });
+
+  it('passes force only when explicitly requested', async () => {
+    const store = fakeStore();
+    await executeImport(plan(els(1)), store, { forceFinalize: true });
+    expect(store.finalizeRun).toHaveBeenCalledWith('run-1', true);
+  });
+
+  it('records the run scope when candidates are not queried', async () => {
+    const store = fakeStore();
+    await executeImport(plan(els(1), { classify: { includeCandidates: false } }, { ...META, includeCandidates: false }), store);
+    expect(store.createRun).toHaveBeenCalledWith(expect.objectContaining({ scope: { include_candidates: false } }));
+  });
+
+  it('never finalizes from a replay that does not cover the run (wrong area, no metadata, narrower scope)', async () => {
+    for (const [meta, why] of [
+      [null, 'no capture metadata'],
+      [{ ...META, bbox: { south: 0, west: 0, north: 0.5, east: 0.5 } }, 'different area'],
+      [{ ...META, includeCandidates: false }, 'did not include candidates'],
+    ] as const) {
+      const store = fakeStore();
+      const { report } = await executeImport(plan(els(2), {}, meta as typeof META | null), store);
+      expect(report.complete).toBe(false);
+      expect(report.incompleteReason).toContain(why);
+      expect(store.createRun).toHaveBeenCalledWith(expect.objectContaining({ complete: false }));
+      expect(store.finalizeRun).not.toHaveBeenCalled();
+      expect(report.applied?.finalizeSkippedReason).toContain(why);
+    }
   });
 
   it('skips finalize when asked', async () => {

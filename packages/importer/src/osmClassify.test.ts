@@ -19,11 +19,11 @@ describe('explicit evidence (public unverified)', () => {
   it('amenity=toilets with no access restriction is explicit', () => {
     const r = rec(node(1, { amenity: 'toilets' }));
     expect(r?.evidence).toBe('explicit');
-    expect(r?.name).toBe('Public restroom');
+    expect(r?.name).toBe('Restroom');
     expect(r?.source_reference).toBe('node/1');
     expect(r?.source).toBe('osm');
-    expect(r?.source_license).toBe('ODbL-1.0');
-    expect(r?.source_attribution).toContain('OpenStreetMap');
+    expect(r?.license).toBe('ODbL-1.0');
+    expect(r?.attribution).toContain('OpenStreetMap');
   });
 
   it('public/permissive access stays explicit; customers-only is explicit with purchase required', () => {
@@ -108,7 +108,40 @@ describe('field mapping', () => {
 
   it('drops unlisted tags such as contact details', () => {
     const r = rec(node(47, { amenity: 'toilets', 'contact:phone': '555', email: 'a@b.c', note: 'x' }));
-    expect(Object.keys(r!.source_tags)).toEqual(['amenity']);
+    expect(Object.keys(r!.tags)).toEqual(['amenity']);
+  });
+});
+
+describe('recent-edit hold (vandalism guard)', () => {
+  const now = new Date('2026-10-04T00:00:00Z');
+  it('holds explicit records edited within 14 days, releases older ones', () => {
+    const recent = rec(node(70, { amenity: 'toilets' }, { timestamp: '2026-10-01T00:00:00Z' }), { now });
+    const old = rec(node(71, { amenity: 'toilets' }, { timestamp: '2026-08-01T00:00:00Z' }), { now });
+    expect(recent?.hold_reason).toBe('recent_edit');
+    expect(recent?.evidence).toBe('explicit');
+    expect(old?.hold_reason).toBeNull();
+    expect(rec(node(72, { amenity: 'toilets' }), { now })?.hold_reason).toBeNull();
+  });
+  it('hold window is configurable and never applies to hidden inferred records', () => {
+    expect(rec(node(73, { amenity: 'toilets' }, { timestamp: '2026-10-01T00:00:00Z' }), { now, recentEditDays: 1 })?.hold_reason).toBeNull();
+    expect(rec(node(74, { amenity: 'fuel', name: 'G' }, { timestamp: '2026-10-03T00:00:00Z' }), { now })?.hold_reason).toBeNull();
+  });
+  it('timestamp and hold state do not change the content hash', () => {
+    const a = rec(node(75, { amenity: 'toilets' }, { timestamp: '2026-10-03T00:00:00Z' }), { now })!;
+    const b = rec(node(75, { amenity: 'toilets' }, { timestamp: '2026-01-01T00:00:00Z' }), { now })!;
+    expect(a.content_hash).toBe(b.content_hash);
+    expect(a.source_edited_at).not.toBe(b.source_edited_at);
+  });
+});
+
+describe('opening hours and fee', () => {
+  it('maps opening_hours and fee, keeping unknown as null', () => {
+    const r = rec(node(80, { amenity: 'toilets', opening_hours: 'Mo-Su 08:00-20:00', fee: 'yes' }));
+    expect(r?.opening_hours).toBe('Mo-Su 08:00-20:00');
+    expect(r?.fee_required).toBe(true);
+    expect(rec(node(81, { amenity: 'toilets', fee: 'no' }))?.fee_required).toBe(false);
+    expect(rec(node(82, { amenity: 'toilets' }))?.fee_required).toBeNull();
+    expect(rec(node(83, { amenity: 'toilets' }))?.opening_hours).toBeNull();
   });
 });
 
@@ -117,8 +150,8 @@ describe('hash and de-duplication', () => {
     const a = rec(node(50, { amenity: 'toilets', wheelchair: 'yes' }))!;
     const same = rec(node(50, { wheelchair: 'yes', amenity: 'toilets' }))!;
     const changed = rec(node(50, { amenity: 'toilets', wheelchair: 'no' }))!;
-    expect(a.source_hash).toBe(same.source_hash);
-    expect(a.source_hash).not.toBe(changed.source_hash);
+    expect(a.content_hash).toBe(same.content_hash);
+    expect(a.content_hash).not.toBe(changed.content_hash);
   });
 
   it('classifyAll de-duplicates by reference and summarizes', () => {

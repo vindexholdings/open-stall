@@ -23,7 +23,7 @@ export function buildOverpassQuery(
       lines.push(`nwr["${c.key}"~"^(${c.values.join('|')})$"]${extra}(${box});`);
     }
   }
-  return `[out:json][timeout:${opts.timeoutSeconds ?? 90}];\n(\n  ${lines.join('\n  ')}\n);\nout center tags;`;
+  return `[out:json][timeout:${opts.timeoutSeconds ?? 90}];\n(\n  ${lines.join('\n  ')}\n);\nout center meta;`;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

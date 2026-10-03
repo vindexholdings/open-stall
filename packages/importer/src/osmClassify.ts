@@ -29,6 +29,10 @@ export type ClassifyOptions = {
   defaultCountry?: string;
   includeCandidates?: boolean;
   candidateCategories?: CandidateCategory[];
+  /** Injectable clock for tests. */
+  now?: Date;
+  /** Explicit-evidence records edited more recently than this are held hidden. Default 14. */
+  recentEditDays?: number;
 };
 
 const triFromYesNo = (v: string | undefined): boolean | null =>
@@ -127,7 +131,7 @@ export function classifyOsmElement(el: OsmElement, opts: ClassifyOptions = {}): 
 
   const rawName = tags.name?.trim();
   if (!rawName && evidence === 'inferred') return { kind: 'skip', reason: 'unnamed-candidate' };
-  const name = (rawName || 'Public restroom').slice(0, 200);
+  const name = (rawName || 'Restroom').slice(0, 200);
 
   const street = [tags['addr:housenumber'], tags['addr:street']].filter(Boolean).join(' ');
   const country = /^[A-Za-z]{2}$/.test(tags['addr:country'] ?? '')
@@ -135,6 +139,10 @@ export function classifyOsmElement(el: OsmElement, opts: ClassifyOptions = {}): 
     : (opts.defaultCountry ?? 'US').toUpperCase();
 
   const wheelchair = triFromYesNo(isToiletFeature ? tags.wheelchair : tags['toilets:wheelchair'] ?? tags.wheelchair);
+
+  const edited = el.timestamp && !Number.isNaN(Date.parse(el.timestamp)) ? new Date(el.timestamp).toISOString() : null;
+  const holdMs = (opts.recentEditDays ?? 14) * 24 * 60 * 60 * 1000;
+  const recent = edited !== null && (opts.now ?? new Date()).getTime() - Date.parse(edited) < holdMs;
 
   const base = {
     source: 'osm' as const,
@@ -155,12 +163,19 @@ export function classifyOsmElement(el: OsmElement, opts: ClassifyOptions = {}): 
     has_cold_water: null,
     key_required: null,
     purchase_required: customersOnly ? true : null,
+    fee_required: tags.fee === 'yes' ? true : tags.fee === 'no' ? false : null,
     access_location: null,
-    source_license: OSM_LICENSE,
-    source_attribution: OSM_ATTRIBUTION,
-    source_tags: pick(tags),
+    opening_hours: tags.opening_hours ? tags.opening_hours.slice(0, 300) : null,
+    license: OSM_LICENSE,
+    attribution: OSM_ATTRIBUTION,
+    tags: pick(tags),
   };
-  const record: ImportRecord = { ...base, source_hash: stableHash(base) };
+  const record: ImportRecord = {
+    ...base,
+    content_hash: stableHash(base),
+    source_edited_at: edited,
+    hold_reason: evidence === 'explicit' && recent ? 'recent_edit' : null,
+  };
   return { kind: 'record', record, reason };
 }
 
