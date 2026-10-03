@@ -13,7 +13,8 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run check:secrets",
     "test:db": "bash scripts/test-db.sh",
-    "test:e2e": "node scripts/e2e-smoke.mjs"
+    "test:e2e": "node scripts/e2e-smoke.mjs",
+    "verify:remote-rls": "node scripts/verify-remote-rls.mjs"
   },
   "engines": {
     "node": ">=20"

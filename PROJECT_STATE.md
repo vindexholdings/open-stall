@@ -1,11 +1,12 @@
 # Project State
-Last updated: 2026-10-03 (Phase 0 complete, Vercel verified)
-Current phase: Phase 0 complete; Phase 1 awaiting human approval
-Current task: none
+Last updated: 2026-10-04 (Phase 1 OS-101..110 built; HUMAN GATE: migration push)
+Current phase: Phase 1 (Discovery core)
+Current task: HUMAN GATE before OS-111: approve first remote migration push; then OS-111 checkpoint
 Branch: claude/pensive-brahmagupta-wrrhxn (draft PR vindexholdings/open-stall#1)
 Last commit: see git log (OS-009 commit)
 
 Completed:
+- Phase 1 (code complete, nothing pushed to remote DB): OS-101 locations migration, OS-102 RLS (anon/authenticated read verified only; no client writes), OS-103 location permission UX, OS-104 provider-neutral MapView (Leaflet, configurable tiles, default OSM tiles dev-only), OS-105 nearby bbox query + ranking (~180s refresh), OS-106 filters, OS-107 detail, OS-108 Apple/Google Maps links + deep link validation, OS-109 offline cache (public data only), OS-110 tests (domain, mobile, local DB/RLS, web smoke). No fake/sample locations anywhere in app or DB.
 - OS-001 repo/remote verified. OS-002 Expo SDK 57 + TS strict + web in apps/mobile.
 - OS-003 npm workspaces (apps/*, packages/*), root lockfile; packages/domain (zod coords, Haversine, rating/status/mode rules).
 - OS-004 DONE: Supabase CLI 2.118.0; local config (storage off); ref xzzbcejgprilmolvdaes in ENVIRONMENT.md. Remote `supabase link` is a human step (DB password); not run. Supabase MCP here lacks permission on this project.
@@ -24,7 +25,7 @@ Blockers (human):
 - None. Supabase local link postponed until first migration requires it (human decision). PR #1 NOT to be merged until human approves.
 
 Next exact action:
-Await human approval of Phase 1 execution plan, then start OS-101. Do not merge PR #1 or start Phase 1 without approval.
+Human: approve pushing supabase/migrations (20261004000001_locations.sql, 20261004000002_locations_rls.sql) to project xzzbcejgprilmolvdaes. After push run `npm run verify:remote-rls` (needs public URL+anon key in env), then OS-111 MVP-core checkpoint. Real-location import (OSM candidates) needs separate approval; Overpass/Supabase are blocked from the cloud sandbox so import/push run on the human machine.
 
-Last tests: `npm run check` (incl. admin lint/typecheck) pass; admin `next build` pass; mobile web export pass.
+Last tests: `npm run check` pass (domain 38, mobile 7); `npm run test:db` pass (local throwaway Postgres 16); `npm run test:e2e` pass (headless Chrome); web + android exports compile.
 Never infer IDs or reuse another Vindex resource.
