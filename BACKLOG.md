@@ -6,7 +6,7 @@ OS-001 DONE Verify dedicated repo/remote and isolation.
 OS-002 DONE Scaffold Expo + TypeScript with web.
 OS-003 DONE Establish workspace/shared domain structure.
 OS-004 DONE Bind dedicated Supabase project/local config. (ref recorded; remote link run by human when migrations need pushing)
-OS-005 BLOCKED Vercel Root Directory unset (null); human must set to apps/admin and redeploy. Project ID recorded.
+OS-005 DONE Bind dedicated Vercel project. (prj_aYX3LqJlAliTCo8leZYO7zlIk6SD; Root Directory apps/admin; preview verified by human 2026-10-03)
 OS-006 DONE Bind Expo/EAS project/identifiers.
 OS-007 DONE Env example, secrets rules, lint/typecheck/tests.
 OS-008 DONE CI checks for PRs.
