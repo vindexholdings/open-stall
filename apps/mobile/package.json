@@ -5,6 +5,7 @@
   "dependencies": {
     "@open-stall/domain": "*",
     "@open-stall/ui": "*",
+    "@supabase/supabase-js": "^2.117.2",
     "expo": "~57.0.26",
     "expo-constants": "~57.0.20",
     "expo-linking": "~57.0.11",

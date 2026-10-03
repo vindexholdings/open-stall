@@ -1,14 +1,43 @@
+import { estimateTravelMinutes, formatDistance } from '@open-stall/domain';
 import { colors, typography } from '@open-stall/ui';
+import { useMemo } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { LocationList } from '../components/LocationList';
+import { LocationList, type LocationListItem } from '../components/LocationList';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
+import { locationSource } from '../data';
 import { LocationNotice } from '../location/LocationNotice';
+import { useNearbyLocations } from '../location/useNearbyLocations';
 import { useUserLocation } from '../location/useUserLocation';
-import { MapView } from '../map';
+import { MapView, type MapMarker } from '../map';
 
 export default function NearbyScreen() {
   const { state, request } = useUserLocation();
+  const origin = state.kind === 'ready' ? state.coordinates : null;
+  const nearby = useNearbyLocations(locationSource, origin);
+
+  const markers = useMemo<MapMarker[]>(
+    () => nearby.state.locations.map((l) => ({ id: l.id, coordinates: l.coordinates, label: l.name })),
+    [nearby.state],
+  );
+  const items = useMemo<LocationListItem[]>(
+    () =>
+      nearby.state.locations.map((l) => ({
+        id: l.id,
+        name: l.name,
+        subtitle: [l.addressLine, l.city].filter(Boolean).join(', ') || undefined,
+        distanceLabel: `${formatDistance(l.distanceMeters)} · ~${estimateTravelMinutes(l.distanceMeters, 'walk')} min walk`,
+      })),
+    [nearby.state],
+  );
+
+  const emptyMessage = !locationSource
+    ? 'Restroom data isn’t connected in this build.'
+    : nearby.state.status === 'error'
+      ? 'We couldn’t load restrooms. Check your connection and try again.'
+      : nearby.state.status === 'loading'
+        ? 'Looking for restrooms…'
+        : 'No verified restrooms nearby yet.';
 
   return (
     <Screen title="Open Stall">
@@ -21,11 +50,13 @@ export default function NearbyScreen() {
         />
       ) : null}
       <LocationNotice state={state} onRetry={() => void request()} />
-      {state.kind === 'ready' ? (
+      {origin ? (
         <>
-          <MapView center={state.coordinates} userLocation={state.coordinates} markers={[]} />
-          {/* Verified results are wired in OS-105. No placeholder or sample locations are shown. */}
-          <LocationList items={[]} emptyMessage="No verified restrooms nearby yet." />
+          <MapView center={origin} userLocation={origin} markers={markers} />
+          <LocationList items={items} emptyMessage={emptyMessage} />
+          {nearby.state.status === 'error' ? (
+            <PrimaryButton label="Try again" onPress={nearby.refresh} />
+          ) : null}
         </>
       ) : null}
     </Screen>

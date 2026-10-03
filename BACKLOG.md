@@ -18,7 +18,7 @@ OS-101 DONE (migration written+validated locally; NOT pushed to remote) DB migra
 OS-102 DONE (local tests pass; remote push awaits human approval) RLS/public verified reads.
 OS-103 DONE Location permission UX.
 OS-104 DONE (provider-neutral MapView; Leaflet+configurable tiles; default OSM tiles dev-only) Map abstraction + map/list home.
-OS-105 Nearby query/distance sort.
+OS-105 DONE (bbox query via LocationSource + domain ranking; refresh ~180s; not yet run against remote DB) Nearby query/distance sort.
 OS-106 Filters.
 OS-107 Location detail.
 OS-108 Navigation/deep links.
