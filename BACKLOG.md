@@ -20,7 +20,7 @@ OS-103 DONE Location permission UX.
 OS-104 DONE (provider-neutral MapView; Leaflet+configurable tiles; default OSM tiles dev-only) Map abstraction + map/list home.
 OS-105 DONE (bbox query via LocationSource + domain ranking; refresh ~180s; not yet run against remote DB) Nearby query/distance sort.
 OS-106 DONE (verified-only is implicit: all public results are verified) Filters.
-OS-107 Location detail.
+OS-107 DONE Location detail (Report/Correct + Favorite deferred to Phase 2).
 OS-108 Navigation/deep links.
 OS-109 Offline/cache.
 OS-110 Discovery tests.

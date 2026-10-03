@@ -34,5 +34,19 @@ export function createSupabaseSource(url: string, anonKey: string): LocationSour
         .map((row) => toPublicLocation(row))
         .filter((l): l is PublicLocation => l !== null);
     },
+
+    async getVerifiedById(id, signal) {
+      let query = client
+        .from('locations')
+        .select(PUBLIC_LOCATION_COLUMNS)
+        .eq('id', id)
+        .eq('status', 'verified')
+        .eq('restroom_verified', true);
+      if (signal) query = query.abortSignal(signal);
+
+      const { data, error } = await query.maybeSingle();
+      if (error) throw new Error(error.message);
+      return data ? toPublicLocation(data) : null;
+    },
   };
 }

@@ -18,6 +18,7 @@ export default function RootLayout() {
       >
         <Tabs.Screen name="index" options={{ title: 'Nearby', tabBarAccessibilityLabel: 'Nearby restrooms' }} />
         <Tabs.Screen name="favorites" options={{ title: 'Favorites' }} />
+        <Tabs.Screen name="location/[id]" options={{ href: null, title: 'Restroom' }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
       </Tabs>
     </>

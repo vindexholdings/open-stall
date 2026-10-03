@@ -6,7 +6,8 @@ import {
   type LocationFilters,
 } from '@open-stall/domain';
 import { colors, typography } from '@open-stall/ui';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
 import { FilterPanel } from '../components/FilterPanel';
 import { LocationList, type LocationListItem } from '../components/LocationList';
@@ -19,7 +20,12 @@ import { useUserLocation } from '../location/useUserLocation';
 import { MapView, type MapMarker } from '../map';
 
 export default function NearbyScreen() {
+  const router = useRouter();
   const { state, request } = useUserLocation();
+  const openLocation = useCallback(
+    (id: string) => router.push({ pathname: '/location/[id]', params: { id } }),
+    [router],
+  );
   const origin = state.kind === 'ready' ? state.coordinates : null;
   const [filters, setFilters] = useState<LocationFilters>(DEFAULT_FILTERS);
   const nearby = useNearbyLocations(locationSource, origin, filters.radiusMeters);
@@ -67,8 +73,17 @@ export default function NearbyScreen() {
       {origin ? (
         <>
           <FilterPanel filters={filters} onChange={setFilters} />
-          <MapView center={origin} userLocation={origin} markers={markers} />
-          <LocationList items={items} emptyMessage={emptyMessage} />
+          <MapView
+            center={origin}
+            userLocation={origin}
+            markers={markers}
+            onSelectMarker={openLocation}
+          />
+          <LocationList
+            items={items}
+            emptyMessage={emptyMessage}
+            onSelect={openLocation}
+          />
           {nearby.state.status === 'error' ? (
             <PrimaryButton label="Try again" onPress={nearby.refresh} />
           ) : null}

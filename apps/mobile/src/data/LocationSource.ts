@@ -7,4 +7,6 @@ import type { Bounds, PublicLocation } from '@open-stall/domain';
  */
 export interface LocationSource {
   listVerifiedInBounds(bounds: Bounds, signal?: AbortSignal): Promise<PublicLocation[]>;
+  /** Null when the id does not exist or is not public. */
+  getVerifiedById(id: string, signal?: AbortSignal): Promise<PublicLocation | null>;
 }
