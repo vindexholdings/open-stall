@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run check:secrets
+      - name: Database migrations + RLS tests (throwaway local Postgres)
+        run: npm run test:db
+      - name: Web smoke test (headless Chrome)
+        run: npm run test:e2e
+      - name: Admin build
+        run: npm run build -w @open-stall/admin
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+      - name: Web export (build smoke)
+        working-directory: apps/mobile
+        run: npx expo export --platform web --output-dir dist

@@ -20,3 +20,6 @@ Refresh on open/filter/location change and about every 180 seconds while active.
 
 Environments: local/dev and production initially; add staging when justified. Local automation must not target production by default.
 Production deployment/migrations require human approval.
+
+Data and licensing architecture (see IMPORT.md): canonical `locations` (Open Stall's records) are separate from `location_sources` (per-source provenance, license, attribution). External sources, including OpenStreetMap, are discovery/source layers feeding canonical records; they are not the owner of the canonical database. Separation aids provenance and future sources but does not remove ODbL/share-alike obligations; a human legal/licensing gate applies before commercial-scale OSM import, public launch with OSM-derived data, data licensing, or combining substantial OSM data with proprietary/community datasets.
+Public clients access data only through constrained server functions (no direct table access). Distance uses a documented Haversine bounding-box approach inside those functions so PostGIS can replace it later without client changes.

@@ -2,28 +2,31 @@
 Status: TODO | IN PROGRESS | BLOCKED | DONE
 
 ## Phase 0 Foundation
-OS-001 TODO Verify dedicated repo/remote and isolation.
-OS-002 TODO Scaffold Expo + TypeScript with web.
-OS-003 TODO Establish workspace/shared domain structure.
-OS-004 TODO Bind dedicated Supabase project/local config.
-OS-005 TODO Bind dedicated Vercel project.
-OS-006 TODO Bind Expo/EAS project/identifiers.
-OS-007 TODO Env example, secrets rules, lint/typecheck/tests.
-OS-008 TODO CI checks for PRs.
-OS-009 TODO Design tokens/navigation shell.
-OS-010 TODO HUMAN ARCHITECTURE CHECKPOINT.
+OS-001 DONE Verify dedicated repo/remote and isolation.
+OS-002 DONE Scaffold Expo + TypeScript with web.
+OS-003 DONE Establish workspace/shared domain structure.
+OS-004 DONE Bind dedicated Supabase project/local config. (ref recorded; remote link run by human when migrations need pushing)
+OS-005 DONE Bind dedicated Vercel project. (prj_aYX3LqJlAliTCo8leZYO7zlIk6SD; Root Directory apps/admin; preview verified by human 2026-10-03)
+OS-006 DONE Bind Expo/EAS project/identifiers.
+OS-007 DONE Env example, secrets rules, lint/typecheck/tests.
+OS-008 DONE CI checks for PRs.
+OS-009 DONE Design tokens/navigation shell.
+OS-010 DONE HUMAN ARCHITECTURE CHECKPOINT (approved 2026-10-02: Next.js admin at apps/admin on Vercel).
 
 ## Phase 1 Discovery core
-OS-101 DB migrations: locations/amenities.
-OS-102 RLS/public verified reads.
-OS-103 Location permission UX.
-OS-104 Map abstraction + map/list home.
-OS-105 Nearby query/distance sort.
-OS-106 Filters.
-OS-107 Location detail.
-OS-108 Navigation/deep links.
-OS-109 Offline/cache.
-OS-110 Discovery tests.
+OS-101 DONE (migration written+validated locally; NOT pushed to remote) DB migrations: locations/amenities.
+OS-102 DONE (local tests pass; remote push awaits human approval) RLS/public verified reads.
+OS-103 DONE Location permission UX.
+OS-104 DONE (provider-neutral MapView; Leaflet+configurable tiles; default OSM tiles dev-only) Map abstraction + map/list home.
+OS-105 DONE (bbox query via LocationSource + domain ranking; refresh ~180s; not yet run against remote DB) Nearby query/distance sort.
+OS-106 DONE Filters (incl. Verified only).
+OS-107 DONE Location detail (Report/Correct + Favorite deferred to Phase 2).
+OS-108 DONE (Apple/Google Maps external links, destination-only; openstall://location/<uuid> deep link, id validated) Navigation/deep links.
+OS-109 DONE (public verified data only; no position/area stored; 14-day expiry, 300 entries) Offline/cache.
+OS-110 DONE (remote RLS verification pending migration approval) Discovery tests.
+OS-110a DONE(code; not applied) Three-state visibility + canonical/source split + constrained public functions + safety rules (approved scope change, Opus review applied).
+OS-110b DONE(code; not applied) OSM importer pulled forward from OS-306 (reusable, idempotent, refreshable, guarded). No import without separate approval.
+OS-110c HUMAN LEGAL/LICENSING GATE (ODbL): required before commercial-scale OSM import, public launch with OSM data, data licensing, or combining substantial OSM data with proprietary/community datasets.
 OS-111 HUMAN MVP-CORE CHECKPOINT.
 
 ## Phase 2 Accounts/contributions
@@ -44,7 +47,7 @@ OS-302 Moderation queue.
 OS-303 Approve/reject/edit.
 OS-304 Duplicate review/merge.
 OS-305 CSV import/export.
-OS-306 OSM-derived seed pipeline + attribution.
+OS-306 PARTIAL (core importer built in OS-110b) OSM-derived seed pipeline + attribution.
 OS-307 Admin analytics.
 
 ## Phase 4 Community
@@ -71,6 +74,6 @@ OS-604 Accessibility audit.
 OS-605 Security/RLS audit.
 OS-606 Performance/release tests.
 OS-607 Store readiness.
-OS-608 HUMAN PRODUCTION RELEASE APPROVAL.
+OS-608 HUMAN PRODUCTION RELEASE APPROVAL (requires OS-110c ODbL/licensing sign-off).
 
 Do not silently pull future scope forward.

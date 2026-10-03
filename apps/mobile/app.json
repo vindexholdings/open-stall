@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Open Stall",
+    "slug": "open-stall",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vindexholdings.openstall"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.vindexholdings.openstall"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Open Stall uses your location to find restrooms near you. It is used on your device and not stored.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
+      ]
+    ],
+    "scheme": "openstall",
+    "extra": {
+      "eas": {
+        "projectId": "33614785-78d2-4c9c-9821-5d1341b21680"
+      }
+    }
+  }
+}

@@ -8,3 +8,13 @@ Use Supabase Auth, secure redirects/deep links, independent admin authorization.
 Billing entitlements must rely on trusted provider/server state.
 Abuse-control submissions, check-ins, referrals, points, reports and account creation as needed.
 Before launch: Terms, Privacy, Community Guidelines, data-source licensing/attribution review, store privacy disclosures.
+
+## Secrets rules (OS-007)
+- `.env.example` lists variable NAMES only; real values live in `.env.local` (git-ignored) or provider secret stores.
+- `EXPO_PUBLIC_*` values are bundled into clients and are public; only the Supabase URL and anon/publishable key may use it.
+- Service-role/secret keys are server/admin only and must never carry a public prefix.
+- `npm run check:secrets` scans tracked files; it runs in `npm run check` and CI.
+- Public data access: clients have NO direct table access. They call constrained SECURITY DEFINER functions (nearby_locations, get_public_location, nearest_verified_location) that return only verified or explicit-evidence unverified rows and a trimmed field set; inputs are validated and capped. See IMPORT.md.
+- Importer uses the service-role key only on an operator machine via env; it is never committed, logged, or shipped to clients. Apply requires matching ENVIRONMENT.md ref plus --confirm-project. Import/finalize functions are service_role-only and enforce no-overwrite of verified/pending/closed/edited records, duplicate flagging (never auto-merge), a recent-edit hold, and mass-hide thresholds.
+- Licensing gate (ODbL): OSM-derived data is kept in location_sources with provenance/attribution, but separation does not remove share-alike obligations. Human approval after legal review is required before commercial-scale OSM import, public launch with OSM-derived data, data licensing/sharing, or combining substantial OSM data with proprietary/community/commercial datasets (IMPORT.md section 7).
+- Known accepted risks: scraping by sampling many points is possible but capped per call; OSM names/hours are unmoderated source text (shown as such); map queries reveal approximate location to Supabase logs (disclose in privacy policy).
