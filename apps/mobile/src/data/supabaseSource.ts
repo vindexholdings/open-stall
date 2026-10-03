@@ -30,9 +30,10 @@ export function createSupabaseSource(url: string, anonKey: string): LocationSour
 
       const { data, error } = await query;
       if (error) throw new Error(error.message);
-      return (data ?? [])
+      const locations = (data ?? [])
         .map((row) => toPublicLocation(row))
         .filter((l): l is PublicLocation => l !== null);
+      return { locations, fromCache: false };
     },
 
     async getVerifiedById(id, signal) {
@@ -46,7 +47,7 @@ export function createSupabaseSource(url: string, anonKey: string): LocationSour
 
       const { data, error } = await query.maybeSingle();
       if (error) throw new Error(error.message);
-      return data ? toPublicLocation(data) : null;
+      return { location: data ? toPublicLocation(data) : null, fromCache: false };
     },
   };
 }

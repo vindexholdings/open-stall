@@ -72,6 +72,11 @@ export default function NearbyScreen() {
       <LocationNotice state={state} onRetry={() => void request()} />
       {origin ? (
         <>
+          {nearby.state.fromCache ? (
+            <Text style={styles.offline} accessibilityLiveRegion="polite">
+              You’re offline. Showing saved restrooms, which may be out of date.
+            </Text>
+          ) : null}
           <FilterPanel filters={filters} onChange={setFilters} />
           <MapView
             center={origin}
@@ -95,4 +100,5 @@ export default function NearbyScreen() {
 
 const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.textMuted },
+  offline: { ...typography.label, color: colors.status.pending.fg },
 });

@@ -10,13 +10,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import type { LocationSource } from '../data';
 
-export type NearbyState =
-  | { status: 'idle'; locations: NearbyLocation[] }
-  | { status: 'loading'; locations: NearbyLocation[] }
-  | { status: 'ready'; locations: NearbyLocation[] }
-  | { status: 'error'; locations: NearbyLocation[] };
+export type NearbyState = {
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  locations: NearbyLocation[];
+  /** Showing saved results because the network was unavailable. */
+  fromCache: boolean;
+};
 
-type Settled = { key: string; status: 'ready' | 'error'; locations: NearbyLocation[] };
+type Settled = { key: string; status: 'ready' | 'error'; locations: NearbyLocation[]; fromCache: boolean };
 
 /**
  * Loads verified locations around `origin`, ranked by distance. Refreshes when the origin
@@ -42,13 +43,23 @@ export function useNearbyLocations(
 
     const run = async () => {
       try {
-        const rows = await source.listVerifiedInBounds(boundingBox(point, radiusMeters));
+        const result = await source.listVerifiedInBounds(boundingBox(point, radiusMeters));
         if (!cancelled) {
-          setSettled({ key, status: 'ready', locations: rankNearby(rows, point, radiusMeters) });
+          setSettled({
+            key,
+            status: 'ready',
+            locations: rankNearby(result.locations, point, radiusMeters),
+            fromCache: result.fromCache,
+          });
         }
       } catch {
         if (!cancelled) {
-          setSettled((s) => ({ key, status: 'error', locations: s?.key === key ? s.locations : [] }));
+          setSettled((s) => ({
+            key,
+            status: 'error',
+            locations: s?.key === key ? s.locations : [],
+            fromCache: false,
+          }));
         }
       }
     };
@@ -66,9 +77,9 @@ export function useNearbyLocations(
   const refresh = useCallback(() => setAttempt((n) => n + 1), []);
 
   let state: NearbyState;
-  if (!source || key === null) state = { status: 'idle', locations: [] };
-  else if (settled?.key !== key) state = { status: 'loading', locations: [] };
-  else state = { status: settled.status, locations: settled.locations };
+  if (!source || key === null) state = { status: 'idle', locations: [], fromCache: false };
+  else if (settled?.key !== key) state = { status: 'loading', locations: [], fromCache: false };
+  else state = { status: settled.status, locations: settled.locations, fromCache: settled.fromCache };
 
   return { state, refresh };
 }

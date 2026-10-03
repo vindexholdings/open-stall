@@ -22,7 +22,7 @@ OS-105 DONE (bbox query via LocationSource + domain ranking; refresh ~180s; not 
 OS-106 DONE (verified-only is implicit: all public results are verified) Filters.
 OS-107 DONE Location detail (Report/Correct + Favorite deferred to Phase 2).
 OS-108 DONE (Apple/Google Maps external links, destination-only; openstall://location/<uuid> deep link, id validated) Navigation/deep links.
-OS-109 Offline/cache.
+OS-109 DONE (public verified data only; no position/area stored; 14-day expiry, 300 entries) Offline/cache.
 OS-110 Discovery tests.
 OS-111 HUMAN MVP-CORE CHECKPOINT.
 

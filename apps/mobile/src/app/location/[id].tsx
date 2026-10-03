@@ -22,7 +22,7 @@ import { Screen } from '../../components/Screen';
 import { locationSource } from '../../data';
 import { useUserLocation } from '../../location/useUserLocation';
 
-type Load = { id: string; status: 'ready'; location: PublicLocation } | { id: string; status: 'missing' | 'error' };
+type Load = { id: string; status: 'ready'; location: PublicLocation; fromCache: boolean } | { id: string; status: 'missing' | 'error' };
 
 function FactRow({ fact }: { fact: Fact }) {
   return (
@@ -46,8 +46,8 @@ export default function LocationDetail() {
     let cancelled = false;
     locationSource
       .getVerifiedById(id)
-      .then((location) => {
-        if (!cancelled) setLoad(location ? { id, status: 'ready', location } : { id, status: 'missing' });
+            .then(({ location, fromCache }) => {
+        if (!cancelled) setLoad(location ? { id, status: 'ready', location, fromCache } : { id, status: 'missing' });
       })
       .catch(() => {
         if (!cancelled) setLoad({ id, status: 'error' });
@@ -100,6 +100,9 @@ export default function LocationDetail() {
 
   return (
     <Screen title={l.name}>
+      {current.fromCache ? (
+        <Text style={styles.offline}>Offline: showing saved details, which may be out of date.</Text>
+      ) : null}
       {address ? <Text style={styles.body}>{address}</Text> : null}
       {meters !== null ? (
         <Text style={styles.strong} accessibilityLiveRegion="polite">
@@ -191,4 +194,5 @@ const styles = StyleSheet.create({
   factValue: { ...typography.label, color: colors.text },
   unknown: { color: colors.textMuted, fontWeight: '400' },
   attribution: { ...typography.label, color: colors.textMuted },
+  offline: { ...typography.label, color: colors.status.pending.fg },
 });
