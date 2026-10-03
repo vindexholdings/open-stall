@@ -2,16 +2,21 @@ import {
   describeFacts,
   distanceMeters,
   estimateTravelMinutes,
+  buildNavigationUrl,
   formatDistance,
+  parseLocationId,
   ratingLabel,
   verificationLabel,
   type Fact,
+  type NavigationProvider,
   type PublicLocation,
+  type TravelMode,
 } from '@open-stall/domain';
 import { colors, radii, spacing, typography } from '@open-stall/ui';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import { Chip } from '../../components/Chip';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { Screen } from '../../components/Screen';
 import { locationSource } from '../../data';
@@ -29,7 +34,9 @@ function FactRow({ fact }: { fact: Fact }) {
 }
 
 export default function LocationDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string }>();
+  const id = parseLocationId(params.id);
+  const [mode, setMode] = useState<TravelMode>('walk');
   const { state: access } = useUserLocation();
   const [load, setLoad] = useState<Load | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -52,6 +59,13 @@ export default function LocationDetail() {
 
   const current = load && load.id === id ? load : null;
 
+  if (!id) {
+    return (
+      <Screen title="Restroom">
+        <Text style={styles.body}>This restroom link isn’t valid.</Text>
+      </Screen>
+    );
+  }
   if (!current) {
     return (
       <Screen title="Restroom">
@@ -76,6 +90,10 @@ export default function LocationDetail() {
   const origin = access.kind === 'ready' ? access.coordinates : null;
   const meters = origin ? distanceMeters(origin, l.coordinates) : null;
   const { access: accessFacts, amenities } = describeFacts(l);
+  const navigate = (provider: NavigationProvider) => {
+    const url = buildNavigationUrl(provider, l.coordinates, mode);
+    if (url) void Linking.openURL(url);
+  };
   const address = [l.addressLine, [l.city, l.region].filter(Boolean).join(', '), l.postalCode]
     .filter(Boolean)
     .join(' · ');
@@ -92,6 +110,35 @@ export default function LocationDetail() {
       <View style={styles.badges}>
         <Text style={styles.verified}>{verificationLabel(l.lastVerifiedAt)}</Text>
         <Text style={styles.rating}>{ratingLabel(l.averageRating, l.ratingCount)}</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text accessibilityRole="header" style={styles.sectionTitle}>
+          Navigate
+        </Text>
+        <View style={styles.modes} accessibilityRole="radiogroup" accessibilityLabel="Travel mode">
+          {(['walk', 'bike', 'drive'] as const).map((m) => (
+            <Chip
+              key={m}
+              role="radio"
+              label={m === 'walk' ? 'Walk' : m === 'bike' ? 'Bike' : 'Drive'}
+              selected={mode === m}
+              onPress={() => setMode(m)}
+            />
+          ))}
+        </View>
+        <PrimaryButton
+          label="Navigate with Google Maps"
+          onPress={() => navigate('google')}
+          accessibilityHint="Opens directions in Google Maps."
+        />
+        {Platform.OS === 'ios' ? (
+          <PrimaryButton
+            label="Navigate with Apple Maps"
+            onPress={() => navigate('apple')}
+            accessibilityHint="Opens directions in Apple Maps."
+          />
+        ) : null}
       </View>
 
       <Section title="Access">
@@ -127,6 +174,7 @@ const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.textMuted },
   strong: { ...typography.heading, color: colors.text },
   badges: { gap: spacing.xs },
+  modes: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   verified: { ...typography.label, color: colors.status.verified.fg },
   rating: { ...typography.body, color: colors.text },
   section: {

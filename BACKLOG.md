@@ -21,7 +21,7 @@ OS-104 DONE (provider-neutral MapView; Leaflet+configurable tiles; default OSM t
 OS-105 DONE (bbox query via LocationSource + domain ranking; refresh ~180s; not yet run against remote DB) Nearby query/distance sort.
 OS-106 DONE (verified-only is implicit: all public results are verified) Filters.
 OS-107 DONE Location detail (Report/Correct + Favorite deferred to Phase 2).
-OS-108 Navigation/deep links.
+OS-108 DONE (Apple/Google Maps external links, destination-only; openstall://location/<uuid> deep link, id validated) Navigation/deep links.
 OS-109 Offline/cache.
 OS-110 Discovery tests.
 OS-111 HUMAN MVP-CORE CHECKPOINT.

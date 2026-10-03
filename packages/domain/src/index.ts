@@ -5,3 +5,4 @@ export * from './nearby';
 export * from './publicLocation';
 export * from './filters';
 export * from './facts';
+export * from './navigation';
