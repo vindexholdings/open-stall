@@ -28,3 +28,5 @@ If actual CLI/project bindings do not match this file, STOP. Never pick the clos
 Map tiles: configurable via EXPO_PUBLIC_MAP_TILE_URL / EXPO_PUBLIC_MAP_ATTRIBUTION (names only in .env.example).
 Default public OSM tile server is DEVELOPMENT ONLY (OSM tile policy). Production tile provider = human decision (no paid service without approval).
 Navigation: Apple Maps / Google Maps are external destinations only (OS-108); no map SDK keys used.
+
+Supabase migrations applied (by human, 2026-10-04): 20261004000001_locations, 20261004000002_public_access, 20261004000003_import_functions. Remote access model verified with `npm run verify:remote-rls`. No location data imported.

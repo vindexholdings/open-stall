@@ -14,20 +14,20 @@ OS-009 DONE Design tokens/navigation shell.
 OS-010 DONE HUMAN ARCHITECTURE CHECKPOINT (approved 2026-10-02: Next.js admin at apps/admin on Vercel).
 
 ## Phase 1 Discovery core
-OS-101 DONE (migration written+validated locally; NOT pushed to remote) DB migrations: locations/amenities.
-OS-102 DONE (local tests pass; remote push awaits human approval) RLS/public verified reads.
+OS-101 DONE (v3 migrations LIVE on Open Stall Supabase; verified 2026-10-04) DB migrations: locations/amenities.
+OS-102 DONE (no direct public table access; constrained public functions LIVE; `npm run verify:remote-rls` passed against live project) RLS/public reads.
 OS-103 DONE Location permission UX.
 OS-104 DONE (provider-neutral MapView; Leaflet+configurable tiles; default OSM tiles dev-only) Map abstraction + map/list home.
-OS-105 DONE (bbox query via LocationSource + domain ranking; refresh ~180s; not yet run against remote DB) Nearby query/distance sort.
+OS-105 DONE (bbox query via LocationSource + domain ranking; refresh ~180s) Nearby query/distance sort (now via server functions; live DB currently EMPTY, no data imported).
 OS-106 DONE Filters (incl. Verified only).
 OS-107 DONE Location detail (Report/Correct + Favorite deferred to Phase 2).
 OS-108 DONE (Apple/Google Maps external links, destination-only; openstall://location/<uuid> deep link, id validated) Navigation/deep links.
 OS-109 DONE (public verified data only; no position/area stored; 14-day expiry, 300 entries) Offline/cache.
-OS-110 DONE (remote RLS verification pending migration approval) Discovery tests.
-OS-110a DONE(code; not applied) Three-state visibility + canonical/source split + constrained public functions + safety rules (approved scope change, Opus review applied).
-OS-110b DONE(code; not applied) OSM importer pulled forward from OS-306 (reusable, idempotent, refreshable, guarded). No import without separate approval.
+OS-110 DONE (remote access-model verification passed) Discovery tests.
+OS-110a DONE(LIVE) Three-state visibility + canonical/source split + constrained public functions + safety rules (approved scope change, Opus review applied).
+OS-110b DONE(code; importer NOT run, no data imported) OSM importer pulled forward from OS-306 (reusable, idempotent, refreshable, guarded). No import without separate approval.
 OS-110c HUMAN LEGAL/LICENSING GATE (ODbL): required before commercial-scale OSM import, public launch with OSM data, data licensing, or combining substantial OSM data with proprietary/community datasets.
-OS-111 HUMAN MVP-CORE CHECKPOINT.
+OS-111 HUMAN MVP-CORE CHECKPOINT: READY FOR REVIEW (see CHECKPOINT_OS-111.md). Do not start Phase 2 until approved.
 
 ## Phase 2 Accounts/contributions
 OS-201 Auth email/Google/Apple.
