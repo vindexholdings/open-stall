@@ -1,11 +1,12 @@
 # Project State
-Last updated: 2026-10-05 (OS-111: pivot to dev-only OSM import; dry run next)
+Last updated: 2026-10-05 (OS-111: dev OSM dry run done; apply of saved capture approved, human-run)
 Current phase: Phase 1 (Discovery core), complete pending human checkpoint
-Current task: OS-111 NOT approved. Researched-records workflow stopped (kept, unused). Preparing dev-only OSM import (cody-area, run name cody-dev); dry run by human, apply needs separate approval
+Current task: OS-111 NOT approved. Human approved APPLY of the saved Cody dev capture (osm-cody-dev.local.json; dry run: 2 tiles, 87 elements, 65 records = 9 explicit + 56 inferred, 21 unnamed candidates skipped, complete) as run "cody-dev". Awaiting apply result, then CHECKPOINT_OS-111.md Parts B-C
 Branch: claude/pensive-brahmagupta-wrrhxn (draft PR vindexholdings/open-stall#1)
 Last commit: see git log (OS-009 commit)
 
 Completed:
+- 2026-10-05 Dry run (human): cody-area, 2 tiles, 87 elements, 65 records (9 explicit, 56 inferred), 21 unnamed-candidate skipped, complete=true, no DB writes. Human approved applying the saved capture to the live project as dev run "cody-dev". Expected public (Unverified) = 9 minus any held (OSM edit < 14 days) or duplicate-flagged; 56 inferred stay hidden candidates; none can be Verified by import. Cleanup: supabase/dev/osm-dev-cleanup.sql.
 - 2026-10-05 OSM dev-import prep (nothing run/imported): grocery/convenience + lodging added to hidden candidate categories; Overpass editor identity (user/uid/changeset) stripped before classification and before saved captures; tested DB cleanup supabase/dev/osm-dev-cleanup.sql (only unedited OSM-only candidate/unverified rows seen by *-dev runs); IMPORT.md section 11 documents plan + ODbL consequences. Importer 65 tests; DB suite passes incl. cleanup.
 - 2026-10-05 REVISED OS-111 test data: externally researched UNVERIFIED records (Maverik 2321 Big Horn Ave, Conoco 1737 17th St, Exxon/Good 2 Go 1543 Depot Dr, Cody WY 82414). Tooling: census.ts (US Census Geocoder, public-domain coordinates), researchedLocations.ts (never Verified; cited non-map evidence; attestations), researchCli (`npm run research:sql`), os111-research-records.json template (unusable until evidence filled), scoped cleanup SQL. source "research", no schema change, no OSM/Google. Honest limit: no Verified record exists live, so Verified UI/hint/filter-with-results are covered by automated tests only. Manual first-party tooling not used for OS-111. Domain copy now says "public sources". Nothing written to the live DB by Claude.
 - 2026-10-05: manual-record tooling for the OS-111 live test (no OSM): packages/importer manualLocations (strict validation, attestations of original observation + public access, max 3, atomic idempotent SQL, source "manual", no third-party license), `npm run manual:sql`, `npm run live:nearby` (anon-only read check), cleanup SQL (human-run). Denied/retry UX fix (always offer Try again; web guidance). Tests: importer 48, DB suite includes manual-entry SQL on a local Postgres. No data added to the live DB by Claude.
@@ -31,7 +32,7 @@ Blockers (human):
 - OS-111 approval. First data import approval (none requested yet). Device testing (iOS/Android) not done. Production tile provider decision. ODbL licensing gate before larger-scale import/public launch.
 
 Next exact action:
-Human: run the cody-area DRY RUN (read-only, writes nothing): git pull origin claude/pensive-brahmagupta-wrrhxn && npm install && npm run import:osm -- --area cody-area --area-name cody-dev --save-raw osm-cody-dev.local.json --report osm-cody-dev-report.local.json. Send the printed summary. Claude then asks for separate approval before any apply. No merge, production deploy, costs or Phase 2.
+Human: run the apply command from chat (replays the saved capture, --area-name cody-dev, project guard), send the printed counts, then run the SQL count check and CHECKPOINT_OS-111.md Parts B-C. Claude records results; OS-111 stays unapproved. No re-query, no geography expansion, no merge, production deploy or Phase 2.
 
 Last tests: `npm run check` and `npm run test:db` pass (importer 65); web smoke passes.
 Never infer IDs or reuse another Vindex resource.
