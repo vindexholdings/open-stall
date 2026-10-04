@@ -10,3 +10,5 @@ dist/
 # Local manual-entry data (never commit)
 *.local.json
 manual-locations.sql
+os111-*.sql
+os111-geocodes*.json

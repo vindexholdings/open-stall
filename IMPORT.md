@@ -62,3 +62,6 @@ Re-run the same command periodically; changed OSM data updates unprotected unver
 
 ## 9. Manual development/test records (no external data)
 For the OS-111 live test, 1-3 first-party records can be added via `npm run manual:sql` (validated, attested, atomic, idempotent SQL pasted into the Supabase SQL editor). They use `source = 'manual'` with an Open Stall original-data license, contain no OSM/Google data, are never touched by importers (which only handle `source = 'osm'`), and are flagged by the importer's duplicate rule if an OSM record later lands on top of them. See CHECKPOINT_OS-111.md.
+
+## 10. Externally researched development records (OS-111)
+`npm run research:sql` validates and generates SQL for up to 3 externally researched UNVERIFIED records (`source = 'research'`): evidence must be a cited public web page (map-database hosts rejected), coordinates come from the US Census Bureau Geocoder (public domain, approximate), canonical rows stay `unverified`/explicit-evidence and never Verified, provenance (evidence URL/summary, researcher, geocode details) lives in `location_sources`. Cleanup is scoped to `os111-%` records. These are NOT first-party observations and NOT OSM-derived. See CHECKPOINT_OS-111.md.

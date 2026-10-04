@@ -31,7 +31,7 @@ describe('labels', () => {
 
 describe('hoursLabel', () => {
   it('flags source hours as possibly inaccurate and reports missing hours honestly', () => {
-    expect(hoursLabel('Mo-Su 08:00-20:00')).toEqual({ text: 'Mo-Su 08:00-20:00 (from map data, may be inaccurate)', reported: true });
+    expect(hoursLabel('Mo-Su 08:00-20:00')).toEqual({ text: 'Mo-Su 08:00-20:00 (from public sources, may be inaccurate)', reported: true });
     expect(hoursLabel(null)).toEqual({ text: 'Not reported', reported: false });
     expect(hoursLabel('  ').reported).toBe(false);
   });

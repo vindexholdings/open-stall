@@ -1,11 +1,12 @@
 # Project State
-Last updated: 2026-10-05 (OS-111 BLOCKED on live manual-record E2E test; tooling ready)
+Last updated: 2026-10-05 (OS-111 BLOCKED on live E2E with researched UNVERIFIED records; tooling ready)
 Current phase: Phase 1 (Discovery core), complete pending human checkpoint
-Current task: OS-111 NOT approved: waiting for human live E2E results (manual records + CHECKPOINT_OS-111.md Part A-C)
+Current task: OS-111 NOT approved: waiting for human live E2E results (3 researched unverified records via `npm run research:sql`; CHECKPOINT_OS-111.md)
 Branch: claude/pensive-brahmagupta-wrrhxn (draft PR vindexholdings/open-stall#1)
 Last commit: see git log (OS-009 commit)
 
 Completed:
+- 2026-10-05 REVISED OS-111 test data: externally researched UNVERIFIED records (Maverik 2321 Big Horn Ave, Conoco 1737 17th St, Exxon/Good 2 Go 1543 Depot Dr, Cody WY 82414). Tooling: census.ts (US Census Geocoder, public-domain coordinates), researchedLocations.ts (never Verified; cited non-map evidence; attestations), researchCli (`npm run research:sql`), os111-research-records.json template (unusable until evidence filled), scoped cleanup SQL. source "research", no schema change, no OSM/Google. Honest limit: no Verified record exists live, so Verified UI/hint/filter-with-results are covered by automated tests only. Manual first-party tooling not used for OS-111. Domain copy now says "public sources". Nothing written to the live DB by Claude.
 - 2026-10-05: manual-record tooling for the OS-111 live test (no OSM): packages/importer manualLocations (strict validation, attestations of original observation + public access, max 3, atomic idempotent SQL, source "manual", no third-party license), `npm run manual:sql`, `npm run live:nearby` (anon-only read check), cleanup SQL (human-run). Denied/retry UX fix (always offer Try again; web guidance). Tests: importer 48, DB suite includes manual-entry SQL on a local Postgres. No data added to the live DB by Claude.
 - 2026-10-04 CHECKPOINT: v3 migrations (20261004000001_locations, 20261004000002_public_access, 20261004000003_import_functions) applied to Open Stall Supabase (xzzbcejgprilmolvdaes) by the human; `npm run verify:remote-rls` passed all checks against the live project. Live DB has NO location data (no import run). Importer and licensing gate (OS-110c) unchanged.
 - v3 (Opus review applied; nothing applied remotely): canonical locations + location_sources; no direct public table access (nearby_locations/get_public_location/nearest_verified_location, capped, trimmed fields); standardized+validated run bounds and end-to-end finalize contract test; finalize safety (complete flag, scope, mass-hide threshold, zero-seen guard); automatic manual-edit protection; conservative duplicate flagging (never merge); recent-OSM-edit hold; hours/fee fields; nearest-verified hint in UI; ODbL licensing gate documented (IMPORT.md section 7).
@@ -29,7 +30,7 @@ Blockers (human):
 - OS-111 approval. First data import approval (none requested yet). Device testing (iOS/Android) not done. Production tile provider decision. ODbL licensing gate before larger-scale import/public launch.
 
 Next exact action:
-Human: follow CHECKPOINT_OS-111.md Part A (add 1-3 manual records via Supabase SQL editor), Part B (run Expo against live), Part C (tests 1-11), then report results. Claude then records results, fixes defects, and only then asks to approve OS-111. No OSM import, merge, production deploy, costs or Phase 2.
+Human: CHECKPOINT_OS-111.md Part A step 1 (pull/copy template), fill evidence, generate SQL, paste in Supabase SQL editor, then Parts B-C and report. Claude records results/fixes defects before asking for OS-111 approval. No OSM import, merge, production deploy, costs or Phase 2.
 
-Last tests: `npm run check` pass (importer 48 etc.); `npm run test:db` pass (incl. manual-entry SQL); `npm run test:e2e` pass.
+Last tests: `npm run check` pass (importer 61, domain 43, mobile 9, ui 15); `npm run test:db` pass (incl. research-entry SQL); `npm run test:e2e` pass.
 Never infer IDs or reuse another Vindex resource.

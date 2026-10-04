@@ -139,12 +139,12 @@ export function validateManualInput(input: unknown, now: Date = new Date()): Val
   return errors.length ? { ok: false, errors } : { ok: true, records };
 }
 
-const q = (s: string | null): string => {
+export const q = (s: string | null): string => {
   if (s === null) return 'null';
   if (s.includes('\u0000')) throw new Error('NUL character in text');
   return `'${s.replace(/'/g, "''")}'`;
 };
-const b = (v: Tri) => (v === null ? 'null' : v ? 'true' : 'false');
+export const b = (v: Tri) => (v === null ? 'null' : v ? 'true' : 'false');
 
 /**
  * One ATOMIC, idempotent statement per record: inserts the canonical location and its 'manual'

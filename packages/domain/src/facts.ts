@@ -47,7 +47,7 @@ export function verificationBadge(l: Pick<PublicLocation, 'verification' | 'last
 
 /** Plain-language explanation for Unverified listings, encouraging confirmation. */
 export const UNVERIFIED_EXPLANATION =
-  'Open Stall hasn’t confirmed this restroom yet. It comes from public map data, so access and condition may differ. Been here? Confirming or correcting it will help others once community verification opens.';
+  'Open Stall hasn’t confirmed this restroom yet. It comes from public sources, so access and condition may differ. Been here? Confirming or correcting it will help others once community verification opens.';
 
 export function ratingLabel(average: number | null, count: number): string {
   if (average === null || count === 0) return 'No ratings yet';
@@ -57,5 +57,5 @@ export function ratingLabel(average: number | null, count: number): string {
 /** Raw source opening hours with an honesty caveat; null means hours are not reported. */
 export function hoursLabel(openingHours: string | null): { text: string; reported: boolean } {
   const t = openingHours?.trim();
-  return t ? { text: `${t} (from map data, may be inaccurate)`, reported: true } : { text: 'Not reported', reported: false };
+  return t ? { text: `${t} (from public sources, may be inaccurate)`, reported: true } : { text: 'Not reported', reported: false };
 }

@@ -31,3 +31,5 @@ Fixtures: synthetic rows exist only in tests (in-memory, or the throwaway local 
 Flows 5, 7-11 belong to later phases.
 
 Manual-entry tooling: `packages/importer/src/manualLocations.test.ts` (validation, attestations, caps, escaping/injection, example template rejected) plus a DB test that runs the generated SQL on a local Postgres (idempotency, validity, public API output, importer duplicate flagging, cleanup scope). Live E2E steps: CHECKPOINT_OS-111.md.
+
+Researched-record tooling: `census.test.ts` (parser refuses no/multiple/mismatched/unusable matches), `researchedLocations.test.ts` (never Verified, evidence/attestation rules, map-database hosts rejected, committed template unusable until filled, escaping, cleanup scope), and a local-DB test running the generated SQL (idempotent, unverified-only, provenance separate, public API output, cleanup leaves other rows). Live steps: CHECKPOINT_OS-111.md. Live data contains no Verified record, so Verified UI/hint/filter are covered by automated tests only.

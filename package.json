@@ -17,7 +17,8 @@
     "verify:remote-rls": "node scripts/verify-remote-rls.mjs",
     "import:osm": "npm run osm -w @open-stall/importer --",
     "manual:sql": "npm run manual -w @open-stall/importer --",
-    "live:nearby": "node scripts/live-nearby.mjs"
+    "live:nearby": "node scripts/live-nearby.mjs",
+    "research:sql": "npm run research -w @open-stall/importer --"
   },
   "engines": {
     "node": ">=20"
