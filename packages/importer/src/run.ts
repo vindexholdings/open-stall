@@ -1,4 +1,4 @@
-import { classifyAll, type ClassifyOptions } from './osmClassify';
+import { classifyAll, sanitizeElement, type ClassifyOptions } from './osmClassify';
 import { buildOverpassQuery, fetchTile, type FetchOptions } from './overpass';
 import { splitBbox } from './areas';
 import type { FinalizeCounts, ImportCounts, ImportStore } from './apply';
@@ -52,7 +52,9 @@ export async function gatherElements(
   plan: ImportPlan,
 ): Promise<{ elements: OsmElement[]; tiles: number; complete: boolean; incompleteReason?: string }> {
   if (plan.loadElements) {
-    const { elements, meta } = await plan.loadElements();
+    const loaded = await plan.loadElements();
+    const elements = loaded.elements.map(sanitizeElement);
+    const meta = loaded.meta;
     const wantsCandidates = plan.classify.includeCandidates !== false;
     if (!meta) return { elements, tiles: 0, complete: false, incompleteReason: 'replayed file has no capture metadata (area/scope unknown)' };
     if (!sameBox(meta.bbox, plan.bbox)) return { elements, tiles: 0, complete: false, incompleteReason: 'replayed capture covers a different area than this run' };
@@ -64,7 +66,7 @@ export async function gatherElements(
   const out: OsmElement[] = [];
   for (const [i, tile] of tiles.entries()) {
     const query = buildOverpassQuery(tile, { includeCandidates: plan.classify.includeCandidates });
-    out.push(...(await fetchTile(query, plan.fetch)));
+    out.push(...(await fetchTile(query, plan.fetch)).map(sanitizeElement));
     if (i < tiles.length - 1) await sleep(plan.delayMs ?? 1500);
   }
   plan.saveRaw?.(out, {

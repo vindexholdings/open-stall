@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyAll, classifyOsmElement } from './osmClassify';
+import { classifyAll, classifyOsmElement, sanitizeElement } from './osmClassify';
 import type { OsmElement } from './types';
 
 // Synthetic in-memory OSM elements only. Nothing here is real data or touches a database.
@@ -51,10 +51,23 @@ describe('inferred evidence (hidden candidate)', () => {
     expect(rec(node(8, { tourism: 'information', information: 'visitor_centre', name: 'Visitors' }))?.evidence).toBe('inferred');
   });
 
-  it('a business existing is not evidence: ordinary businesses are not imported at all', () => {
-    for (const tags of [{ amenity: 'restaurant', name: 'R' } as Record<string, string>, { amenity: 'cafe', name: 'C' }, { shop: 'supermarket', name: 'S' }, { amenity: 'bar', name: 'B' }]) {
+  it('grocery/convenience stores, hotels and campgrounds are hidden candidates, never explicit', () => {
+    for (const tags of [{ shop: 'supermarket', name: 'S' } as Record<string, string>, { shop: 'convenience', name: 'C' }, { tourism: 'hotel', name: 'H' }, { tourism: 'motel', name: 'M' }, { tourism: 'camp_site', name: 'Camp' }]) {
+      const r = rec(node(9, tags));
+      expect(r?.evidence).toBe('inferred');
+      expect(r?.hold_reason).toBeNull();
+    }
+  });
+
+  it('a business existing is not evidence: restaurants, cafes, bars and other shops are not imported at all', () => {
+    for (const tags of [{ amenity: 'restaurant', name: 'R' } as Record<string, string>, { amenity: 'cafe', name: 'C' }, { shop: 'clothes', name: 'S' }, { amenity: 'bar', name: 'B' }]) {
       expect(skip(node(9, tags))).toBe('not-relevant');
     }
+  });
+
+  it('a store or hotel that explicitly tags public toilets becomes explicit; without access info it stays a candidate', () => {
+    expect(rec(node(13, { shop: 'supermarket', name: 'S', toilets: 'yes', 'toilets:access': 'yes' }))?.evidence).toBe('explicit');
+    expect(rec(node(14, { tourism: 'hotel', name: 'H', toilets: 'yes' }))?.evidence).toBe('inferred');
   });
 
   it('unnamed candidates are skipped; candidates can be disabled', () => {
@@ -159,5 +172,14 @@ describe('hash and de-duplication', () => {
     const s = classifyAll(els);
     expect(s.records.map((r) => r.source_reference)).toEqual(['node/60', 'node/61']);
     expect(s.skipped['not-relevant']).toBe(1);
+  });
+});
+
+describe('sanitizeElement', () => {
+  it('drops editor identity and unknown fields but keeps what the importer needs', () => {
+    const dirty = { type: 'node', id: 1, lat: 1, lon: 2, tags: { amenity: 'toilets' }, timestamp: '2026-01-01T00:00:00Z', user: 'someone', uid: 42, changeset: 7, version: 3 } as unknown as OsmElement;
+    const clean = sanitizeElement(dirty);
+    expect(clean).toEqual({ type: 'node', id: 1, lat: 1, lon: 2, tags: { amenity: 'toilets' }, timestamp: '2026-01-01T00:00:00Z' });
+    expect(JSON.stringify(clean)).not.toMatch(/someone|uid|changeset/);
   });
 });

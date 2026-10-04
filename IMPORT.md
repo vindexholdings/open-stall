@@ -27,9 +27,9 @@ A business existing is never evidence of a public restroom. DB constraints: veri
 
 ## 4. OSM evidence rules (`packages/importer/src/osmClassify.ts`)
 - EXPLICIT (-> unverified): `amenity=toilets` with access unset/yes/permissive/public/customers; or `toilets=yes` with public/customers `toilets:access`. Customers-only sets `purchase_required`.
-- INFERRED (-> hidden candidate): `toilets=yes` with unknown access; named fuel/library/town hall/community centre/camp, caravan, picnic site/visitor centre/rest area.
+- INFERRED (-> hidden candidate): `toilets=yes` with unknown access; named gas stations, grocery/convenience stores (`shop=supermarket|convenience`), lodging (`tourism=hotel|motel|guest_house|hostel`), library, town hall, community centre, camp/caravan/picnic sites, visitor centres, rest areas/services. Restaurants, cafes, bars and other shops are not imported.
 - SKIPPED: private/restricted access, residential buildings, disused, no coordinates, unnamed candidates, ordinary businesses.
-- Also imported: `opening_hours` (raw, shown as "may be inaccurate") and `fee`. Contact details and editor identities are never stored.
+- Also imported: `opening_hours` (raw, shown as "may be inaccurate") and `fee`. Contact details and editor identities (Overpass `user`/`uid`/`changeset`) are never stored or written to saved captures.
 
 ## 5. Import and refresh safety (enforced in SQL, `service_role` only)
 - Idempotent on `(source, source_reference)`; unchanged records only touch freshness fields.
@@ -65,3 +65,9 @@ For the OS-111 live test, 1-3 first-party records can be added via `npm run manu
 
 ## 10. Externally researched development records (OS-111)
 `npm run research:sql` validates and generates SQL for up to 3 externally researched UNVERIFIED records (`source = 'research'`): evidence must be a cited public web page (map-database hosts rejected), coordinates come from the US Census Bureau Geocoder (public domain, approximate), canonical rows stay `unverified`/explicit-evidence and never Verified, provenance (evidence URL/summary, researcher, geocode details) lives in `location_sources`. Cleanup is scoped to `os111-%` records. These are NOT first-party observations and NOT OSM-derived. See CHECKPOINT_OS-111.md.
+
+## 11. Development-only OSM import (Cody area): plan, cleanup, ODbL consequences
+- Scope: `--area cody-area` (south 44.45, west -109.25, north 44.62, east -108.85), run name `--area-name cody-dev`. Dry run first; apply only after separate approval. Nothing is imported yet.
+- Explicit OSM restroom evidence -> Unverified (public, badged). Likely-restroom places -> hidden Candidates. OSM-derived records are never Verified automatically and OSM provenance stays in `location_sources`, never mixed into first-party sources.
+- DEV DATA IS DISPOSABLE: during the dev test do not verify, edit or attach community/first-party data to OSM-seeded records. Remove them with `supabase/dev/osm-dev-cleanup.sql` (human-run, tested): it deletes only unedited, OSM-only candidate/unverified locations seen by a `*-dev` run, then the dev run rows. Verified/edited/multi-source/non-dev records are kept.
+- ODbL consequences that matter for later replacement: (1) canonical rows copy OSM-derived fields (name, coordinates, address, amenities); deleting `location_sources` alone does not remove OSM-derived content, delete the canonical rows (the cleanup does). (2) If a record is ever verified or enriched while still carrying OSM-derived fields, removal means re-collecting those fields independently, not just unlinking OSM; a promoted record should have name/coordinates re-confirmed from independent observation. (3) Share-alike attaches to publicly using a derived database; the live public API serves these rows, so even a dev import is Public Use of a small derived dataset: attribution is shown, but do not mix proprietary/community data into the same rows or expand scope beyond OS-110c approval. (4) Already-served copies cannot be recalled under ODbL, so keep dev scope small and removable.

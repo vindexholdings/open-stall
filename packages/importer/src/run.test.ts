@@ -82,6 +82,18 @@ describe('executeImport', () => {
     expect(store.createRun).not.toHaveBeenCalled();
   });
 
+  it('strips OSM editor identity before classification and before saving a capture', async () => {
+    const saved: unknown[] = [];
+    const dirty = [{ type: 'node', id: 1, lat: 10, lon: 10, tags: { amenity: 'toilets' }, user: 'someone', uid: 9 }] as unknown as OsmElement[];
+    const fetchImpl = (async () => ({ ok: true, status: 200, json: async () => ({ elements: dirty }) })) as unknown as typeof fetch;
+    await executeImport(
+      { areaName: 't', bbox: BOX, tileDegrees: 5, classify: {}, fetch: { fetchImpl, sleepMs: async () => {} }, sleep: async () => {}, saveRaw: (e) => saved.push(...e) },
+      null,
+    );
+    expect(JSON.stringify(saved)).not.toMatch(/someone|uid/);
+    expect(saved).toHaveLength(1);
+  });
+
   it('chunks evenly', () => {
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
   });

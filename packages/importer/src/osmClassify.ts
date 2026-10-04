@@ -4,12 +4,18 @@ import type { Classification, Evidence, ImportRecord, OsmElement } from './types
 export const OSM_LICENSE = 'ODbL-1.0';
 export const OSM_ATTRIBUTION = '© OpenStreetMap contributors';
 
-/** Place types that OFTEN have a restroom but prove nothing: imported as hidden candidates only. */
+/**
+ * Place types that OFTEN have a restroom but prove nothing: imported as hidden candidates only
+ * (gas stations, grocery/convenience stores, lodging, campgrounds, visitor centres, rest areas, civic buildings).
+ * Restaurants, cafes and bars are deliberately not imported.
+ */
 export type CandidateCategory = { key: string; values: string[]; require?: Record<string, string> };
 
 export const DEFAULT_CANDIDATE_CATEGORIES: CandidateCategory[] = [
   { key: 'amenity', values: ['fuel', 'library', 'townhall', 'community_centre'] },
   { key: 'tourism', values: ['camp_site', 'caravan_site', 'picnic_site'] },
+  { key: 'tourism', values: ['hotel', 'motel', 'guest_house', 'hostel'] },
+  { key: 'shop', values: ['supermarket', 'convenience'] },
   { key: 'tourism', values: ['information'], require: { information: 'visitor_centre' } },
   { key: 'highway', values: ['rest_area', 'services'] },
 ];
@@ -202,4 +208,18 @@ export function classifyAll(elements: readonly OsmElement[], opts: ClassifyOptio
     reasons[label] = (reasons[label] ?? 0) + 1;
   }
   return { records: [...byRef.values()], reasons, skipped };
+}
+
+/**
+ * Keeps only the fields we use. Overpass `meta` output also carries editor identity (user, uid,
+ * changeset); that is personal data we never need, so it is dropped at the door and never saved.
+ */
+export function sanitizeElement(el: OsmElement): OsmElement {
+  const out: OsmElement = { type: el.type, id: el.id };
+  if (el.lat !== undefined) out.lat = el.lat;
+  if (el.lon !== undefined) out.lon = el.lon;
+  if (el.center !== undefined) out.center = { lat: el.center.lat, lon: el.center.lon };
+  if (el.tags !== undefined) out.tags = el.tags;
+  if (el.timestamp !== undefined) out.timestamp = el.timestamp;
+  return out;
 }

@@ -1,5 +1,7 @@
 # OS-111 Human MVP-Core Checkpoint (Phase 1)
 
+> UPDATE 2026-10-05: the three-record researched workflow below is STOPPED (kept in the repo, unused). The cold-start strategy is regional OSM seeding, so OS-111 test data will be a SMALL development-only OSM import of the Cody area (see IMPORT.md section 11). Dry run first; apply needs separate approval. Parts B and C are unchanged, but Part A (research records) is superseded. Same limit applies: OSM records are never Verified, so Verified UI / nearest-verified hint / verified-only results still cannot be tested live.
+
 STATUS: NOT APPROVED. Blocked on the live end-to-end test below. Do not mark OS-111 complete until the human reports results.
 Scope guard: no OSM/other imports, no merge to main, no production deploy, no new costs, no Phase 2.
 

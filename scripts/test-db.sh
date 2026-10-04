@@ -18,7 +18,7 @@ trap cleanup EXIT
 
 "${AS[@]}" "$PGBIN/initdb" -D "$WORK/data" -A trust -U postgres >/dev/null
 "${AS[@]}" "$PGBIN/pg_ctl" -D "$WORK/data" -o "-k $WORK -c listen_addresses=''" -l "$WORK/log" -w start >/dev/null
-PSQL=("${AS[@]}" psql -h "$WORK" -U postgres -d postgres -v ON_ERROR_STOP=1 -q)
+PSQL=("${AS[@]}" psql -h "$WORK" -U postgres -d postgres -v ON_ERROR_STOP=1 -v ROOT="$ROOT" -q)
 
 "${PSQL[@]}" -f "$ROOT/supabase/tests/bootstrap.sql"
 for f in "$ROOT"/supabase/migrations/*.sql; do

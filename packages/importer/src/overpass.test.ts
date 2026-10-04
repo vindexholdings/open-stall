@@ -17,6 +17,8 @@ describe('buildOverpassQuery', () => {
     const q = buildOverpassQuery(tile);
     expect(q).toContain('fuel|library|townhall|community_centre');
     expect(q).toContain('["information"="visitor_centre"]');
+    expect(q).toContain('hotel|motel|guest_house|hostel');
+    expect(q).toContain('nwr["shop"~"^(supermarket|convenience)$"]');
   });
 });
 
