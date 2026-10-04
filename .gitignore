@@ -6,3 +6,7 @@ node_modules/
 .DS_Store
 coverage/
 dist/
+
+# Local manual-entry data (never commit)
+*.local.json
+manual-locations.sql

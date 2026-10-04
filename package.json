@@ -15,7 +15,9 @@
     "test:db": "bash scripts/test-db.sh",
     "test:e2e": "node scripts/e2e-smoke.mjs",
     "verify:remote-rls": "node scripts/verify-remote-rls.mjs",
-    "import:osm": "npm run osm -w @open-stall/importer --"
+    "import:osm": "npm run osm -w @open-stall/importer --",
+    "manual:sql": "npm run manual -w @open-stall/importer --",
+    "live:nearby": "node scripts/live-nearby.mjs"
   },
   "engines": {
     "node": ">=20"

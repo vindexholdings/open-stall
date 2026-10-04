@@ -59,3 +59,6 @@ Until then: small geographic validation datasets only, after separate approval; 
 
 ## 8. Refresh
 Re-run the same command periodically; changed OSM data updates unprotected unverified/candidate records, never protected ones. A scheduled job needs the service-role secret and is a separate human-approved step.
+
+## 9. Manual development/test records (no external data)
+For the OS-111 live test, 1-3 first-party records can be added via `npm run manual:sql` (validated, attested, atomic, idempotent SQL pasted into the Supabase SQL editor). They use `source = 'manual'` with an Open Stall original-data license, contain no OSM/Google data, are never touched by importers (which only handle `source = 'osm'`), and are flagged by the importer's duplicate rule if an OSM record later lands on top of them. See CHECKPOINT_OS-111.md.

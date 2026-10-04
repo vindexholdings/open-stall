@@ -29,3 +29,5 @@ Fixtures: synthetic rows exist only in tests (in-memory, or the throwaway local 
 - Offline: `locationCache.test.ts`, `cachedSource.test.ts`.
 - Web smoke: home, tabs, favorites, settings, invalid location link.
 Flows 5, 7-11 belong to later phases.
+
+Manual-entry tooling: `packages/importer/src/manualLocations.test.ts` (validation, attestations, caps, escaping/injection, example template rejected) plus a DB test that runs the generated SQL on a local Postgres (idempotency, validity, public API output, importer duplicate flagging, cleanup scope). Live E2E steps: CHECKPOINT_OS-111.md.

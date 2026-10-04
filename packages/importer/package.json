@@ -6,7 +6,8 @@
   "scripts": {
     "osm": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "manual": "tsx src/manualCli.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2"

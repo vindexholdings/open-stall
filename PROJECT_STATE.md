@@ -1,11 +1,12 @@
 # Project State
-Last updated: 2026-10-04 (Phase 1 complete through OS-110c; migrations LIVE; awaiting OS-111 human checkpoint)
+Last updated: 2026-10-05 (OS-111 BLOCKED on live manual-record E2E test; tooling ready)
 Current phase: Phase 1 (Discovery core), complete pending human checkpoint
-Current task: OS-111 HUMAN MVP-CORE CHECKPOINT (ready for review; do not start Phase 2)
+Current task: OS-111 NOT approved: waiting for human live E2E results (manual records + CHECKPOINT_OS-111.md Part A-C)
 Branch: claude/pensive-brahmagupta-wrrhxn (draft PR vindexholdings/open-stall#1)
 Last commit: see git log (OS-009 commit)
 
 Completed:
+- 2026-10-05: manual-record tooling for the OS-111 live test (no OSM): packages/importer manualLocations (strict validation, attestations of original observation + public access, max 3, atomic idempotent SQL, source "manual", no third-party license), `npm run manual:sql`, `npm run live:nearby` (anon-only read check), cleanup SQL (human-run). Denied/retry UX fix (always offer Try again; web guidance). Tests: importer 48, DB suite includes manual-entry SQL on a local Postgres. No data added to the live DB by Claude.
 - 2026-10-04 CHECKPOINT: v3 migrations (20261004000001_locations, 20261004000002_public_access, 20261004000003_import_functions) applied to Open Stall Supabase (xzzbcejgprilmolvdaes) by the human; `npm run verify:remote-rls` passed all checks against the live project. Live DB has NO location data (no import run). Importer and licensing gate (OS-110c) unchanged.
 - v3 (Opus review applied; nothing applied remotely): canonical locations + location_sources; no direct public table access (nearby_locations/get_public_location/nearest_verified_location, capped, trimmed fields); standardized+validated run bounds and end-to-end finalize contract test; finalize safety (complete flag, scope, mass-hide threshold, zero-seen guard); automatic manual-edit protection; conservative duplicate flagging (never merge); recent-OSM-edit hold; hours/fee fields; nearest-verified hint in UI; ODbL licensing gate documented (IMPORT.md section 7).
 - Revision (approved scope change): migrations rewritten for verified/unverified/candidate visibility, column-level public grants, import_runs, service_role-only import_locations/finalize_import_run (no-overwrite of verified/pending/closed/admin-edited; idempotent; stale handling). Domain/UI: Unverified badge, markers, explanation, Verified-only filter. packages/importer: OSM classifier, Overpass tiling/retries, dry-run-by-default CLI with project-ref guards, importer-to-DB contract test. See IMPORT.md.
@@ -28,7 +29,7 @@ Blockers (human):
 - OS-111 approval. First data import approval (none requested yet). Device testing (iOS/Android) not done. Production tile provider decision. ODbL licensing gate before larger-scale import/public launch.
 
 Next exact action:
-Human: review CHECKPOINT_OS-111.md (what works, what is unproven, manual device tests, decisions). Nothing else proceeds (no Phase 2, no import, no merge to main, no production deploy) until OS-111 is approved. Optional separate approvals: small dev-area OSM dry run/import (OS-110c applies to anything larger), merge of PR #1.
+Human: follow CHECKPOINT_OS-111.md Part A (add 1-3 manual records via Supabase SQL editor), Part B (run Expo against live), Part C (tests 1-11), then report results. Claude then records results, fixes defects, and only then asks to approve OS-111. No OSM import, merge, production deploy, costs or Phase 2.
 
-Last tests: `npm run check` pass (domain 43, mobile 9, importer 37, ui 15); `npm run test:db` pass (mutation-checked: 6 protections each break a test); `npm run test:e2e` pass.
+Last tests: `npm run check` pass (importer 48 etc.); `npm run test:db` pass (incl. manual-entry SQL); `npm run test:e2e` pass.
 Never infer IDs or reuse another Vindex resource.

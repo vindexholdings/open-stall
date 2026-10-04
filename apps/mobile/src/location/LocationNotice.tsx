@@ -1,6 +1,6 @@
 import type { LocationAccessState } from '@open-stall/domain';
 import { colors, radii, spacing, typography } from '@open-stall/ui';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '../components/PrimaryButton';
 
 type Props = { state: LocationAccessState; onRetry: () => void };
@@ -18,21 +18,23 @@ export function LocationNotice({ state, onRetry }: Props) {
   }
 
   const denied = state.kind === 'denied';
+  const web = Platform.OS === 'web';
   const message =
     state.kind === 'needs-prompt'
       ? 'Open Stall uses your location once, on your device, to find restrooms near you. It is not stored.'
       : denied
-        ? 'Location is off for Open Stall, so we can’t sort restrooms by distance. You can turn it on in Settings.'
+        ? web
+          ? 'Location is blocked for this site, so we can’t sort restrooms by distance. Allow it from the lock icon in your browser’s address bar (site settings), then tap Try again.'
+          : 'Location is off for Open Stall, so we can’t sort restrooms by distance. You can turn it on in Settings, then come back and tap Try again.'
         : 'We couldn’t get your location right now. Check that location services are on, then try again.';
 
   return (
     <View style={styles.card} accessibilityRole="alert">
       <Text style={styles.body}>{message}</Text>
-      {denied && !state.canAskAgain ? (
+      {denied && !web && !state.canAskAgain ? (
         <PrimaryButton label="Open Settings" onPress={() => void Linking.openSettings()} />
-      ) : (
-        <PrimaryButton label={denied ? 'Allow location' : 'Try again'} onPress={onRetry} />
-      )}
+      ) : null}
+      <PrimaryButton label={denied && !web && state.canAskAgain ? 'Allow location' : 'Try again'} onPress={onRetry} />
     </View>
   );
 }
