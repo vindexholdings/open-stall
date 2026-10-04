@@ -7,3 +7,4 @@ export * from './filters';
 export * from './facts';
 export * from './navigation';
 export * from './locationCache';
+export * from './review';

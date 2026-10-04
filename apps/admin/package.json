@@ -3,17 +3,21 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@open-stall/ui": "*",
     "next": "16.3.8",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "@open-stall/domain": "*",
+    "@supabase/supabase-js": "^2.117.2",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -21,6 +25,7 @@
     "@types/react-dom": "~19.2.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.8",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
   }
 }
