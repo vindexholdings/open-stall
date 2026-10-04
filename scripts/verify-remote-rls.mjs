@@ -27,7 +27,7 @@ const check = (name, ok, detail = '') => {
 const denied = (res) => res.json?.code === '42501' || res.status === 401 || res.status === 403;
 
 // 1. No direct table access of any kind.
-for (const table of ['locations', 'location_sources', 'import_runs']) {
+for (const table of ['locations', 'location_sources', 'import_runs', 'location_reviews']) {
   check(`anon cannot read table ${table}`, denied(await call('GET', `${table}?select=id&limit=1`)), 'readable!');
 }
 const ins = await call('POST', 'locations', { name: 'probe', latitude: 999, longitude: 0 });
@@ -58,6 +58,19 @@ const imp = await call('POST', 'rpc/import_locations', { p_run: NIL, p_records: 
 check('anon cannot execute import_locations', denied(imp) || imp.status === 404, JSON.stringify(imp));
 const fin = await call('POST', 'rpc/finalize_import_run', { p_run: NIL });
 check('anon cannot execute finalize_import_run', denied(fin) || fin.status === 404, JSON.stringify(fin));
+
+// 4. Admin review RPCs remain inaccessible to public clients.
+const review = await call('POST', 'rpc/apply_location_review', {
+  p_location: NIL, p_reviewer: 'access-probe', p_existence: 'unsure', p_access: 'unknown',
+  p_wheelchair: null, p_gender_neutral: null, p_baby_changing: null,
+  p_hot_water: null, p_cold_only: null, p_notes: null, p_personally_verified: false, p_verified_on: null,
+});
+check('anon cannot execute apply_location_review', denied(review) || review.status === 404, JSON.stringify(review));
+const visit = await call('POST', 'rpc/apply_location_review_v2', {
+  p_location: NIL, p_reviewer: 'access-probe', p_reviewer_identity: 'probe',
+  p_existence: 'unsure', p_personally_verified: false, p_verified_on: null, p_answers: {},
+});
+check('anon cannot execute apply_location_review_v2', denied(visit) || visit.status === 404, JSON.stringify(visit));
 
 if (failed) process.exit(1);
 console.log('Remote access-model verification passed.');

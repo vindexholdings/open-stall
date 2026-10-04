@@ -27,7 +27,7 @@ export default async function ReviewList({ searchParams }: { searchParams: Promi
       <h1>Validate seeded locations</h1>
       <p className="muted">Local validator (this machine only). Nothing becomes Verified unless you say so.</p>
       {sp.saved ? <p className="note good" role="status">Saved. {rows.some((r) => r.location_reviews.length === 0) ? 'Next unreviewed record is below.' : 'All records in this view are reviewed.'}</p> : null}
-      {!list.reviewsAvailable ? <p className="note warn">Review saving is not installed yet (migration 20261005000001 awaits approval). You can browse, but saving is disabled by the database.</p> : null}
+      {!list.reviewsAvailable ? <p className="note warn">Preview only: saving awaits database approval. No reviews or verifications are recorded from this form yet.</p> : null}
       <nav className="tabs" aria-label="Views">
         {VIEWS.map((v) => (
           <Link key={v.key} href={`/review?view=${v.key}`} className={v.key === view ? 'tab active' : 'tab'} aria-current={v.key === view ? 'page' : undefined}>

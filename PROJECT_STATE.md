@@ -1,11 +1,19 @@
 # Project State
-Last updated: 2026-10-06 (Cody OSM dev seed LIVE; validator built, migration 4 awaiting approval)
-Current phase: Phase 1 (Discovery core), complete pending human checkpoint
-Current task: OS-111 NOT approved. Cody dev seed applied (65 inserted: 9 public Unverified, 56 hidden Candidates; finalize ok; run cody-dev). Validator workflow built in apps/admin /review; saving needs migration 20261005000001 (awaiting human approval to push)
-Branch: claude/pensive-brahmagupta-wrrhxn (draft PR vindexholdings/open-stall#1)
-Last commit: see git log (OS-009 commit)
+Last updated: 2026-10-04 (admin review workflow live and expanded)
+Current phase: Phase 1 (Discovery core), pending human checkpoint
+Current task: OS-111 NOT approved. Prepare user-facing app for live walkthrough.
+Branch: claude-local; upstream claude/pensive-brahmagupta-wrrhxn (PR #1 remains unmerged).
+Last commit: see git log.
 
-Completed:
+Completed in this continuation:
+- Cody dev seed remains 65 records. Latest confirmed read: 14 Verified, 3 Unverified, 48 hidden Candidate; initial import was 9 Unverified + 56 Candidate. No geography expansion.
+- Applied review migrations 20261005000001 and 20261005000002 to the expected dev project xzzbcejgprilmolvdaes.
+- Admin /review: embedded OSM map; editable username; independent customer-only/key/fee requirements; family bathroom separate from gender neutral; hot and cold water independent; restroom type; optional stars/public comment; cleanliness and condition checks; posted cleaning/inspection log.
+- Prior private notes remain private. Public review page/submission remains gated. Stable admin identity separates repeat confirmations/ratings from unique people. Older visits do not reduce verification recency.
+- Existing OSM provenance remains intact; no import automatically creates Verified locations.
+- Tests: full npm run check passed (157 tests across workspaces), type checks/lint/secret scan; disposable PostgreSQL validates all five migrations and both review suites. Live admin HTTP checks confirm the map/new fields/save button.
+
+Earlier history (superseded snapshots; original dates retained):
 - 2026-10-06 LIVE: Cody dev OSM seed applied by human (inserted 65, duplicates 0, held 0, public_in_area 9, finalize flagged/hidden 0). 2026-10-06 BUILT (not applied): location validator: packages/domain review rules, migration 20261005000001_location_reviews.sql (location_reviews + service_role-only apply_location_review), apps/admin /review pages + server action behind a local-only gate (requireAdmin), tests (domain 55, admin gate, DB review suite mutation-checked). Reads work now (resilient before migration); saving needs the migration.
 - 2026-10-05 Dry run (human): cody-area, 2 tiles, 87 elements, 65 records (9 explicit, 56 inferred), 21 unnamed-candidate skipped, complete=true, no DB writes. Human approved applying the saved capture to the live project as dev run "cody-dev". Expected public (Unverified) = 9 minus any held (OSM edit < 14 days) or duplicate-flagged; 56 inferred stay hidden candidates; none can be Verified by import. Cleanup: supabase/dev/osm-dev-cleanup.sql.
 - 2026-10-05 OSM dev-import prep (nothing run/imported): grocery/convenience + lodging added to hidden candidate categories; Overpass editor identity (user/uid/changeset) stripped before classification and before saved captures; tested DB cleanup supabase/dev/osm-dev-cleanup.sql (only unedited OSM-only candidate/unverified rows seen by *-dev runs); IMPORT.md section 11 documents plan + ODbL consequences. Importer 65 tests; DB suite passes incl. cleanup.
@@ -29,11 +37,13 @@ Notes:
 - Proxy blocks Expo API here; use EXPO_OFFLINE=1 for `expo install`/`expo export`.
 - Brand blue #1E90FF fails AA with white text; use primaryStrong #0B63C4 for text/buttons.
 
-Blockers (human):
-- OS-111 approval. First data import approval (none requested yet). Device testing (iOS/Android) not done. Production tile provider decision. ODbL licensing gate before larger-scale import/public launch.
+Blockers/gates:
+- OS-111 human approval remains pending. Device/browser permission, navigation and offline behavior need the live walkthrough.
+- Production tile-provider decision and ODbL gate remain required before public launch or broader commercial import.
+- No merge of PR #1/main, production deployment, geography expansion, costs, or Phase 2 without the corresponding gate.
 
 Next exact action:
-Human: (1) run the one-line command from chat to start the local validator and browse the seeded records (read-only until migration); (2) approve pushing migration 20261005000001_location_reviews.sql (new private table + service_role-only function; no existing data touched), then `supabase db push`; (3) review records; (4) then CHECKPOINT_OS-111.md Parts B-C. OS-111 stays unapproved. No merge, production deploy, costs or Phase 2.
+Agent: verify live public API/RLS using the anon key; configure/start the local user app; finish checks and commit this coherent admin unit. Human: one operational checkpoint step at a time in CHECKPOINT_OS-111.md. Do not infer OS-111 approval from admin review success.
 
-Last tests: `npm run check` and `npm run test:db` pass (domain 55, importer 65, admin 6); admin gate runtime-smoked on a production build; full suite passes.
+Claude stays on Sonnet unless an explicit recommendation changes it.
 Never infer IDs or reuse another Vindex resource.

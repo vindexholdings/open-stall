@@ -27,3 +27,10 @@ input[type='date'] { width: auto; }
 .primary.link { text-decoration: none; display: inline-block; padding: 6px 12px; }
 .src { margin: 8px 0; }
 pre { background: #eef2f7; padding: 8px; border-radius: 8px; overflow: auto; font-size: 12px; }
+
+.review-map { width: 100%; height: 300px; border: 1px solid #c9d2de; border-radius: 8px; }
+.map-credit { font-size: 12px; margin: 4px 0 12px; }
+select { font: inherit; padding: 8px; border: 1px solid #c9d2de; border-radius: 8px; max-width: 100%; }
+.stars span { color: #8a5800; letter-spacing: 2px; }
+fieldset:disabled { opacity: 0.65; }
+button:disabled { opacity: 0.6; cursor: not-allowed; }

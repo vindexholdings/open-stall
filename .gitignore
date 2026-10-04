@@ -12,3 +12,6 @@ dist/
 manual-locations.sql
 os111-*.sql
 os111-geocodes*.json
+
+# Disposable local SQL validation dependencies
+/work/review-validation/

@@ -29,4 +29,6 @@ Map tiles: configurable via EXPO_PUBLIC_MAP_TILE_URL / EXPO_PUBLIC_MAP_ATTRIBUTI
 Default public OSM tile server is DEVELOPMENT ONLY (OSM tile policy). Production tile provider = human decision (no paid service without approval).
 Navigation: Apple Maps / Google Maps are external destinations only (OS-108); no map SDK keys used.
 
-Supabase migrations applied (by human, 2026-10-04): 20261004000001_locations, 20261004000002_public_access, 20261004000003_import_functions. Remote access model verified with `npm run verify:remote-rls`. No location data imported.
+Supabase migrations applied (by human, 2026-10-04): 20261004000001_locations, 20261004000002_public_access, 20261004000003_import_functions. Remote access model verified with `npm run verify:remote-rls`. Cody dev import finalized: 65 records; 9 initially public Unverified and 56 initially hidden Candidate.
+
+Admin migrations `20261005000001_location_reviews.sql` and `20261005000002_review_visit_details.sql` are applied (2026-10-04). Visit details are admin-only; public review browsing remains gated. Private notes are not converted to public comments. Local admin identity defaults to `local-admin`; optional `ADMIN_REVIEWER_ID` is independent of display username. OS-111 remains unapproved.

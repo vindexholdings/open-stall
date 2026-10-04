@@ -102,6 +102,17 @@ do $$ begin
   assert (select has_hot_water = false and has_cold_water from public.locations where name = 'REV F candidate'), 'cold-water-only -> hot false, cold true';
 end $$;
 
+-- Independent requirements preserve combinations in canonical facts and the audit trail.
+do $$ declare lid uuid := (select id from public.locations where name = 'REV B candidate'); begin
+  perform public.apply_location_review(lid, 'Test Reviewer', 'exists', 'independent',
+    null, null, null, null, null, null, false, null, true, true, null);
+  assert (select key_required and purchase_required and fee_required is null
+    from public.locations where id = lid), 'key and purchase can both be required';
+  assert (select count(*) = 1 from public.location_reviews where location_id = lid
+    and access = 'independent' and key_required and purchase_required and fee_required is null),
+    'independent access answers are preserved in review history';
+end $$;
+
 -- Validation and safety.
 do $$ declare lid uuid := (select id from public.locations where name = 'REV E verified'); begin
   begin perform pg_temp.rev(lid, 'exists', 'unknown', null, null, null, null, null, null, true, null); raise exception 'personal without date accepted';

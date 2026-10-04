@@ -12,7 +12,10 @@ create table public.location_reviews (
   location_id uuid not null references public.locations (id) on delete cascade,
   reviewer text not null check (char_length(btrim(reviewer)) between 1 and 120),
   existence text not null check (existence in ('exists', 'not_exists', 'unsure')),
-  access text not null check (access in ('public_free', 'customers_only', 'key_required', 'unknown')),
+  access text not null check (access in ('public_free', 'customers_only', 'key_required', 'unknown', 'independent')),
+  key_required boolean,
+  purchase_required boolean,
+  fee_required boolean,
   wheelchair_accessible boolean,
   gender_neutral boolean,
   baby_changing boolean,
@@ -46,7 +49,10 @@ create or replace function public.apply_location_review(
   p_cold_only boolean,
   p_notes text,
   p_personally_verified boolean,
-  p_verified_on date
+  p_verified_on date,
+  p_key_required boolean default null,
+  p_purchase_required boolean default null,
+  p_fee_required boolean default null
 )
 returns jsonb
 language plpgsql
@@ -63,7 +69,7 @@ declare
   rid uuid;
 begin
   if p_existence not in ('exists', 'not_exists', 'unsure') then raise exception 'invalid existence' using errcode = '22023'; end if;
-  if p_access not in ('public_free', 'customers_only', 'key_required', 'unknown') then raise exception 'invalid access' using errcode = '22023'; end if;
+  if p_access not in ('public_free', 'customers_only', 'key_required', 'unknown', 'independent') then raise exception 'invalid access' using errcode = '22023'; end if;
   if p_reviewer is null or char_length(btrim(p_reviewer)) not between 1 and 120 then raise exception 'reviewer required' using errcode = '22023'; end if;
   if personal and (p_existence <> 'exists' or p_verified_on is null) then
     raise exception 'personal verification requires existence=exists and a date' using errcode = '22023';
@@ -91,9 +97,9 @@ begin
   end if;
 
   -- Facts: the reviewer's answers are written exactly; unknown is null.
-  key_v := case p_access when 'public_free' then false when 'key_required' then true else null end;
-  purch_v := case p_access when 'public_free' then false when 'customers_only' then true else null end;
-  fee_v := case p_access when 'public_free' then false else null end;
+  key_v := case p_access when 'public_free' then false when 'key_required' then true when 'independent' then p_key_required else null end;
+  purch_v := case p_access when 'public_free' then false when 'customers_only' then true when 'independent' then p_purchase_required else null end;
+  fee_v := case p_access when 'public_free' then false when 'independent' then p_fee_required else null end;
   if p_cold_only is true then hot_v := false; cold_v := true;
   elsif p_hot_water is true then hot_v := true; cold_v := null;
   else hot_v := p_hot_water; cold_v := null; end if;
@@ -108,10 +114,10 @@ begin
   end if;
 
   insert into public.location_reviews (
-    location_id, reviewer, existence, access, wheelchair_accessible, gender_neutral, baby_changing,
+    location_id, reviewer, existence, access, key_required, purchase_required, fee_required, wheelchair_accessible, gender_neutral, baby_changing,
     has_hot_water, cold_water_only, notes, personally_verified, verified_on, previous, resulting_status
   ) values (
-    p_location, btrim(p_reviewer), p_existence, p_access, p_wheelchair, p_gender_neutral, p_baby_changing,
+    p_location, btrim(p_reviewer), p_existence, p_access, key_v, purch_v, fee_v, p_wheelchair, p_gender_neutral, p_baby_changing,
     p_hot_water, p_cold_only, nullif(btrim(coalesce(p_notes, '')), ''), personal, case when personal then p_verified_on end,
     jsonb_build_object(
       'status', loc.status, 'restroom_evidence', loc.restroom_evidence, 'restroom_verified', loc.restroom_verified,
@@ -158,5 +164,5 @@ begin
 end;
 $$;
 
-revoke all on function public.apply_location_review(uuid, text, text, text, boolean, boolean, boolean, boolean, boolean, text, boolean, date) from public, anon, authenticated;
-grant execute on function public.apply_location_review(uuid, text, text, text, boolean, boolean, boolean, boolean, boolean, text, boolean, date) to service_role;
+revoke all on function public.apply_location_review(uuid, text, text, text, boolean, boolean, boolean, boolean, boolean, text, boolean, date, boolean, boolean, boolean) from public, anon, authenticated;
+grant execute on function public.apply_location_review(uuid, text, text, text, boolean, boolean, boolean, boolean, boolean, text, boolean, date, boolean, boolean, boolean) to service_role;

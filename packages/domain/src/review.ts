@@ -19,6 +19,9 @@ export type ReviewInput = {
   reviewer: string;
   existence: Existence;
   access: AccessChoice;
+  key_required?: Tri;
+  purchase_required?: Tri;
+  fee_required?: Tri;
   wheelchair_accessible: Tri;
   gender_neutral: Tri;
   baby_changing: Tri;
@@ -40,7 +43,8 @@ const tri = (v: unknown): Tri | undefined => (v === 'yes' ? true : v === 'no' ? 
 export function parseReviewForm(form: FormLike, now: Date = new Date()): ReviewParse {
   const errors: string[] = [];
   const existence = form.get('existence');
-  const access = form.get('access');
+  const independentAccess = form.get('access_mode') === 'independent';
+  const access = independentAccess ? 'unknown' : form.get('access');
   if (!EXISTENCE_VALUES.includes(existence as Existence)) errors.push('Choose whether the restroom exists, does not exist, or you are unsure.');
   if (!ACCESS_VALUES.includes(access as AccessChoice)) errors.push('Choose an access option (or Unknown).');
 
@@ -54,6 +58,15 @@ export function parseReviewForm(form: FormLike, now: Date = new Date()): ReviewP
     else facts[f] = v;
   }
   if (facts.hot_water === true && facts.cold_water_only === true) errors.push('Hot water and cold-water-only cannot both be Yes.');
+
+  const accessValues: Record<string, Tri> = independentAccess ? {} : accessFacts(access as AccessChoice);
+  if (independentAccess) {
+    for (const f of ['key_required', 'purchase_required', 'fee_required']) {
+      const v = tri(form.get(f));
+      if (v === undefined) errors.push(`${f} must be Yes, No or Unknown.`);
+      else accessValues[f] = v;
+    }
+  }
 
   const rawNotes = form.get('notes');
   let notes: string | null = null;
@@ -83,6 +96,7 @@ export function parseReviewForm(form: FormLike, now: Date = new Date()): ReviewP
     ok: true,
     input: {
       reviewer, existence: existence as Existence, access: access as AccessChoice,
+      ...accessValues,
       wheelchair_accessible: facts.wheelchair_accessible ?? null, gender_neutral: facts.gender_neutral ?? null,
       baby_changing: facts.baby_changing ?? null, hot_water: facts.hot_water ?? null, cold_water_only: facts.cold_water_only ?? null,
       notes, personally_verified: personally, verified_on: verifiedOn,

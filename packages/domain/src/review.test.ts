@@ -11,6 +11,12 @@ const errs = (o: Record<string, string>) => {
 };
 
 describe('parseReviewForm', () => {
+  it('preserves simultaneous purchase and key requirements with unknown fees', () => {
+    const r = parse({ access_mode: 'independent', key_required: 'yes', purchase_required: 'yes', fee_required: 'unknown' });
+    expect(r.ok && r.input).toMatchObject({ key_required: true, purchase_required: true, fee_required: null });
+    expect(errs({ access_mode: 'independent', key_required: 'maybe' })).toContain('Yes, No or Unknown');
+  });
+
   it('keeps everything unknown (null) unless explicitly answered, and never verifies by default', () => {
     const r = parse();
     expect(r.ok).toBe(true);

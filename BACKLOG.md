@@ -27,7 +27,7 @@ OS-110 DONE (remote access-model verification passed) Discovery tests.
 OS-110a DONE(LIVE) Three-state visibility + canonical/source split + constrained public functions + safety rules (approved scope change, Opus review applied).
 OS-110b DONE(code; importer NOT run, no data imported) OSM importer pulled forward from OS-306 (reusable, idempotent, refreshable, guarded). No import without separate approval.
 OS-110c HUMAN LEGAL/LICENSING GATE (ODbL): required before commercial-scale OSM import, public launch with OSM data, data licensing, or combining substantial OSM data with proprietary/community datasets.
-OS-111 HUMAN MVP-CORE CHECKPOINT: NOT APPROVED. Cody dev OSM seed LIVE (65 records: 9 public Unverified, 56 hidden Candidates). Building validator (apps/admin /review) so the owner can validate/enrich; migration 20261005000001 awaits approval. Then CHECKPOINT_OS-111.md Parts B-C. Phase 2 not started.
+OS-111 HUMAN MVP-CORE CHECKPOINT: NOT APPROVED. Cody dev OSM seed live (65 records); admin review migrations applied and expanded review form saving enabled. Proceed to CHECKPOINT_OS-111.md user-facing walkthrough. Phase 2 not started.
 
 ## Phase 2 Accounts/contributions
 OS-201 Auth email/Google/Apple.
