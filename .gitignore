@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+dist/
+
+# Local manual-entry data (never commit)
+*.local.json
+manual-locations.sql
+os111-*.sql
+os111-geocodes*.json

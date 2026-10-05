@@ -1,0 +1,35 @@
+{
+  "name": "open-stall",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "supabase": "supabase",
+    "lint": "eslint . && npm run lint -w @open-stall/admin",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check": "npm run lint && npm run typecheck && npm test && npm run check:secrets",
+    "test:db": "bash scripts/test-db.sh",
+    "test:e2e": "node scripts/e2e-smoke.mjs",
+    "verify:remote-rls": "node scripts/verify-remote-rls.mjs",
+    "import:osm": "npm run osm -w @open-stall/importer --",
+    "manual:sql": "npm run manual -w @open-stall/importer --",
+    "live:nearby": "node scripts/live-nearby.mjs",
+    "research:sql": "npm run research -w @open-stall/importer --",
+    "doctor": "node scripts/doctor-live.mjs",
+    "live:account": "node scripts/live-account-check.mjs",
+    "test:e2e:auth": "node scripts/e2e-auth.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^57.0.2",
+    "playwright-core": "^1.63.0",
+    "supabase": "^2.118.0"
+  }
+}

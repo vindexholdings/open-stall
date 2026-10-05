@@ -2,50 +2,55 @@
 Status: TODO | IN PROGRESS | BLOCKED | DONE
 
 ## Phase 0 Foundation
-OS-001 TODO Verify dedicated repo/remote and isolation.
-OS-002 TODO Scaffold Expo + TypeScript with web.
-OS-003 TODO Establish workspace/shared domain structure.
-OS-004 TODO Bind dedicated Supabase project/local config.
-OS-005 TODO Bind dedicated Vercel project.
-OS-006 TODO Bind Expo/EAS project/identifiers.
-OS-007 TODO Env example, secrets rules, lint/typecheck/tests.
-OS-008 TODO CI checks for PRs.
-OS-009 TODO Design tokens/navigation shell.
-OS-010 TODO HUMAN ARCHITECTURE CHECKPOINT.
+OS-001 DONE Verify dedicated repo/remote and isolation.
+OS-002 DONE Scaffold Expo + TypeScript with web.
+OS-003 DONE Establish workspace/shared domain structure.
+OS-004 DONE Bind dedicated Supabase project/local config. (ref recorded; remote link run by human when migrations need pushing)
+OS-005 DONE Bind dedicated Vercel project. (prj_aYX3LqJlAliTCo8leZYO7zlIk6SD; Root Directory apps/admin; preview verified by human 2026-10-03)
+OS-006 DONE Bind Expo/EAS project/identifiers.
+OS-007 DONE Env example, secrets rules, lint/typecheck/tests.
+OS-008 DONE CI checks for PRs.
+OS-009 DONE Design tokens/navigation shell.
+OS-010 DONE HUMAN ARCHITECTURE CHECKPOINT (approved 2026-10-02: Next.js admin at apps/admin on Vercel).
 
 ## Phase 1 Discovery core
-OS-101 DB migrations: locations/amenities.
-OS-102 RLS/public verified reads.
-OS-103 Location permission UX.
-OS-104 Map abstraction + map/list home.
-OS-105 Nearby query/distance sort.
-OS-106 Filters.
-OS-107 Location detail.
-OS-108 Navigation/deep links.
-OS-109 Offline/cache.
-OS-110 Discovery tests.
-OS-111 HUMAN MVP-CORE CHECKPOINT.
+OS-101 DONE (v3 migrations LIVE on Open Stall Supabase; verified 2026-10-04) DB migrations: locations/amenities.
+OS-102 DONE (no direct public table access; constrained public functions LIVE; `npm run verify:remote-rls` passed against live project) RLS/public reads.
+OS-103 DONE Location permission UX.
+OS-104 DONE (provider-neutral MapView; Leaflet+configurable tiles; default OSM tiles dev-only) Map abstraction + map/list home.
+OS-105 DONE (bbox query via LocationSource + domain ranking; refresh ~180s) Nearby query/distance sort (now via server functions; live DB currently EMPTY, no data imported).
+OS-106 DONE Filters (incl. Verified only).
+OS-107 DONE Location detail (Report/Correct + Favorite deferred to Phase 2).
+OS-108 DONE (Apple/Google Maps external links, destination-only; openstall://location/<uuid> deep link, id validated) Navigation/deep links.
+OS-109 DONE (public verified data only; no position/area stored; 14-day expiry, 300 entries) Offline/cache.
+OS-110 DONE (remote access-model verification passed) Discovery tests.
+OS-110a DONE(LIVE) Three-state visibility + canonical/source split + constrained public functions + safety rules (approved scope change, Opus review applied).
+OS-110b DONE(code; importer NOT run, no data imported) OSM importer pulled forward from OS-306 (reusable, idempotent, refreshable, guarded). No import without separate approval.
+OS-110c HUMAN LEGAL/LICENSING GATE (ODbL): required before commercial-scale OSM import, public launch with OSM data, data licensing, or combining substantial OSM data with proprietary/community datasets.
+OS-111 DONE (APPROVED by owner 2026-10-05; device/browser not recorded) HUMAN MVP-CORE CHECKPOINT.
 
 ## Phase 2 Accounts/contributions
-OS-201 Auth email/Google/Apple.
-OS-202 Evaluate Yahoo SSO.
-OS-203 Profile/preferences/modes.
-OS-204 Favorites/free cap.
-OS-205 Ratings/check-ins.
-OS-206 Location/edit submissions.
-OS-207 Reports.
-OS-208 Private-residence/abuse safeguards.
-OS-209 Account deletion.
-OS-210 Security/contribution tests.
+OS-201 DONE for email/password (live validated 2026-10-05: signup, confirmation, login/logout, password reset, password saving). Google OAuth DEFERRED/not configured; Apple SKIPPED Auth email/Google/Apple. Discovery stays public; account features/contributions require sign-in.
+OS-202 DONE (evaluated and DEFERRED, see AUTH_DECISIONS.md) Evaluate Yahoo SSO.
+OS-203 DONE (live validated) Profile/preferences/modes: Settings (Plain/Risqué, default transport, display name), local-first, synced to the account.
+OS-204 DONE (live validated) Favorites/free cap of 5 (premium raise later, OS-502).
+OS-205 DONE (live validated; real on-site check-in still to be tried in the field) Ratings 1-5 + structured observations; check-ins verified within 150 m, position never stored.
+OS-206 BUILT (migration 20261007000001 pending owner; earlier version live-validated) Submissions: NEW restrooms only from the contributor's CURRENT location (device fix, accuracy <= 50 m, no map pin, no arbitrary coordinates); corrections to existing restrooms need no location; pending only, never public, public-place attestation required, no photos. Admins keep manual placement/editing of coordinates (service_role / Phase 3).
+OS-207 DONE (live validated) Reports with controlled issue types.
+OS-208 BUILT (pre-queue abuse controls in migration 20261007000001, pending owner; thresholds in SECURITY.md) Private-residence heuristic, link/contact rejection, shared rate limiter, already-listed and duplicate detection, coalescing of repeated reports, repeat-rejection pause, triage flags.
+OS-209 DONE (UI + SQL + mock e2e tested; deletion in the real UI not exercised: the permanent test account is kept) Account deletion (typed DELETE; cascades all account data).
+OS-210 DONE (tests) SQL account suite (mutation-checked), domain/app tests, real-browser mock-backend e2e. Live verification waits for the owner applying the migrations.
 
 ## Phase 3 Admin/data
-OS-301 Admin authorization.
-OS-302 Moderation queue.
-OS-303 Approve/reject/edit.
+OS-301 Admin authorization (the validator's requireAdmin() gate is local-only until this).
+OS-302 Moderation queue (PARTIAL: minimal seeded-location validator pulled forward, see ADMIN_REVIEW.md).
+OS-303 Approve/reject/edit (PARTIAL: review function + UI for existence/access/amenities/verification).
 OS-304 Duplicate review/merge.
 OS-305 CSV import/export.
-OS-306 OSM-derived seed pipeline + attribution.
+OS-306 PARTIAL (core importer built in OS-110b) OSM-derived seed pipeline + attribution.
 OS-307 Admin analytics.
+OS-308 DATA QUALITY (not started; Phase 3, no geography expansion) Enrich generic names: several legitimate Cody records (municipal properties, parks, public restroom facilities) display only as "Restroom". Replace with descriptive names ("[Park Name] Restroom", "[Facility Name] Public Restroom") using authoritative City of Cody / Park County facility or property data where licensing allows (check terms/public-record status first). Keep the original name and source/provenance in location_sources, record the enrichment as its own source, go through the admin review/audit path, and NEVER invent a name when no authoritative source exists.
+OS-309 Moderation retention (not started; with OS-301/OS-302): define how long submitter linkage, capture_accuracy_m and triage flags are kept after a submission is approved/rejected (default proposal: unlink the submitter and drop the accuracy/flags within 30 days of review) and surface submissions.flags in the review queue (sort by flag).
 
 ## Phase 4 Community
 OS-401 Points ledger.
@@ -71,6 +76,6 @@ OS-604 Accessibility audit.
 OS-605 Security/RLS audit.
 OS-606 Performance/release tests.
 OS-607 Store readiness.
-OS-608 HUMAN PRODUCTION RELEASE APPROVAL.
+OS-608 HUMAN PRODUCTION RELEASE APPROVAL (requires OS-110c ODbL/licensing sign-off).
 
 Do not silently pull future scope forward.
