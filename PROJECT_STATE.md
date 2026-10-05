@@ -47,3 +47,11 @@ Agent: verify live public API/RLS using the anon key; configure/start the local 
 
 Claude stays on Sonnet unless an explicit recommendation changes it.
 Never infer IDs or reuse another Vindex resource.
+
+## Consolidated-chat continuation — 2026-10-04
+- Jake authorized ongoing access to `/Users/jake/open-stall/`; preserve the existing Claude checkout.
+- Public publishable key configured in ignored `apps/mobile/.env.local`; reuse it, do not request it again. See ENVIRONMENT.md.
+- Public API/RLS checks passed with that key: 16 nearby Cody results (14 Verified, 2 Unverified), distance sorted, hidden/admin data protected.
+- Current `npm run check` passed: 157 tests, lint, typecheck, secret scan.
+- Expo dev server blocked by macOS EMFILE watcher limit; web export succeeds. Static customer preview served on http://127.0.0.1:8081 from consolidated chat work/customer-preview. Automated browser binding was blocked by browser security policy; visual/device checks remain unverified.
+- Next: Jake opens preview, taps Find Nearest Restroom, and allows location; continue CHECKPOINT_OS-111.md one step at a time. OS-111 remains unapproved.
