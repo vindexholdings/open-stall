@@ -34,7 +34,7 @@ const CHECKS_NO_BACKEND = [
   ['/favorites', ['Accounts aren’t available in this build.']],
   ['/account', ['Accounts aren’t available in this build.']],
   ['/auth/sign-in', ['Accounts aren’t available in this build.', 'Back to restrooms']],
-  ['/settings', ['Display mode']],
+  ['/settings', ['Display style']],
   ['/location/not-a-uuid', ['This restroom link isn’t valid.']],
 ];
 // With a (fake, never contacted) backend configured: signed-out UI renders, discovery needs no account.

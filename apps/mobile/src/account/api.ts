@@ -99,9 +99,22 @@ export async function checkIn(c: RpcClientLike, id: string, at: { latitude: numb
 }
 
 // ---------------------------------------------------------------- contributions
-export async function submitNewLocation(c: RpcClientLike, proposed: Record<string, unknown>, note: string | null): Promise<Outcome> {
-  const r = await call(c, 'submit_location', { p_proposed: proposed, p_attested: true, p_note: note });
-  return r.ok ? { ok: true } : r;
+/**
+ * New restroom, placed at the contributor's CURRENT position (a fresh device fix). The position travels as
+ * separate arguments, never inside `proposed`; the database rejects anything else. `coalesced` is true when
+ * someone already reported this place and your report was added to that item instead of a new one.
+ */
+export async function submitNewLocation(
+  c: RpcClientLike,
+  proposed: Record<string, unknown>,
+  position: { latitude: number; longitude: number; accuracyM: number },
+  note: string | null,
+): Promise<Outcome<{ coalesced: boolean }>> {
+  const r = await call(c, 'submit_location', {
+    p_proposed: proposed, p_lat: position.latitude, p_lng: position.longitude, p_accuracy_m: position.accuracyM, p_attested: true, p_note: note,
+  });
+  if (!r.ok) return r;
+  return { ok: true, coalesced: obj(r.data).coalesced === true };
 }
 
 export async function submitEdit(c: RpcClientLike, id: string, proposed: Record<string, unknown>, note: string | null): Promise<Outcome> {

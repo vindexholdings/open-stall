@@ -51,7 +51,7 @@ export default function AccountScreen() {
           <Text style={styles.body} accessibilityLabel={`Signed in as ${email ?? 'your account'}`}>Signed in as {email ?? 'your account'}</Text>
           <Text style={styles.hint}>Your email is private. It is never shown to other people.</Text>
           {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
-          <PrimaryButton label="Add a restroom" onPress={() => router.push('/contribute')} accessibilityHint="Suggest a public restroom that is missing from the map." />
+          <PrimaryButton label="Add restroom at my current location" onPress={() => router.push('/contribute')} accessibilityHint="Stand at a public restroom that is missing from the map to add it." />
           <SecondaryButton
             label="Sign out"
             onPress={() => {

@@ -22,7 +22,7 @@ export default function RootLayout() {
         <Tabs.Screen name="location/[id]" options={{ href: null, title: 'Restroom' }} />
         <Tabs.Screen name="account" options={{ title: 'Account' }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
-        <Tabs.Screen name="contribute" options={{ href: null, title: 'Add a restroom' }} />
+        <Tabs.Screen name="contribute" options={{ href: null, title: 'Add restroom' }} />
         <Tabs.Screen name="report" options={{ href: null, title: 'Report a problem' }} />
         <Tabs.Screen name="auth/sign-in" options={{ href: null, title: 'Sign in' }} />
         <Tabs.Screen name="auth/callback" options={{ href: null, title: 'Signing in' }} />
