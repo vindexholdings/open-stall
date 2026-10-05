@@ -27,13 +27,32 @@ const get = async (path, init = {}) => {
 let bad = 0;
 const row = (ok, name, detail = '') => { console.log(`${ok === null ? 'INFO' : ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`); if (ok === false) bad++; };
 
-// 1. Database objects (a table that exists but is not granted answers 42501; a missing one answers PGRST205/404).
+// 1. Database objects. Every table is private: with the anon key a table that exists answers 42501 (or 401/403);
+//    a missing one answers PGRST205/404. `select=*` is used because tables differ in key columns (profiles uses
+//    user_id; favorites/review_observations have composite keys), and an unknown column would answer 42703
+//    before the permission check.
 const tables = ['locations', 'location_sources', 'import_runs', 'location_reviews', 'profiles', 'favorites', 'reviews', 'review_observations', 'checkins', 'submissions', 'reports', 'action_log'];
 for (const t of tables) {
-  const r = await get(`/rest/v1/${t}?select=id&limit=1`);
+  const r = await get(`/rest/v1/${t}?select=*&limit=1`);
   const exists = r.json?.code === '42501' || r.status === 401 || r.status === 403;
   const missing = r.json?.code === 'PGRST205' || r.status === 404;
-  row(null, `table ${t}`, exists ? 'installed (private)' : missing ? 'NOT installed yet' : `status ${r.status} ${r.json?.code ?? ''}`);
+  row(exists, `table ${t}`, exists ? 'installed, private (anon denied)' : missing ? 'NOT installed' : `UNEXPECTED status ${r.status} ${r.json?.code ?? ''}`);
+}
+// Account functions: installed and NOT callable anonymously (denied = 401/403 + 42501; missing = PGRST202/404).
+const U = '00000000-0000-0000-0000-000000000000';
+const accountFns = {
+  get_my_profile: {}, update_my_profile: { p_display_name: null, p_mode: 'plain', p_transport: 'walk' },
+  add_favorite: { p_location: U }, remove_favorite: { p_location: U }, list_my_favorites: { p_lat: null, p_lng: null },
+  submit_review: { p_location: U, p_rating: 3, p_mode: 'plain', p_observations: [] }, get_my_review: { p_location: U }, delete_my_review: { p_location: U },
+  check_in: { p_location: U, p_lat: 0, p_lng: 0 }, submit_location: { p_proposed: {}, p_attested: true, p_note: null },
+  submit_location_edit: { p_location: U, p_proposed: {}, p_attested: true, p_note: null }, list_my_submissions: {}, withdraw_my_submission: { p_id: U },
+  submit_report: { p_location: U, p_issue: 'other', p_comment: null }, delete_my_account: { p_confirm: 'x' },
+};
+for (const [fn, args] of Object.entries(accountFns)) {
+  const r = await get(`/rest/v1/rpc/${fn}`, { method: 'POST', body: JSON.stringify(args) });
+  const denied = r.json?.code === '42501' || r.status === 401 || r.status === 403;
+  const missing = r.json?.code === 'PGRST202' || r.status === 404;
+  row(denied, `function ${fn}`, denied ? 'installed, anon denied' : missing ? 'NOT installed' : `UNEXPECTED status ${r.status} ${r.json?.code ?? ''} (anon may be able to call it!)`);
 }
 const near = await get('/rest/v1/rpc/nearby_locations', { method: 'POST', body: JSON.stringify({ p_lat: 44.5263, p_lng: -109.0565, p_radius_m: 16000, p_limit: 100, p_verified_only: false }) });
 row(near.status === 200 && Array.isArray(near.json), 'public nearby_locations works', Array.isArray(near.json) ? `${near.json.length} public rows near Cody` : `status ${near.status}`);

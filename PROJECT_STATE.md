@@ -43,3 +43,5 @@ Claude then: Phase 3 (OS-301 real admin authorization, submission/report review 
 
 Last tests: npm run check pass (domain 86, mobile 32, importer 65, admin 6, ui 15); test:db pass (incl. account suite); test:e2e pass; test:e2e:auth pass (40 checks); web/android/ios bundles and admin build compile.
 Never infer IDs or reuse another Vindex resource.
+
+2026-10-05 Owner applied Phase 2 migrations 20261006000001-3 (ledger confirms 20261004000001-3, 20261005000001-2, 20261006000001-3). Doctor showed 42703 for profiles/favorites/review_observations: doctor-script bug (probed select=id; those tables have no id column), NOT a schema/RLS defect. Fixed doctor (select=*; now also checks 15 account functions are installed and anon-denied) and added `npm run live:account`. No new migration.

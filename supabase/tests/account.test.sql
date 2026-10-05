@@ -68,6 +68,19 @@ do $$ declare t text; f text; begin
     'authenticated must not run validator functions';
 end $$;
 
+-- Doctor regression: probing a key column that doesn't exist yields undefined_column (42703) BEFORE the
+-- permission check, so profiles/favorites/review_observations (no `id` column) must be probed with select=*.
+do $$ declare t text; begin
+  execute 'set local role anon';
+  foreach t in array array['profiles', 'favorites', 'review_observations'] loop
+    begin execute format('select id from public.%I limit 1', t); raise exception '% unexpectedly has id', t;
+    exception when undefined_column then null; end;
+    begin execute format('select * from public.%I limit 1', t); raise exception 'anon read %', t;
+    exception when insufficient_privilege then null; end;
+  end loop;
+  reset role;
+end $$;
+
 -- ------------------------------------------------ not authenticated (no sub) is rejected
 set role authenticated;
 select pg_temp.as_user(null);
