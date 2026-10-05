@@ -31,7 +31,7 @@ OS-111 DONE (APPROVED by owner 2026-10-05; device/browser not recorded) HUMAN MV
 
 ## Phase 2 Accounts/contributions
 OS-201 IN PROGRESS (code built; provider setup + live test pending owner) Auth email/Google/Apple. Discovery stays public; account features/contributions require sign-in.
-OS-202 Evaluate Yahoo SSO (evaluate before implementing; Supabase has no built-in Yahoo provider, would need custom OIDC).
+OS-202 DONE (evaluated and DEFERRED, see AUTH_DECISIONS.md) Evaluate Yahoo SSO.
 OS-203 Profile/preferences/modes.
 OS-204 Favorites/free cap.
 OS-205 Ratings/check-ins.
