@@ -25,3 +25,5 @@ Data and licensing architecture (see IMPORT.md): canonical `locations` (Open Sta
 Public clients access data only through constrained server functions (no direct table access). Distance uses a documented Haversine bounding-box approach inside those functions so PostGIS can replace it later without client changes.
 
 Admin: apps/admin (Next.js) hosts the location validator under /review as the seed of Phase 3 moderation. Privileged writes go through service_role-only SQL functions; access is gated by requireAdmin() (local-only now, replaced by Supabase Auth admin authorization in OS-301).
+
+Auth (OS-201): apps/mobile has two Supabase clients: an anonymous discovery client (no session, location queries never identified) and a separate account client (PKCE, persisted session). Pure auth rules live in packages/domain/src/auth.ts; the testable service layer in apps/mobile/src/auth/authService.ts takes the client as an interface. Providers: email/password, Google (browser OAuth), Apple (native iOS ID token).

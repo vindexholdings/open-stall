@@ -31,6 +31,8 @@ jobs:
         run: npm run test:db
       - name: Web smoke test (headless Chrome)
         run: npm run test:e2e
+      - name: Auth UI test (real browser, mock auth backend)
+        run: npm run test:e2e:auth
       - name: Admin build
         run: npm run build -w @open-stall/admin
         env:

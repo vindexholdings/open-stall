@@ -29,9 +29,11 @@ Map tiles: configurable via EXPO_PUBLIC_MAP_TILE_URL / EXPO_PUBLIC_MAP_ATTRIBUTI
 Default public OSM tile server is DEVELOPMENT ONLY (OSM tile policy). Production tile provider = human decision (no paid service without approval).
 Navigation: Apple Maps / Google Maps are external destinations only (OS-108); no map SDK keys used.
 
+Supabase migrations applied (by human, 2026-10-04): 20261004000001_locations, 20261004000002_public_access, 20261004000003_import_functions. Remote access model verified with `npm run verify:remote-rls`. No location data imported.
+
+Auth providers (OS-201; owner configures in the Supabase dashboard; no secrets in Git): Email (confirm email on, min password 8), Google (OAuth client redirect https://xzzbcejgprilmolvdaes.supabase.co/auth/v1/callback), Apple (native iOS, client id com.vindexholdings.openstall; Apple Developer Program is a paid prerequisite). Redirect URLs: openstall://auth/callback, http://localhost:8081/auth/callback. See AUTH_SETUP.md.
+
+## Local Mac facts (merged from local checkout)
 Supabase migrations applied (by human, 2026-10-04): 20261004000001_locations, 20261004000002_public_access, 20261004000003_import_functions. Remote access model verified with `npm run verify:remote-rls`. Cody dev import finalized: 65 records; 9 initially public Unverified and 56 initially hidden Candidate.
-
-Admin migrations `20261005000001_location_reviews.sql` and `20261005000002_review_visit_details.sql` are applied (2026-10-04). Visit details are admin-only; public review browsing remains gated. Private notes are not converted to public comments. Local admin identity defaults to `local-admin`; optional `ADMIN_REVIEWER_ID` is independent of display username. OS-111 remains unapproved.
-
 ## Local customer-app configuration
 The approved public publishable key is saved in `apps/mobile/.env.local` (ignored by Git). Reuse this file on future sessions; do not ask Jake for the key again while it exists. The legacy variable name `EXPO_PUBLIC_SUPABASE_ANON_KEY` accepts this public publishable key. Never substitute the admin service-role key. Run public API checks from the repo root with `node --env-file=apps/mobile/.env.local scripts/verify-remote-rls.mjs`.

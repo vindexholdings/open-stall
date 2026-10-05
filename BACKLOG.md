@@ -27,19 +27,19 @@ OS-110 DONE (remote access-model verification passed) Discovery tests.
 OS-110a DONE(LIVE) Three-state visibility + canonical/source split + constrained public functions + safety rules (approved scope change, Opus review applied).
 OS-110b DONE(code; importer NOT run, no data imported) OSM importer pulled forward from OS-306 (reusable, idempotent, refreshable, guarded). No import without separate approval.
 OS-110c HUMAN LEGAL/LICENSING GATE (ODbL): required before commercial-scale OSM import, public launch with OSM data, data licensing, or combining substantial OSM data with proprietary/community datasets.
-OS-111 HUMAN MVP-CORE CHECKPOINT: NOT APPROVED. Cody dev OSM seed live (65 records); admin review migrations applied and expanded review form saving enabled. Proceed to CHECKPOINT_OS-111.md user-facing walkthrough. Phase 2 not started.
+OS-111 DONE (APPROVED by owner 2026-10-05; device/browser not recorded) HUMAN MVP-CORE CHECKPOINT.
 
 ## Phase 2 Accounts/contributions
-OS-201 Auth email/Google/Apple.
-OS-202 Evaluate Yahoo SSO.
-OS-203 Profile/preferences/modes.
-OS-204 Favorites/free cap.
-OS-205 Ratings/check-ins.
-OS-206 Location/edit submissions.
-OS-207 Reports.
-OS-208 Private-residence/abuse safeguards.
-OS-209 Account deletion.
-OS-210 Security/contribution tests.
+OS-201 IN PROGRESS (code built; provider setup + live test pending owner) Auth email/Google/Apple. Discovery stays public; account features/contributions require sign-in.
+OS-202 DONE (evaluated and DEFERRED, see AUTH_DECISIONS.md) Evaluate Yahoo SSO.
+OS-203 BUILT (migration 20261006000001 not yet applied) Profile/preferences/modes: Settings (Plain/Risqué, default transport, display name), local-first, synced to the account.
+OS-204 BUILT (migration 20261006000002 not yet applied) Favorites/free cap of 5 (premium raise later, OS-502).
+OS-205 BUILT (migration 20261006000002 not yet applied) Ratings 1-5 + structured observations; check-ins verified within 150 m, position never stored.
+OS-206 BUILT (migration 20261006000003 not yet applied) Location/edit submissions: pending only, never public, attestation required, no photos.
+OS-207 BUILT (migration 20261006000003 not yet applied) Reports with controlled issue types.
+OS-208 BUILT (migrations 20261006000001-3 not yet applied) Private-residence heuristic, link/contact rejection, shared rate limiter, pending caps.
+OS-209 BUILT (migration 20261006000003 not yet applied) Account deletion (typed DELETE; cascades all account data).
+OS-210 DONE (tests) SQL account suite (mutation-checked), domain/app tests, real-browser mock-backend e2e. Live verification waits for the owner applying the migrations.
 
 ## Phase 3 Admin/data
 OS-301 Admin authorization (the validator's requireAdmin() gate is local-only until this).

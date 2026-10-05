@@ -19,4 +19,6 @@ moderation_log: material admin actions.
 Enable PostGIS if appropriate and geospatial index.
 Flag duplicate candidates by normalized address or roughly 50m proximity for admin review; do not auto-merge on distance alone.
 
+Account layer (migrations 20261006000001-3): action_log (rate limiting), profiles (auto-created by trigger on auth.users; preferred_mode plain|risque, default_transport walk|drive|bike, display_name restricted, points_balance server-only), favorites, reviews (one per user+location, rating 1-5, mode) + review_observations (6 fixed values, no free text; trigger keeps locations.average_rating/rating_count current, including on deletion), checkins (no coordinates), submissions (kind new_location|edit_location, whitelisted `proposed` jsonb, attestation, possible_duplicate_of, status pending|approved|rejected; approval workflow is Phase 3), reports (7 issue types, one open report per user+location+type). All access via authenticated-only SECURITY DEFINER functions; tests in supabase/tests/account.test.sql.
+
 Public reads: via constrained functions only (no direct table access); verified + explicit-evidence unverified rows; trimmed fields (IMPORT.md).

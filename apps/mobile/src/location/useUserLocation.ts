@@ -22,7 +22,7 @@ function subscribe(listener: () => void) {
   };
 }
 
-async function request() {
+async function request(): Promise<LocationAccessState> {
   try {
     let permission = await Location.getForegroundPermissionsAsync();
     if (permission.status === 'undetermined' || (permission.status === 'denied' && permission.canAskAgain)) {
@@ -30,7 +30,7 @@ async function request() {
     }
     const next = stateFromPermission(permission.status, permission.canAskAgain);
     set(next);
-    if (next.kind !== 'locating') return;
+    if (next.kind !== 'locating') return current;
 
     const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     set({
@@ -40,6 +40,7 @@ async function request() {
   } catch {
     set({ kind: 'unavailable' });
   }
+  return current;
 }
 
 export function useUserLocation() {

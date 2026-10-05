@@ -11,3 +11,5 @@ grant usage on schema public, auth to anon, authenticated, service_role;
 -- Mirror Supabase default privileges (new public tables are granted to API roles).
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+-- Stand-in for Supabase's auth.users (only the column the schema references).
+create table auth.users (id uuid primary key default gen_random_uuid(), email text);

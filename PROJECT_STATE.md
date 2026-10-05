@@ -1,19 +1,13 @@
 # Project State
-Last updated: 2026-10-04 (admin review workflow live and expanded)
-Current phase: Phase 1 (Discovery core), pending human checkpoint
-Current task: OS-111 NOT approved. Prepare user-facing app for live walkthrough.
-Branch: claude-local; upstream claude/pensive-brahmagupta-wrrhxn (PR #1 remains unmerged).
-Last commit: see git log.
+Last updated: 2026-10-05 (Phase 2 OS-201..210 built; migrations 20261006000001-3 awaiting owner)
+Current phase: Phase 2 (Accounts/contributions)
+Current task: Phase 2 built end to end (OS-201 auth, OS-203..209 accounts/contributions, OS-210 tests); waiting on owner to apply migrations and run live checks. OS-111 APPROVED 2026-10-05 by owner (browser/device not recorded; per-test results not itemized)
+Branch: claude/pensive-brahmagupta-wrrhxn (draft PR vindexholdings/open-stall#1)
+Last commit: see git log (OS-009 commit)
 
-Completed in this continuation:
-- Cody dev seed remains 65 records. Latest confirmed read: 14 Verified, 3 Unverified, 48 hidden Candidate; initial import was 9 Unverified + 56 Candidate. No geography expansion.
-- Applied review migrations 20261005000001 and 20261005000002 to the expected dev project xzzbcejgprilmolvdaes.
-- Admin /review: embedded OSM map; editable username; independent customer-only/key/fee requirements; family bathroom separate from gender neutral; hot and cold water independent; restroom type; optional stars/public comment; cleanliness and condition checks; posted cleaning/inspection log.
-- Prior private notes remain private. Public review page/submission remains gated. Stable admin identity separates repeat confirmations/ratings from unique people. Older visits do not reduce verification recency.
-- Existing OSM provenance remains intact; no import automatically creates Verified locations.
-- Tests: full npm run check passed (157 tests across workspaces), type checks/lint/secret scan; disposable PostgreSQL validates all five migrations and both review suites. Live admin HTTP checks confirm the map/new fields/save button.
-
-Earlier history (superseded snapshots; original dates retained):
+Completed:
+- 2026-10-05 PHASE 2 BUILT: migrations 20261006000001 (action_log/rate limiter, profiles, preferences), 20261006000002 (favorites cap 5, ratings+observations with aggregate trigger, check-ins 150 m no coordinates), 20261006000003 (submissions, reports, delete_my_account) — authenticated-only SECURITY DEFINER functions, no table access, tests in supabase/tests/account.test.sql (7 mutation checks all caught). Domain account.ts rules; apps/mobile account/api.ts + preferences store; UI: Settings (mode/transport/display name), Favorites, restroom actions (save, rate, observations, check-in, correct, report), /contribute (new+edit with public-place attestation), /report, Account (add restroom, typed-DELETE account deletion). Doctor script + auth e2e (now 40 checks incl. all account flows against a mock backend). OS-202 Yahoo deferred (AUTH_DECISIONS.md). NOT applied to the live DB; sandbox cannot reach Supabase.
+- 2026-10-05 OS-111 APPROVED by owner ("completed the remaining customer-app checks"); browser/device NOT recorded; per-test results not itemized. Recorded in PROJECT_STATE, BACKLOG, CHECKPOINT_OS-111.md. OS-201 BUILT (code complete; provider setup + live sign-in test pending owner): packages/domain auth rules (feature gating, validation, generic errors, safeNextPath, PKCE callback parsing), apps/mobile auth layer (separate persisted account client with SecureStore chunked storage; anonymous discovery client untouched; authService for email/Google/Apple with injectable client; AuthProvider; RequireAuth gate), screens (/auth/sign-in, /auth/callback, /auth/reset, Account tab, Favorites gated), app.json Apple sign-in + plugins, local config.toml redirect URLs/min password 8/confirmations on, AUTH_SETUP.md. Discovery stays public. No migration. Checks: domain 63, mobile 27+, smoke covers no-backend and signed-out suites; android/ios/web bundles compile. Not done by Claude: provider dashboard setup (owner checklist), live sign-in tests, merge, deploy, costs. Environment note: Claude works in the cloud checkout (/home/user/open-stall); the owner's Mac files (apps/mobile/.env.local, manual-locations.json) are untouched and were not read.
 - 2026-10-06 LIVE: Cody dev OSM seed applied by human (inserted 65, duplicates 0, held 0, public_in_area 9, finalize flagged/hidden 0). 2026-10-06 BUILT (not applied): location validator: packages/domain review rules, migration 20261005000001_location_reviews.sql (location_reviews + service_role-only apply_location_review), apps/admin /review pages + server action behind a local-only gate (requireAdmin), tests (domain 55, admin gate, DB review suite mutation-checked). Reads work now (resilient before migration); saving needs the migration.
 - 2026-10-05 Dry run (human): cody-area, 2 tiles, 87 elements, 65 records (9 explicit, 56 inferred), 21 unnamed-candidate skipped, complete=true, no DB writes. Human approved applying the saved capture to the live project as dev run "cody-dev". Expected public (Unverified) = 9 minus any held (OSM edit < 14 days) or duplicate-flagged; 56 inferred stay hidden candidates; none can be Verified by import. Cleanup: supabase/dev/osm-dev-cleanup.sql.
 - 2026-10-05 OSM dev-import prep (nothing run/imported): grocery/convenience + lodging added to hidden candidate categories; Overpass editor identity (user/uid/changeset) stripped before classification and before saved captures; tested DB cleanup supabase/dev/osm-dev-cleanup.sql (only unedited OSM-only candidate/unverified rows seen by *-dev runs); IMPORT.md section 11 documents plan + ODbL consequences. Importer 65 tests; DB suite passes incl. cleanup.
@@ -37,21 +31,17 @@ Notes:
 - Proxy blocks Expo API here; use EXPO_OFFLINE=1 for `expo install`/`expo export`.
 - Brand blue #1E90FF fails AA with white text; use primaryStrong #0B63C4 for text/buttons.
 
-Blockers/gates:
-- OS-111 human approval remains pending. Device/browser permission, navigation and offline behavior need the live walkthrough.
-- Production tile-provider decision and ODbL gate remain required before public launch or broader commercial import.
-- No merge of PR #1/main, production deployment, geography expansion, costs, or Phase 2 without the corresponding gate.
+Blockers (human):
+- OS-201 provider setup (Supabase dashboard, Google Cloud; Apple needs paid Apple Developer Program approval). Production tile provider decision. ODbL licensing gate (OS-110c) before larger imports/public launch. Migration 20261005000001 (validator) status not confirmed in this record.
 
-Next exact action:
-Agent: verify live public API/RLS using the anon key; configure/start the local user app; finish checks and commit this coherent admin unit. Human: one operational checkpoint step at a time in CHECKPOINT_OS-111.md. Do not infer OS-111 approval from admin review success.
+Next exact action (owner, in order):
+1. On the Mac: `npm run doctor` (read-only, uses existing apps/mobile/.env.local) — shows whether 20261005000001 and the Google/email providers are live.
+2. Review then apply pending migrations: 20261005000001 (if doctor says missing) and 20261006000001, 20261006000002, 20261006000003 via `npx supabase db push --dry-run` then `npx supabase db push` (needs the owner's DB link/password).
+3. If doctor shows Google not ready: AUTH_SETUP.md (Google Cloud OAuth client, paste into Supabase Providers -> Google). Apple is skipped until the paid program is approved.
+4. Live-test on web/device: email sign-up, Google, favorite, rate, check-in, report, submit, delete account.
+Claude then: Phase 3 (OS-301 real admin authorization, submission/report review queue, approvals into locations) after owner approval of Phase 2. No merge to main, production deploy, costs or import expansion. Supabase MCP in this session is bound to a DIFFERENT Vindex project: do not use it.
 
-Claude stays on Sonnet unless an explicit recommendation changes it.
+Last tests: npm run check pass (domain 86, mobile 32, importer 65, admin 6, ui 15); test:db pass (incl. account suite); test:e2e pass; test:e2e:auth pass (40 checks); web/android/ios bundles and admin build compile.
 Never infer IDs or reuse another Vindex resource.
 
-## Consolidated-chat continuation — 2026-10-04
-- Jake authorized ongoing access to `/Users/jake/open-stall/`; preserve the existing Claude checkout.
-- Public publishable key configured in ignored `apps/mobile/.env.local`; reuse it, do not request it again. See ENVIRONMENT.md.
-- Public API/RLS checks passed with that key: 16 nearby Cody results (14 Verified, 2 Unverified), distance sorted, hidden/admin data protected.
-- Current `npm run check` passed: 157 tests, lint, typecheck, secret scan.
-- Expo dev server blocked by macOS EMFILE watcher limit; web export succeeds. Static customer preview served on http://127.0.0.1:8081 from consolidated chat work/customer-preview. Automated browser binding was blocked by browser security policy; visual/device checks remain unverified.
-- Next: Jake opens preview, taps Find Nearest Restroom, and allows location; continue CHECKPOINT_OS-111.md one step at a time. OS-111 remains unapproved.
+Local-checkout reconciliation (2026-10-05): migrations 20261005000001_location_reviews.sql and 20261005000002_review_visit_details.sql were applied to the live project earlier by the owner. Phase 2 migrations 20261006000001, 20261006000002 and 20261006000003 are still pending. manual-locations.json is local and untracked; apps/mobile/.env.local is local and ignored.
