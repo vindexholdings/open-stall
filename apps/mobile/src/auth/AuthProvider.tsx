@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AppState, Platform } from 'react-native';
 import type { AuthClientLike } from './authService';
+import type { RpcClientLike } from '../account/api';
 import { authClient } from './client';
 
 export type AuthStatus = 'unavailable' | 'loading' | 'signed-out' | 'signed-in';
@@ -15,6 +16,8 @@ type AuthValue = {
   recovery: boolean;
   clearRecovery: () => void;
   client: AuthClientLike | null;
+  /** Signed-in client for account RPCs (favorites, ratings, ...). Null unless a session may exist. */
+  rpc: RpcClientLike | null;
   /** Where providers and emailed links return to (custom scheme natively, origin on web). */
   redirectUrl: string;
 };
@@ -62,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       recovery,
       clearRecovery: () => setRecovery(false),
       client: authClient as unknown as AuthClientLike | null,
+      rpc: status === 'signed-in' ? (authClient as unknown as RpcClientLike | null) : null,
       redirectUrl: Linking.createURL('auth/callback'),
     }),
     [status, email, recovery],

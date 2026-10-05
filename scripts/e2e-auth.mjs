@@ -3,6 +3,7 @@
 // API. Drives the actual web app UI (Playwright + headless Chromium): gating, email sign-in/up/reset,
 // Google PKCE round trip, persistence, open-redirect safety, and the privacy rule that restroom
 // searches never carry the signed-in user's token. Contacts no real service.
+import { Buffer } from 'node:buffer';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -29,14 +30,20 @@ function findChrome() {
 
 // ---------------------------------------------------------------- mock backend
 const requests = [];
+const LOC_ID = '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d5e';
+const LOC_ROW = { id: LOC_ID, name: 'Mock Park Restroom', address_line: '1 Park Way', city: 'Cody', region: 'WY', postal_code: '82414', latitude: 44.5263, longitude: -109.0565,
+  verification: 'verified', last_verified_at: '2026-10-01T00:00:00Z', opening_hours: null, fee_required: false, key_required: false, purchase_required: false,
+  wheelchair_accessible: true, gender_neutral: null, baby_changing: null, has_hot_water: null, has_cold_water: null, access_location: null, average_rating: null,
+  rating_count: 0, attribution: null, distance_m: null };
+const acct = { favorite: false, review: null, reports: [], submissions: [], checkins: [], name: null, mode: 'plain', transport: 'walk', deleted: false };
 const mock = createServer(async (req, res) => {
   const u = new URL(req.url, `http://127.0.0.1:${MOCK_PORT}`);
   const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
   if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
   let body = ''; for await (const c of req) body += c;
   const json = (status, obj, extra = {}) => { res.writeHead(status, { 'content-type': 'application/json', ...cors, ...extra }); res.end(JSON.stringify(obj)); };
-  requests.push({ method: req.method, path: u.pathname, auth: req.headers.authorization ?? null });
   const data = body ? JSON.parse(body) : {};
+  requests.push({ method: req.method, path: u.pathname, auth: req.headers.authorization ?? null, body: data });
   if (u.pathname === '/auth/v1/token' && u.searchParams.get('grant_type') === 'password') {
     return data.email === USER.email && data.password === GOOD_PW ? json(200, session()) : json(400, { error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
   }
@@ -53,6 +60,30 @@ const mock = createServer(async (req, res) => {
   }
   if (u.pathname === '/rest/v1/rpc/nearby_locations') return json(200, []);
   if (u.pathname === '/rest/v1/rpc/nearest_verified_location') return json(200, []);
+  if (u.pathname.startsWith('/rest/v1/rpc/')) {
+    const fn = u.pathname.slice('/rest/v1/rpc/'.length);
+    if (fn === 'get_public_location') return json(200, [LOC_ROW]);
+    // Everything below is an account function: it needs the signed-in user's token.
+    if (req.headers.authorization !== `Bearer ${JWT}`) return json(401, { code: '28000', message: 'not authenticated' });
+    if (fn === 'list_my_favorites') return json(200, acct.favorite ? [LOC_ROW] : []);
+    if (fn === 'add_favorite') { acct.favorite = true; return json(200, { added: true, count: 1, limit: 5 }); }
+    if (fn === 'remove_favorite') { acct.favorite = false; return json(200, null); }
+    if (fn === 'get_my_review') return json(200, acct.review);
+    if (fn === 'submit_review') {
+      if (!(data.p_rating >= 1 && data.p_rating <= 5)) return json(400, { code: '22023', message: 'rating must be 1-5' });
+      acct.review = { rating: data.p_rating, mode: data.p_mode, observations: data.p_observations }; return json(200, { rating: data.p_rating });
+    }
+    if (fn === 'delete_my_review') { acct.review = null; return json(200, null); }
+    if (fn === 'submit_report') { acct.reports.push(data); return json(200, null); }
+    if (fn === 'submit_location') { acct.submissions.push(data); return json(200, 'sub-1'); }
+    if (fn === 'check_in') { acct.checkins.push(data); return json(200, { checkin_id: 'c1' }); }
+    if (fn === 'get_my_profile') return json(200, [{ display_name: acct.name, preferred_mode: acct.mode, default_transport: acct.transport, points_balance: 0 }]);
+    if (fn === 'update_my_profile') { Object.assign(acct, { name: data.p_display_name, mode: data.p_mode, transport: data.p_transport }); return json(200, []); }
+    if (fn === 'delete_my_account') {
+      if (data.p_confirm !== 'DELETE') return json(400, { code: '22023', message: 'confirmation required' });
+      acct.deleted = true; return json(200, null);
+    }
+  }
   return json(404, { msg: 'not mocked' });
 });
 await new Promise((r) => mock.listen(MOCK_PORT, '127.0.0.1', r));
@@ -102,7 +133,7 @@ try {
     check(await text(page, 'Email or password is incorrect.'), 'wrong password shows the generic message');
 
     await fill(page, 'Password', GOOD_PW); await button(page, 'Sign in').click();
-    check(await text(page, 'Saved restrooms will appear here.'), 'correct password returns to Favorites, now unlocked');
+    check(await text(page, 'No favorites yet.'), 'correct password returns to Favorites, now unlocked');
 
     await page.getByRole('link', { name: 'Account' }).first().click().catch(() => page.goto(`${base}/account`));
     check(await text(page, `Signed in as ${USER.email}`), 'Account shows the signed-in email');
@@ -153,6 +184,80 @@ try {
     await page.goto(`${base}/account`);
     check(await text(page, `Signed in as ${USER.email}`), 'Google sign-in completes the PKCE round trip and signs in');
     check(new URL(page.url()).origin === base, 'a hostile next parameter never leaves the app', page.url());
+    await ctx.close();
+  }
+
+  // 3b. Account features against the stateful mock (favorites, rating, check-in, report, submission, settings, deletion)
+  {
+    const { ctx, page } = await newPage();
+    await page.goto(`${base}/location/${LOC_ID}`);
+    check(await text(page, 'Mock Park Restroom'), 'restroom detail loads signed out');
+    check(await text(page, 'Sign in to save this restroom'), 'signed-out detail offers sign-in for actions, not a wall');
+    check(!(await button(page, 'Save to favorites').count()), 'no account actions are offered signed out');
+    await page.goto(`${base}/auth/sign-in?next=%2Flocation%2F${LOC_ID}`);
+    await fill(page, 'Email', USER.email); await fill(page, 'Password', GOOD_PW); await button(page, 'Sign in').click();
+    check(await text(page, 'Save to favorites'), 'signing in returns to the restroom with actions unlocked');
+
+    await button(page, 'Save to favorites').click();
+    check(await text(page, 'Saved to favorites.') && acct.favorite, 'favorite saved');
+    check(await text(page, 'Remove from favorites'), 'button flips to remove');
+    const favReq = requests.filter((r) => r.path.endsWith('/list_my_favorites'));
+    check(favReq.length > 0 && favReq.every((r) => r.body.p_lat === null && r.body.p_lng === null), 'favorites requests never carry coordinates');
+
+    await page.getByRole('radio', { name: '4 stars', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Clean', exact: true }).click();
+    await button(page, 'Save rating').click();
+    check(await text(page, 'Your rating was saved.') && acct.review?.rating === 4 && acct.review.observations.join() === 'clean', 'rating with observation saved');
+    await button(page, 'Remove my rating').click();
+    check(await text(page, 'Your rating was removed.') && acct.review === null, 'rating removed');
+    await button(page, 'Save rating').click();
+    check(await text(page, 'Choose a rating from 1 to 5.'), 'rating is validated before any request');
+
+    await button(page, 'I’m here: check in').click();
+    check(await text(page, 'Checked in.') && acct.checkins.length === 1, 'check-in succeeds when location is granted');
+
+    await button(page, 'Report a problem').click();
+    await button(page, 'Send report').click();
+    check(await text(page, 'Choose what’s wrong.'), 'report needs an issue');
+    await page.getByRole('radio', { name: 'It’s closed or gone', exact: true }).click();
+    await fill(page, 'Add a note (optional)', 'see http://spam.example');
+    await button(page, 'Send report').click();
+    check(await text(page, 'links, email addresses or phone numbers'), 'links in report notes are rejected client-side');
+    await fill(page, 'Add a note (optional)', 'Locked at 3pm');
+    await button(page, 'Send report').click();
+    check(await text(page, 'Thanks. A person will take a look.') && acct.reports.length === 1 && acct.reports[0].p_issue === 'closed', 'report sent');
+
+    await page.goto(`${base}/contribute`);
+    await button(page, 'Send restroom for review').click();
+    check(await text(page, 'Enter the name.') && await text(page, 'Confirm this is a public restroom'), 'new location needs name, position and attestation');
+    await fill(page, 'Name of the place', 'My house bathroom');
+    await button(page, 'Use my current position').click();
+    await page.getByRole('checkbox', { name: /not inside a private home/ }).click();
+    await button(page, 'Send restroom for review').click();
+    check(await text(page, 'Private homes can’t be added'), 'private residences are blocked');
+    check(acct.submissions.length === 0, 'blocked submission never reached the server');
+    await fill(page, 'Name of the place', 'Library restroom');
+    await button(page, 'Send restroom for review').click();
+    check(await text(page, 'sent for review') && acct.submissions.length === 1 && acct.submissions[0].p_attested === true, 'valid submission sent with attestation');
+
+    await page.goto(`${base}/settings`);
+    await page.getByRole('radio', { name: 'Risqué', exact: true }).click();
+    await page.getByRole('radio', { name: 'Bike', exact: true }).click();
+    await fill(page, 'Display name (optional)', 'Trail Walker');
+    await button(page, 'Save display name').click();
+    check(await text(page, 'Saved.') && acct.mode === 'risque' && acct.transport === 'bike' && acct.name === 'Trail Walker', 'preferences and display name sync to the account');
+    await fill(page, 'Display name (optional)', 'Admin Joe');
+    await button(page, 'Save display name').click();
+    check(await text(page, 'That name isn’t allowed'), 'reserved display names are rejected');
+
+    await page.goto(`${base}/account`);
+    await button(page, 'Delete my account…').click();
+    check(await button(page, 'Permanently delete my account').isDisabled(), 'delete stays disabled until DELETE is typed');
+    await fill(page, 'Type DELETE to confirm', 'delete');
+    check(await button(page, 'Permanently delete my account').isDisabled(), 'lowercase is not enough');
+    await fill(page, 'Type DELETE to confirm', 'DELETE');
+    await button(page, 'Permanently delete my account').click();
+    check(await text(page, 'Sign in or create account') && acct.deleted, 'account deleted and signed out');
     await ctx.close();
   }
 

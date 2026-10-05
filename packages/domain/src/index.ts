@@ -9,3 +9,4 @@ export * from './navigation';
 export * from './locationCache';
 export * from './review';
 export * from './auth';
+export * from './account';

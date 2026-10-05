@@ -19,6 +19,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { Chip } from '../../components/Chip';
+import { LocationActions } from '../../components/LocationActions';
+import { usePreferences } from '../../account/preferences';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { Screen } from '../../components/Screen';
 import { VerificationBadge } from '../../components/VerificationBadge';
@@ -39,7 +41,9 @@ function FactRow({ fact }: { fact: Fact }) {
 export default function LocationDetail() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = parseLocationId(params.id);
-  const [mode, setMode] = useState<TravelMode>('walk');
+  const { prefs } = usePreferences();
+  const [chosenMode, setMode] = useState<TravelMode | null>(null);
+  const mode: TravelMode = chosenMode ?? prefs.transport;
   const { state: access } = useUserLocation();
   const [load, setLoad] = useState<Load | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -169,6 +173,8 @@ export default function LocationDetail() {
           <FactRow key={f.key} fact={f} />
         ))}
       </Section>
+
+      <LocationActions location={l} />
 
       {l.attribution ? <Text style={styles.attribution}>{l.attribution}</Text> : null}
     </Screen>
