@@ -8,7 +8,8 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vindexholdings.openstall"
+      "bundleIdentifier": "com.vindexholdings.openstall",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -33,7 +34,10 @@
           "isAndroidBackgroundLocationEnabled": false,
           "isIosBackgroundLocationEnabled": false
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-secure-store",
+      "expo-apple-authentication"
     ],
     "scheme": "openstall",
     "extra": {

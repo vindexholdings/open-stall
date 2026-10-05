@@ -1,5 +1,7 @@
 # OS-111 Human MVP-Core Checkpoint (Phase 1)
 
+> APPROVED 2026-10-05 by the owner: "I completed the remaining customer-app checks and approve OS-111." The browser/device used was NOT recorded, and per-test PASS/FAIL results were not itemized in this record, so none are claimed here. Phase 2 started (OS-201). Items below remain as the historical checklist. Known limits still apply: Verified-badge live behaviour depends on the owner's validator use; map tiles are dev-only OSM; the OS-110c ODbL gate still governs larger imports and launch.
+
 > UPDATE 2026-10-05: the three-record researched workflow below is STOPPED (kept in the repo, unused). The cold-start strategy is regional OSM seeding, so OS-111 test data will be a SMALL development-only OSM import of the Cody area (see IMPORT.md section 11). Dry run first; apply needs separate approval. Parts B and C are unchanged, but Part A (research records) is superseded. Same limit applies: OSM records are never Verified, so Verified UI / nearest-verified hint / verified-only results still cannot be tested live.
 
 STATUS: NOT APPROVED. Blocked on the live end-to-end test below. Do not mark OS-111 complete until the human reports results.

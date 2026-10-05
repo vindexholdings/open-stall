@@ -1,11 +1,12 @@
 # Project State
-Last updated: 2026-10-06 (Cody OSM dev seed LIVE; validator built, migration 4 awaiting approval)
-Current phase: Phase 1 (Discovery core), complete pending human checkpoint
-Current task: OS-111 NOT approved. Cody dev seed applied (65 inserted: 9 public Unverified, 56 hidden Candidates; finalize ok; run cody-dev). Validator workflow built in apps/admin /review; saving needs migration 20261005000001 (awaiting human approval to push)
+Last updated: 2026-10-05 (OS-111 approved; Phase 2 started with OS-201)
+Current phase: Phase 2 (Accounts/contributions)
+Current task: OS-201 Auth email/Google/Apple (in progress; see Completed). OS-111 APPROVED 2026-10-05 by owner (browser/device not recorded; per-test results not itemized)
 Branch: claude/pensive-brahmagupta-wrrhxn (draft PR vindexholdings/open-stall#1)
 Last commit: see git log (OS-009 commit)
 
 Completed:
+- 2026-10-05 OS-111 APPROVED by owner ("completed the remaining customer-app checks"); browser/device NOT recorded; per-test results not itemized. Recorded in PROJECT_STATE, BACKLOG, CHECKPOINT_OS-111.md. OS-201 BUILT (code complete; provider setup + live sign-in test pending owner): packages/domain auth rules (feature gating, validation, generic errors, safeNextPath, PKCE callback parsing), apps/mobile auth layer (separate persisted account client with SecureStore chunked storage; anonymous discovery client untouched; authService for email/Google/Apple with injectable client; AuthProvider; RequireAuth gate), screens (/auth/sign-in, /auth/callback, /auth/reset, Account tab, Favorites gated), app.json Apple sign-in + plugins, local config.toml redirect URLs/min password 8/confirmations on, AUTH_SETUP.md. Discovery stays public. No migration. Checks: domain 63, mobile 27+, smoke covers no-backend and signed-out suites; android/ios/web bundles compile. Not done by Claude: provider dashboard setup (owner checklist), live sign-in tests, merge, deploy, costs. Environment note: Claude works in the cloud checkout (/home/user/open-stall); the owner's Mac files (apps/mobile/.env.local, manual-locations.json) are untouched and were not read.
 - 2026-10-06 LIVE: Cody dev OSM seed applied by human (inserted 65, duplicates 0, held 0, public_in_area 9, finalize flagged/hidden 0). 2026-10-06 BUILT (not applied): location validator: packages/domain review rules, migration 20261005000001_location_reviews.sql (location_reviews + service_role-only apply_location_review), apps/admin /review pages + server action behind a local-only gate (requireAdmin), tests (domain 55, admin gate, DB review suite mutation-checked). Reads work now (resilient before migration); saving needs the migration.
 - 2026-10-05 Dry run (human): cody-area, 2 tiles, 87 elements, 65 records (9 explicit, 56 inferred), 21 unnamed-candidate skipped, complete=true, no DB writes. Human approved applying the saved capture to the live project as dev run "cody-dev". Expected public (Unverified) = 9 minus any held (OSM edit < 14 days) or duplicate-flagged; 56 inferred stay hidden candidates; none can be Verified by import. Cleanup: supabase/dev/osm-dev-cleanup.sql.
 - 2026-10-05 OSM dev-import prep (nothing run/imported): grocery/convenience + lodging added to hidden candidate categories; Overpass editor identity (user/uid/changeset) stripped before classification and before saved captures; tested DB cleanup supabase/dev/osm-dev-cleanup.sql (only unedited OSM-only candidate/unverified rows seen by *-dev runs); IMPORT.md section 11 documents plan + ODbL consequences. Importer 65 tests; DB suite passes incl. cleanup.
@@ -30,10 +31,10 @@ Notes:
 - Brand blue #1E90FF fails AA with white text; use primaryStrong #0B63C4 for text/buttons.
 
 Blockers (human):
-- OS-111 approval. First data import approval (none requested yet). Device testing (iOS/Android) not done. Production tile provider decision. ODbL licensing gate before larger-scale import/public launch.
+- OS-201 provider setup (Supabase dashboard, Google Cloud; Apple needs paid Apple Developer Program approval). Production tile provider decision. ODbL licensing gate (OS-110c) before larger imports/public launch. Migration 20261005000001 (validator) status not confirmed in this record.
 
 Next exact action:
-Human: (1) run the one-line command from chat to start the local validator and browse the seeded records (read-only until migration); (2) approve pushing migration 20261005000001_location_reviews.sql (new private table + service_role-only function; no existing data touched), then `supabase db push`; (3) review records; (4) then CHECKPOINT_OS-111.md Parts B-C. OS-111 stays unapproved. No merge, production deploy, costs or Phase 2.
+Owner: complete the OS-201 provider checklist (AUTH_SETUP.md / hand-off message): Supabase URL config + Email provider + Google (free); Apple only after approving the Apple Developer Program (paid). Then test email sign-up/sign-in on web, Google on web, then native. Claude then records results and continues Phase 2 (OS-202 Yahoo SSO evaluation, OS-203 profile). No merge to main, production deploy, costs or import expansion.
 
-Last tests: `npm run check` and `npm run test:db` pass (domain 55, importer 65, admin 6); admin gate runtime-smoked on a production build; full suite passes.
+Last tests: npm run check pass (domain 63, mobile 27, importer 65, admin 6, ui 15); test:db pass; test:e2e pass (no-backend + signed-out suites); web/android/ios bundles and admin build compile.
 Never infer IDs or reuse another Vindex resource.

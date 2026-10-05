@@ -30,3 +30,5 @@ Default public OSM tile server is DEVELOPMENT ONLY (OSM tile policy). Production
 Navigation: Apple Maps / Google Maps are external destinations only (OS-108); no map SDK keys used.
 
 Supabase migrations applied (by human, 2026-10-04): 20261004000001_locations, 20261004000002_public_access, 20261004000003_import_functions. Remote access model verified with `npm run verify:remote-rls`. No location data imported.
+
+Auth providers (OS-201; owner configures in the Supabase dashboard; no secrets in Git): Email (confirm email on, min password 8), Google (OAuth client redirect https://xzzbcejgprilmolvdaes.supabase.co/auth/v1/callback), Apple (native iOS, client id com.vindexholdings.openstall; Apple Developer Program is a paid prerequisite). Redirect URLs: openstall://auth/callback, http://localhost:8081/auth/callback. See AUTH_SETUP.md.
