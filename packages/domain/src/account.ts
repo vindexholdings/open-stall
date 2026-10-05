@@ -103,14 +103,36 @@ export function validateReport(issue: ReportIssue | null, comment: string): stri
 }
 
 // ---------------------------------------------------------------- submissions
+/** A new restroom must be added from where the contributor is standing, using a fresh, reasonably accurate device fix. */
+export const MAX_NEW_LOCATION_ACCURACY_M = 50;
+export const LOCATION_FIX_MAX_AGE_MS = 120_000;
+
+/** One device position reading. Held in memory only; sent once with a submission and never kept as a history. */
+export type LocationFix = { latitude: number; longitude: number; accuracyM: number; capturedAt: number };
+
+/** Returns a user-facing problem with the fix, or null when it is usable for a new-restroom submission. */
+export function fixProblem(fix: LocationFix | null, now: number = Date.now()): string | null {
+  if (!fix) return 'We need your current location to add a restroom. Allow location access and stand at the restroom.';
+  const { latitude, longitude, accuracyM } = fix;
+  if (![latitude, longitude, accuracyM].every(Number.isFinite) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180
+    || (latitude === 0 && longitude === 0) || accuracyM <= 0) {
+    return 'We couldn’t get a valid location from your device. Try again.';
+  }
+  if (accuracyM > MAX_NEW_LOCATION_ACCURACY_M) {
+    return `Your location isn’t accurate enough yet (about ${Math.round(accuracyM)} m). Move near open sky or wait a few seconds, then refresh it.`;
+  }
+  if (now - fix.capturedAt > LOCATION_FIX_MAX_AGE_MS) return 'Your location is out of date. Refresh it while you’re at the restroom.';
+  return null;
+}
+
 export type LocationDraft = {
   name: string;
   addressLine: string;
   city: string;
   region: string;
   postalCode: string;
-  latitude: number | null;
-  longitude: number | null;
+  /** New restroom: required. Correction: optional, only to fix a wrong pin. */
+  fix: LocationFix | null;
   accessLocation: string;
   openingHours: string;
   fee: boolean | null;
@@ -124,7 +146,7 @@ export type LocationDraft = {
 };
 
 export const EMPTY_DRAFT: LocationDraft = {
-  name: '', addressLine: '', city: '', region: '', postalCode: '', latitude: null, longitude: null,
+  name: '', addressLine: '', city: '', region: '', postalCode: '', fix: null,
   accessLocation: '', openingHours: '', fee: null, key: null, purchase: null, wheelchair: null, genderNeutral: null,
   babyChanging: null, note: '', attestedPublic: false,
 };
@@ -132,13 +154,16 @@ export const EMPTY_DRAFT: LocationDraft = {
 export const ATTESTATION_TEXT =
   'This is a restroom the public can use, such as a park, library, shop or station. It is not inside a private home.';
 
-export type DraftResult = { ok: true; proposed: Record<string, string | number | boolean>; note: string | null } | { ok: false; errors: string[] };
+export type DraftResult =
+  | { ok: true; proposed: Record<string, string | number | boolean>; note: string | null; position: { latitude: number; longitude: number; accuracyM: number } | null }
+  | { ok: false; errors: string[] };
 
 /**
- * Builds the `proposed` payload (only the fields that were filled in). Edits send just the changed
- * fields; new locations need a name and coordinates. Unknown (null) booleans are omitted, never sent as false.
+ * Builds the `proposed` payload (only the fields that were filled in). Unknown (null) booleans are omitted, never sent as false.
+ * - 'new': coordinates are NOT part of `proposed`; they come from the device fix and are returned as `position`.
+ * - 'edit': only changed fields; an optional fix updates the pin (sent inside `proposed`).
  */
-export function buildProposal(d: LocationDraft, kind: 'new' | 'edit'): DraftResult {
+export function buildProposal(d: LocationDraft, kind: 'new' | 'edit', now: number = Date.now()): DraftResult {
   const errors: string[] = [];
   const out: Record<string, string | number | boolean> = {};
   const text = (key: string, value: string, label: string, max: number) => {
@@ -160,21 +185,21 @@ export function buildProposal(d: LocationDraft, kind: 'new' | 'edit'): DraftResu
   ];
   for (const [k, v] of bools) if (v !== null) out[k] = v;
 
-  if (d.latitude !== null || d.longitude !== null) {
-    if (d.latitude === null || d.longitude === null || !Number.isFinite(d.latitude) || !Number.isFinite(d.longitude)
-      || Math.abs(d.latitude) > 90 || Math.abs(d.longitude) > 180) {
-      errors.push('Enter a valid latitude and longitude.');
-    } else {
-      out.latitude = d.latitude;
-      out.longitude = d.longitude;
+  let position: { latitude: number; longitude: number; accuracyM: number } | null = null;
+  if (kind === 'new') {
+    if (d.name.trim() === '') errors.push('Enter the name.');
+    const problem = fixProblem(d.fix, now);
+    if (problem) errors.push(problem);
+    else if (d.fix) position = { latitude: d.fix.latitude, longitude: d.fix.longitude, accuracyM: d.fix.accuracyM };
+  } else if (d.fix) {
+    const problem = fixProblem(d.fix, now);
+    if (problem) errors.push(problem);
+    else {
+      out.latitude = d.fix.latitude;
+      out.longitude = d.fix.longitude;
     }
   }
-  if (kind === 'new') {
-    if (!('name' in out) && d.name.trim() === '') errors.push('Enter the name.');
-    if (!('latitude' in out) && d.latitude === null) errors.push('Choose the location on the map or use your current position.');
-  } else if (errors.length === 0 && Object.keys(out).length === 0) {
-    errors.push('Change at least one detail.');
-  }
+  if (kind === 'edit' && errors.length === 0 && Object.keys(out).length === 0) errors.push('Change at least one detail.');
   if (d.note.trim() !== '') {
     const e = validateFreeText(d.note, 'your note', 300);
     if (e) errors.push(e);
@@ -183,7 +208,7 @@ export function buildProposal(d: LocationDraft, kind: 'new' | 'edit'): DraftResu
   if (looksResidential(JSON.stringify(out)) || looksResidential(d.note)) {
     errors.push('Private homes can’t be added. Open Stall only lists restrooms the public may use.');
   }
-  return errors.length ? { ok: false, errors } : { ok: true, proposed: out, note: d.note.trim() || null };
+  return errors.length ? { ok: false, errors } : { ok: true, proposed: out, note: d.note.trim() || null, position };
 }
 
 // ---------------------------------------------------------------- server error mapping
@@ -194,11 +219,17 @@ export function accountErrorMessage(err: ErrLike): string {
   const code = err?.code ?? '';
   const msg = (err?.message ?? '').toLowerCase();
   if (code === '28000' || msg.includes('not authenticated') || msg.includes('jwt') || err?.status === 401) return 'Please sign in again.';
+  if (msg.includes('submissions paused')) return 'New restroom submissions are paused for your account for now.';
   if (code === '54000' || msg.includes('rate limit')) return 'You’re doing that a lot. Please try again later.';
   if (code === '53400' && msg.includes('favorites')) return `You can save up to ${FREE_FAVORITES_LIMIT} favorites. Remove one to add another.`;
   if (code === '53400') return 'You have too many pending submissions. Wait for some to be reviewed or withdraw one.';
   if (msg.includes('too far')) return `You need to be within ${CHECKIN_RADIUS_METERS} meters of the restroom to check in.`;
   if (msg.includes('already checked in')) return 'You already checked in here recently.';
+  if (msg.includes('already listed')) return 'This restroom is already on the map. Open it and use “Suggest a correction” if something is wrong.';
+  if (msg.includes('already submitted')) return 'You’ve already submitted this restroom. It’s waiting for review.';
+  if (msg.includes('pending correction')) return 'You already have a correction waiting for this restroom.';
+  if (msg.includes('not accurate enough')) return 'Your location isn’t accurate enough yet. Move near open sky and try again.';
+  if (msg.includes('current location') || msg.includes('position must come')) return 'We need your current location to add a restroom. Stand at the restroom and try again.';
   if (msg.includes('residence')) return 'Private homes can’t be added. Open Stall only lists restrooms the public may use.';
   if (msg.includes('location not available')) return 'This restroom is no longer available.';
   if (code === '22023') return 'Some details weren’t accepted. Check them and try again.';

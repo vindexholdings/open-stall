@@ -30,15 +30,15 @@ OS-110c HUMAN LEGAL/LICENSING GATE (ODbL): required before commercial-scale OSM 
 OS-111 DONE (APPROVED by owner 2026-10-05; device/browser not recorded) HUMAN MVP-CORE CHECKPOINT.
 
 ## Phase 2 Accounts/contributions
-OS-201 IN PROGRESS (code built; provider setup + live test pending owner) Auth email/Google/Apple. Discovery stays public; account features/contributions require sign-in.
+OS-201 DONE for email/password (live validated 2026-10-05: signup, confirmation, login/logout, password reset, password saving). Google OAuth DEFERRED/not configured; Apple SKIPPED Auth email/Google/Apple. Discovery stays public; account features/contributions require sign-in.
 OS-202 DONE (evaluated and DEFERRED, see AUTH_DECISIONS.md) Evaluate Yahoo SSO.
-OS-203 BUILT (migration 20261006000001 not yet applied) Profile/preferences/modes: Settings (Plain/Risqué, default transport, display name), local-first, synced to the account.
-OS-204 BUILT (migration 20261006000002 not yet applied) Favorites/free cap of 5 (premium raise later, OS-502).
-OS-205 BUILT (migration 20261006000002 not yet applied) Ratings 1-5 + structured observations; check-ins verified within 150 m, position never stored.
-OS-206 BUILT (migration 20261006000003 not yet applied) Location/edit submissions: pending only, never public, attestation required, no photos.
-OS-207 BUILT (migration 20261006000003 not yet applied) Reports with controlled issue types.
-OS-208 BUILT (migrations 20261006000001-3 not yet applied) Private-residence heuristic, link/contact rejection, shared rate limiter, pending caps.
-OS-209 BUILT (migration 20261006000003 not yet applied) Account deletion (typed DELETE; cascades all account data).
+OS-203 DONE (live validated) Profile/preferences/modes: Settings (Plain/Risqué, default transport, display name), local-first, synced to the account.
+OS-204 DONE (live validated) Favorites/free cap of 5 (premium raise later, OS-502).
+OS-205 DONE (live validated; real on-site check-in still to be tried in the field) Ratings 1-5 + structured observations; check-ins verified within 150 m, position never stored.
+OS-206 BUILT (migration 20261007000001 pending owner; earlier version live-validated) Submissions: NEW restrooms only from the contributor's CURRENT location (device fix, accuracy <= 50 m, no map pin, no arbitrary coordinates); corrections to existing restrooms need no location; pending only, never public, public-place attestation required, no photos. Admins keep manual placement/editing of coordinates (service_role / Phase 3).
+OS-207 DONE (live validated) Reports with controlled issue types.
+OS-208 BUILT (pre-queue abuse controls in migration 20261007000001, pending owner; thresholds in SECURITY.md) Private-residence heuristic, link/contact rejection, shared rate limiter, already-listed and duplicate detection, coalescing of repeated reports, repeat-rejection pause, triage flags.
+OS-209 DONE (UI + SQL + mock e2e tested; deletion in the real UI not exercised: the permanent test account is kept) Account deletion (typed DELETE; cascades all account data).
 OS-210 DONE (tests) SQL account suite (mutation-checked), domain/app tests, real-browser mock-backend e2e. Live verification waits for the owner applying the migrations.
 
 ## Phase 3 Admin/data
@@ -49,6 +49,8 @@ OS-304 Duplicate review/merge.
 OS-305 CSV import/export.
 OS-306 PARTIAL (core importer built in OS-110b) OSM-derived seed pipeline + attribution.
 OS-307 Admin analytics.
+OS-308 DATA QUALITY (not started; Phase 3, no geography expansion) Enrich generic names: several legitimate Cody records (municipal properties, parks, public restroom facilities) display only as "Restroom". Replace with descriptive names ("[Park Name] Restroom", "[Facility Name] Public Restroom") using authoritative City of Cody / Park County facility or property data where licensing allows (check terms/public-record status first). Keep the original name and source/provenance in location_sources, record the enrichment as its own source, go through the admin review/audit path, and NEVER invent a name when no authoritative source exists.
+OS-309 Moderation retention (not started; with OS-301/OS-302): define how long submitter linkage, capture_accuracy_m and triage flags are kept after a submission is approved/rejected (default proposal: unlink the submitter and drop the accuracy/flags within 30 days of review) and surface submissions.flags in the review queue (sort by flag).
 
 ## Phase 4 Community
 OS-401 Points ledger.

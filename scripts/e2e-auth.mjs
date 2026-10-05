@@ -35,7 +35,7 @@ const LOC_ROW = { id: LOC_ID, name: 'Mock Park Restroom', address_line: '1 Park 
   verification: 'verified', last_verified_at: '2026-10-01T00:00:00Z', opening_hours: null, fee_required: false, key_required: false, purchase_required: false,
   wheelchair_accessible: true, gender_neutral: null, baby_changing: null, has_hot_water: null, has_cold_water: null, access_location: null, average_rating: null,
   rating_count: 0, attribution: null, distance_m: null };
-const acct = { favorite: false, review: null, reports: [], submissions: [], checkins: [], name: null, mode: 'plain', transport: 'walk', deleted: false };
+const acct = { favorite: false, review: null, reports: [], submissions: [], submissionAttempts: [], checkins: [], name: null, mode: 'plain', transport: 'walk', deleted: false };
 const mock = createServer(async (req, res) => {
   const u = new URL(req.url, `http://127.0.0.1:${MOCK_PORT}`);
   const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
@@ -75,7 +75,13 @@ const mock = createServer(async (req, res) => {
     }
     if (fn === 'delete_my_review') { acct.review = null; return json(200, null); }
     if (fn === 'submit_report') { acct.reports.push(data); return json(200, null); }
-    if (fn === 'submit_location') { acct.submissions.push(data); return json(200, 'sub-1'); }
+    if (fn === 'submit_location') {
+      acct.submissionAttempts.push(data);
+      if (data.p_proposed?.name === 'Existing public place') return json(400, { code: '22023', message: 'restroom already listed nearby' });
+      acct.submissions.push(data);
+      return json(200, data.p_proposed?.name === 'Shared place' ? { coalesced: true } : { coalesced: false, submission_id: 'sub-1' });
+    }
+    if (fn === 'submit_location_edit') { acct.edits = (acct.edits ?? 0) + 1; return json(200, 'sub-2'); }
     if (fn === 'check_in') { acct.checkins.push(data); return json(200, { checkin_id: 'c1' }); }
     if (fn === 'get_my_profile') return json(200, [{ display_name: acct.name, preferred_mode: acct.mode, default_transport: acct.transport, points_balance: 0 }]);
     if (fn === 'update_my_profile') { Object.assign(acct, { name: data.p_display_name, mode: data.p_mode, transport: data.p_transport }); return json(200, []); }
@@ -109,7 +115,7 @@ let failures = 0;
 const check = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${ok ? '' : `  ${detail}`}`); if (!ok) failures++; };
 const browser = await chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--disable-gpu', '--no-proxy-server'] });
 const newPage = async () => {
-  const ctx = await browser.newContext({ permissions: ['geolocation'], geolocation: { latitude: 44.5263, longitude: -109.0565 } });
+  const ctx = await browser.newContext({ permissions: ['geolocation'], geolocation: { latitude: 44.5263, longitude: -109.0565, accuracy: 10 } });
   const page = await ctx.newPage();
   page.setDefaultTimeout(15000);
   return { ctx, page };
@@ -228,17 +234,72 @@ try {
     check(await text(page, 'Thanks. A person will take a look.') && acct.reports.length === 1 && acct.reports[0].p_issue === 'closed', 'report sent');
 
     await page.goto(`${base}/contribute`);
-    await button(page, 'Send restroom for review').click();
-    check(await text(page, 'Enter the name.') && await text(page, 'Confirm this is a public restroom'), 'new location needs name, position and attestation');
-    await fill(page, 'Name of the place', 'My house bathroom');
-    await button(page, 'Use my current position').click();
-    await page.getByRole('checkbox', { name: /not inside a private home/ }).click();
-    await button(page, 'Send restroom for review').click();
-    check(await text(page, 'Private homes can’t be added'), 'private residences are blocked');
-    check(acct.submissions.length === 0, 'blocked submission never reached the server');
+    check(await text(page, 'Stand at the restroom to add it'), 'new-restroom screen explains it is added where you stand');
+    check(!(await text(page, 'Choose the location on the map')), 'no arbitrary map-pin language remains');
+    check(await page.getByLabel(/latitude|longitude/i).count() === 0, 'there are no coordinate inputs for new restrooms');
+    // strict location rule: no permission -> refused locally, nothing sent
     await fill(page, 'Name of the place', 'Library restroom');
-    await button(page, 'Send restroom for review').click();
-    check(await text(page, 'sent for review') && acct.submissions.length === 1 && acct.submissions[0].p_attested === true, 'valid submission sent with attestation');
+    await page.getByRole('checkbox', { name: /not inside a private home/ }).click();
+    await page.evaluate(() => {
+      Object.defineProperty(navigator.geolocation, 'getCurrentPosition', { configurable: true, value: (_ok, fail) => fail({ code: 1, message: 'User denied Geolocation', PERMISSION_DENIED: 1 }) });
+      Object.defineProperty(navigator.permissions, 'query', { configurable: true, value: async () => ({ state: 'denied', addEventListener() {}, removeEventListener() {} }) });
+    });
+    await button(page, 'Add restroom at my current location').click();
+    check(await text(page, 'Location access is off') || await text(page, 'couldn’t get your location'), 'without location access a new restroom is refused');
+    check(acct.submissionAttempts.length === 0, 'no request is made without a location fix');
+
+    // permission back but a poor fix (500 m) -> refused locally
+    await page.evaluate(() => { delete navigator.geolocation.getCurrentPosition; delete navigator.permissions.query; });
+    await ctx.setGeolocation({ latitude: 44.5263, longitude: -109.0565, accuracy: 500 });
+    await button(page, 'Add restroom at my current location').click();
+    check(await text(page, 'isn’t accurate enough'), 'an inaccurate location fix is refused');
+    check(acct.submissionAttempts.length === 0, 'no request is made with an inaccurate fix');
+
+    // required fields: name and the public-place attestation
+    await ctx.setGeolocation({ latitude: 44.52631, longitude: -109.05651, accuracy: 10 });
+    await fill(page, 'Name of the place', '');
+    await page.getByRole('checkbox', { name: /not inside a private home/ }).click();
+    await button(page, 'Add restroom at my current location').click();
+    check(await text(page, 'Enter the name.') && await text(page, 'Confirm this is a public restroom'), 'new restroom needs a name and the attestation');
+    check(acct.submissionAttempts.length === 0, 'nothing is sent without a name and attestation');
+    await page.getByRole('checkbox', { name: /not inside a private home/ }).click();
+
+    // private residence wording is still blocked (with a good fix)
+    await fill(page, 'Name of the place', 'My house bathroom');
+    await button(page, 'Add restroom at my current location').click();
+    check(await text(page, 'Private homes can’t be added'), 'private residences are blocked');
+    check(acct.submissionAttempts.length === 0, 'blocked submission never reached the server');
+
+    // valid: device position goes as separate arguments, never inside the free-form payload
+    await fill(page, 'Name of the place', 'Library restroom');
+    await button(page, 'Add restroom at my current location').click();
+    check(await text(page, 'sent for review') && acct.submissions.length === 1, 'valid current-location submission is sent for review', (await page.locator('body').innerText()).slice(0, 2000).replace(/\n/g, ' | '));
+    const sub = acct.submissions[0];
+    check(sub.p_attested === true && Math.abs(sub.p_lat - 44.52631) < 1e-6 && Math.abs(sub.p_lng + 109.05651) < 1e-6 && sub.p_accuracy_m > 0 && sub.p_accuracy_m <= 50,
+      'submission carries the device fix and accuracy', JSON.stringify(sub));
+    check(!('latitude' in sub.p_proposed) && !('longitude' in sub.p_proposed), 'payload contains no free-form coordinates');
+
+    // server-side duplicate / coalescing outcomes are explained to the user
+    await page.goto(`${base}/contribute`);
+    await fill(page, 'Name of the place', 'Existing public place');
+    await page.getByRole('checkbox', { name: /not inside a private home/ }).click();
+    await button(page, 'Add restroom at my current location').click();
+    check(await text(page, 'already on the map'), 'an already-listed restroom is explained, not silently dropped');
+    await fill(page, 'Name of the place', 'Shared place');
+    await button(page, 'Add restroom at my current location').click();
+    check(await text(page, 'added your report to it'), 'a coalesced report tells the user it was added to an existing one');
+
+    // corrections to existing restrooms need no location
+    await page.goto(`${base}/contribute?id=${LOC_ID}&name=Mock%20Park%20Restroom`);
+    await page.getByRole('radio', { name: 'Yes', exact: true }).first().click();
+    await page.getByRole('checkbox', { name: /not inside a private home/ }).click();
+    await page.evaluate(() => {
+      Object.defineProperty(navigator.geolocation, 'getCurrentPosition', { configurable: true, value: (_ok, fail) => fail({ code: 1, message: 'User denied Geolocation', PERMISSION_DENIED: 1 }) });
+      Object.defineProperty(navigator.permissions, 'query', { configurable: true, value: async () => ({ state: 'denied', addEventListener() {}, removeEventListener() {} }) });
+    });
+    await button(page, 'Send suggestion').click();
+    check(await text(page, 'sent for review'), 'a correction can be sent without sharing location');
+    await page.evaluate(() => { delete navigator.geolocation.getCurrentPosition; delete navigator.permissions.query; });
 
     await page.goto(`${base}/settings`);
     await page.getByRole('radio', { name: 'Risqué', exact: true }).click();

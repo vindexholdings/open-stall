@@ -28,8 +28,12 @@ describe('account api', () => {
     expect(await addFavorite(f, ID)).toEqual({ ok: true, count: 2, limit: 5 });
     await checkIn(c, ID, { latitude: 1, longitude: 2 });
     expect(c.rpc).toHaveBeenCalledWith('check_in', { p_location: ID, p_lat: 1, p_lng: 2 });
-    await submitNewLocation(c, { name: 'x' }, null);
-    expect(c.rpc).toHaveBeenCalledWith('submit_location', { p_proposed: { name: 'x' }, p_attested: true, p_note: null });
+    await submitNewLocation(c, { name: 'x' }, { latitude: 44.5, longitude: -109, accuracyM: 12 }, null);
+    expect(c.rpc).toHaveBeenCalledWith('submit_location', { p_proposed: { name: 'x' }, p_lat: 44.5, p_lng: -109, p_accuracy_m: 12, p_attested: true, p_note: null });
+    expect(await submitNewLocation(ok({ coalesced: true }), { name: 'x' }, { latitude: 1, longitude: 2, accuracyM: 5 }, null)).toEqual({ ok: true, coalesced: true });
+    expect(await submitNewLocation(ok({ coalesced: false, submission_id: 'abc' }), { name: 'x' }, { latitude: 1, longitude: 2, accuracyM: 5 }, null)).toEqual({ ok: true, coalesced: false });
+    expect(await submitNewLocation(err({ code: '22023', message: 'restroom already listed nearby' }), { name: 'x' }, { latitude: 1, longitude: 2, accuracyM: 5 }, null))
+      .toMatchObject({ ok: false, message: expect.stringMatching(/already on the map/) });
     await submitEdit(c, ID, { fee_required: true }, 'n');
     expect(c.rpc).toHaveBeenCalledWith('submit_location_edit', { p_location: ID, p_proposed: { fee_required: true }, p_attested: true, p_note: 'n' });
     await submitReport(c, ID, 'closed', '  ');

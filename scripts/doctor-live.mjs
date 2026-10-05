@@ -44,7 +44,7 @@ const accountFns = {
   get_my_profile: {}, update_my_profile: { p_display_name: null, p_mode: 'plain', p_transport: 'walk' },
   add_favorite: { p_location: U }, remove_favorite: { p_location: U }, list_my_favorites: { p_lat: null, p_lng: null },
   submit_review: { p_location: U, p_rating: 3, p_mode: 'plain', p_observations: [] }, get_my_review: { p_location: U }, delete_my_review: { p_location: U },
-  check_in: { p_location: U, p_lat: 0, p_lng: 0 }, submit_location: { p_proposed: {}, p_attested: true, p_note: null },
+  check_in: { p_location: U, p_lat: 0, p_lng: 0 }, submit_location: { p_proposed: {}, p_lat: 0, p_lng: 0, p_accuracy_m: 1, p_attested: true, p_note: null },
   submit_location_edit: { p_location: U, p_proposed: {}, p_attested: true, p_note: null }, list_my_submissions: {}, withdraw_my_submission: { p_id: U },
   submit_report: { p_location: U, p_issue: 'other', p_comment: null }, delete_my_account: { p_confirm: 'x' },
 };

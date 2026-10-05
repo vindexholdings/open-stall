@@ -96,17 +96,29 @@ try {
   if (args.has('--contribute')) {
     const rp = await rpc('submit_report', { p_location: loc.id, p_issue: 'other', p_comment: 'Automated test report - please ignore' });
     check(rp.status === 204 || rp.status === 200, 'report accepted', JSON.stringify(rp.json));
-    const res = await rpc('submit_location', { p_proposed: { name: 'Automated test restroom', latitude: 44.5, longitude: -109.0 }, p_attested: false, p_note: null });
-    check(res.status === 400, 'submission without the public-place attestation is refused');
-    const resi = await rpc('submit_location', { p_proposed: { name: 'My house bathroom', latitude: 44.5, longitude: -109.0 }, p_attested: true, p_note: null });
-    check(resi.status === 400, 'private-residence submission is refused');
-    const sub = await rpc('submit_location', { p_proposed: { name: 'Automated test restroom', latitude: 44.5, longitude: -109.0 }, p_attested: true, p_note: 'Automated test - please ignore' });
-    check(sub.status === 200 && typeof sub.json === 'string', 'valid submission stored as pending', JSON.stringify(sub.json));
-    const list = await rpc('list_my_submissions');
-    check(list.json?.some((x) => x.status === 'pending'), 'my pending submission is listed');
-    const pub = await rpc('nearby_locations', { p_lat: 44.5, p_lng: -109.0, p_radius_m: 5000, p_limit: 100, p_verified_only: false }, anon);
-    check(!JSON.stringify(pub.json).includes('Automated test restroom'), 'pending submission is NOT visible in public discovery');
-    console.log('NOTE: the test report and submission stay pending until this account is deleted.');
+    // New restrooms must come from a current device fix: all of these are refused WITHOUT creating anything.
+    const base = { p_proposed: { name: 'Automated test restroom' }, p_lat: 44.5, p_lng: -109.0, p_accuracy_m: 10, p_attested: true, p_note: null };
+    const refused = async (label, patch) => { const r = await rpc('submit_location', { ...base, ...patch }); check(r.status === 400, label, `status ${r.status} ${JSON.stringify(r.json)}`); };
+    await refused('new restroom without the public-place attestation is refused', { p_attested: false });
+    await refused('new restroom without a position is refused', { p_lat: null, p_lng: null });
+    await refused('new restroom without an accuracy reading is refused', { p_accuracy_m: null });
+    await refused('new restroom with a poor location fix (500 m) is refused', { p_accuracy_m: 500 });
+    await refused('new restroom with coordinates smuggled in the payload is refused', { p_proposed: { name: 'Automated test restroom', latitude: 44.5, longitude: -109.0 } });
+    await refused('private-residence submission is refused', { p_proposed: { name: 'My house bathroom' } });
+    const old = await rpc('submit_location', { p_proposed: { name: 'x', latitude: 44.5, longitude: -109.0 }, p_attested: true, p_note: null });
+    check(old.status === 404, 'the old arbitrary-coordinate submit_location no longer exists', `status ${old.status}`);
+    if (args.has('--submit-new')) {
+      // Creates ONE pending test item on the live project (only when explicitly requested).
+      const sub = await rpc('submit_location', { ...base, p_note: 'Automated test - please ignore' });
+      check(sub.status === 200 && typeof sub.json?.coalesced === 'boolean', 'valid current-location submission accepted as pending', JSON.stringify(sub.json));
+      const again = await rpc('submit_location', { ...base, p_note: 'again' });
+      check(again.status === 400, 'the same account cannot create a duplicate moderation item for the same place', `status ${again.status}`);
+      const pub = await rpc('nearby_locations', { p_lat: 44.5, p_lng: -109.0, p_radius_m: 5000, p_limit: 100, p_verified_only: false }, anon);
+      check(!JSON.stringify(pub.json).includes('Automated test restroom'), 'pending submission is NOT visible in public discovery');
+      const list = await rpc('list_my_submissions');
+      check(list.json?.some((x) => x.status === 'pending'), 'my pending submission is listed');
+    }
+    console.log('NOTE: the test report (and any --submit-new item) stay pending until this account is deleted.');
   }
 
   if (args.has('--delete')) {

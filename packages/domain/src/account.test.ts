@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  EMPTY_DRAFT, accountErrorMessage, buildProposal, sanitizePreferences, toggleObservation, validateDisplayName,
-  validateFreeText, validateRating, validateReport, looksResidential, ratingChoiceLabel, type LocationDraft,
+  EMPTY_DRAFT, accountErrorMessage, buildProposal, fixProblem, sanitizePreferences, toggleObservation, validateDisplayName,
+  validateFreeText, validateRating, validateReport, looksResidential, ratingChoiceLabel, type LocationDraft, type LocationFix,
 } from './account';
 
-const good: LocationDraft = { ...EMPTY_DRAFT, name: 'Library restroom', latitude: 44.5, longitude: -109.05, attestedPublic: true };
 
 describe('display name', () => {
   it('accepts normal names', () => expect(validateDisplayName('Trail Walker')).toBeNull());
@@ -57,30 +56,55 @@ describe('reports', () => {
   });
 });
 
-describe('buildProposal', () => {
-  it('builds a new-location proposal, omitting unknowns', () => {
-    const r = buildProposal({ ...good, fee: false, wheelchair: null }, 'new');
-    expect(r).toEqual({ ok: true, proposed: { name: 'Library restroom', latitude: 44.5, longitude: -109.05, fee_required: false }, note: null });
+describe('buildProposal: new restroom needs a fresh, accurate device fix', () => {
+  const NOW = 1_000_000;
+  const fix = (o: Partial<LocationFix> = {}): LocationFix => ({ latitude: 44.5, longitude: -109.05, accuracyM: 10, capturedAt: NOW - 1000, ...o });
+  const good: LocationDraft = { ...EMPTY_DRAFT, name: 'Library restroom', fix: fix(), attestedPublic: true };
+
+  it('builds a proposal WITHOUT coordinates and returns the device position separately', () => {
+    const r = buildProposal({ ...good, fee: false, wheelchair: null }, 'new', NOW);
+    expect(r).toEqual({ ok: true, proposed: { name: 'Library restroom', fee_required: false }, note: null, position: { latitude: 44.5, longitude: -109.05, accuracyM: 10 } });
+    if (r.ok) expect(r.proposed).not.toHaveProperty('latitude');
   });
-  it('requires attestation, name and coordinates for new', () => {
-    const r = buildProposal({ ...EMPTY_DRAFT }, 'new');
+  it('rejects a missing fix', () => {
+    const r = buildProposal({ ...good, fix: null }, 'new', NOW);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors.join(' ')).toMatch(/name.*|Confirm/);
-    expect(buildProposal({ ...good, attestedPublic: false }, 'new').ok).toBe(false);
-    expect(buildProposal({ ...good, latitude: null, longitude: null }, 'new').ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toMatch(/current location/);
   });
-  it('rejects bad coordinates and half pairs', () => {
-    expect(buildProposal({ ...good, latitude: 95 }, 'new').ok).toBe(false);
-    expect(buildProposal({ ...good, longitude: null }, 'new').ok).toBe(false);
+  it.each([
+    ['too imprecise', { accuracyM: 51 }], ['zero accuracy', { accuracyM: 0 }], ['negative accuracy', { accuracyM: -1 }], ['NaN accuracy', { accuracyM: NaN }],
+    ['NaN latitude', { latitude: NaN }], ['out-of-range latitude', { latitude: 95 }], ['out-of-range longitude', { longitude: 181 }],
+    ['null island', { latitude: 0, longitude: 0 }], ['stale fix', { capturedAt: NOW - 200_000 }],
+  ])('rejects %s', (_n, o) => expect(buildProposal({ ...good, fix: fix(o as Partial<LocationFix>) }, 'new', NOW).ok).toBe(false));
+  it('accepts exactly 50 m and a fix just inside the age limit', () => {
+    expect(buildProposal({ ...good, fix: fix({ accuracyM: 50, capturedAt: NOW - 119_000 }) }, 'new', NOW).ok).toBe(true);
+  });
+  it('still requires attestation and a name', () => {
+    expect(buildProposal({ ...good, attestedPublic: false }, 'new', NOW).ok).toBe(false);
+    expect(buildProposal({ ...good, name: ' ' }, 'new', NOW).ok).toBe(false);
   });
   it('blocks private residences and links', () => {
-    expect(buildProposal({ ...good, name: 'My house bathroom' }, 'new').ok).toBe(false);
-    expect(buildProposal({ ...good, note: 'visit http://x.example' }, 'new').ok).toBe(false);
+    expect(buildProposal({ ...good, name: 'My house bathroom' }, 'new', NOW).ok).toBe(false);
+    expect(buildProposal({ ...good, note: 'visit http://x.example' }, 'new', NOW).ok).toBe(false);
   });
-  it('edit requires at least one change and attestation', () => {
+  it('fixProblem explains each failure', () => {
+    expect(fixProblem(null, NOW)).toMatch(/current location/);
+    expect(fixProblem(fix({ accuracyM: 80 }), NOW)).toMatch(/80 m/);
+    expect(fixProblem(fix(), NOW)).toBeNull();
+  });
+});
+
+describe('buildProposal: corrections to existing restrooms are not blocked by the GPS rule', () => {
+  it('needs a change and attestation, but no location', () => {
     expect(buildProposal({ ...EMPTY_DRAFT, attestedPublic: true }, 'edit').ok).toBe(false);
-    expect(buildProposal({ ...EMPTY_DRAFT, attestedPublic: true, fee: true }, 'edit')).toMatchObject({ ok: true, proposed: { fee_required: true } });
+    expect(buildProposal({ ...EMPTY_DRAFT, attestedPublic: true, fee: true }, 'edit')).toMatchObject({ ok: true, proposed: { fee_required: true }, position: null });
     expect(buildProposal({ ...EMPTY_DRAFT, fee: true }, 'edit').ok).toBe(false);
+  });
+  it('an optional fix updates the pin; a poor one is refused', () => {
+    const now = 5_000;
+    const f = { latitude: 44.5, longitude: -109.05, accuracyM: 12, capturedAt: now };
+    expect(buildProposal({ ...EMPTY_DRAFT, attestedPublic: true, fix: f }, 'edit', now)).toMatchObject({ ok: true, proposed: { latitude: 44.5, longitude: -109.05 } });
+    expect(buildProposal({ ...EMPTY_DRAFT, attestedPublic: true, fix: { ...f, accuracyM: 500 } }, 'edit', now).ok).toBe(false);
   });
 });
 
@@ -96,6 +120,11 @@ describe('preferences and errors', () => {
     expect(accountErrorMessage({ code: '54000', message: 'rate limit exceeded for report' })).toMatch(/later/);
     expect(accountErrorMessage({ code: '22023', message: 'too far from the restroom to check in' })).toMatch(/150 meters/);
     expect(accountErrorMessage({ code: '28000', message: 'not authenticated' })).toMatch(/sign in/i);
+    expect(accountErrorMessage({ code: '22023', message: 'restroom already listed nearby' })).toMatch(/already on the map/);
+    expect(accountErrorMessage({ code: '22023', message: 'you already submitted this restroom' })).toMatch(/waiting for review/);
+    expect(accountErrorMessage({ code: '22023', message: 'location not accurate enough' })).toMatch(/accurate/);
+    expect(accountErrorMessage({ code: '22023', message: 'current location required' })).toMatch(/current location/);
+    expect(accountErrorMessage({ code: '54000', message: 'submissions paused' })).toMatch(/paused/);
     expect(accountErrorMessage({ message: 'SELECT secret_table violates' })).toBe('Something went wrong. Please try again.');
   });
 });
