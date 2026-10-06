@@ -254,7 +254,7 @@ Use OPEN_STALL_RESUME.md for the short handoff; load relevant sections here when
 
 The recommended subsequent sequence is: restore Claude account access; send one narrow review/repair brief; Claude proposes/implements only approved Phase 2 corrections; ChatGPT assesses product/architecture impact and test evidence; rerun relevant checks and pending-only dry run; present the concrete migration for explicit owner live approval. Any proposal requiring unresolved product choices must be brought back rather than silently selecting a policy.
 
-Current approval gate remains **intentional live application of `20261007000001` + `20261008000001` together, after ChatGPT review**, not a main merge or deployment. No live mutation should occur during context consolidation.
+**2026-10-06: `20261007000001` + `20261008000001` applied live; doctor and permanent-account `live:account --contribute` passed; Phase 2 complete.** The earlier gate was live application of both migrations, not a main merge or deployment. No live mutation should occur during context consolidation.
 
 ## 15. Source navigation
 
