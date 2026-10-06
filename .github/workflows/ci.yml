@@ -33,6 +33,10 @@ jobs:
         run: npm run test:e2e
       - name: Auth UI test (real browser, mock auth backend)
         run: npm run test:e2e:auth
+      - name: Admin sign-in/MFA/queue UI test (real browser, mock backend)
+        run: npm run test:e2e:admin
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
       - name: Admin build
         run: npm run build -w @open-stall/admin
         env:

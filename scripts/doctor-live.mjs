@@ -47,6 +47,9 @@ const accountFns = {
   check_in: { p_location: U, p_lat: 0, p_lng: 0 }, submit_location: { p_proposed: {}, p_lat: 0, p_lng: 0, p_accuracy_m: 1, p_attested: true, p_note: null },
   submit_location_edit: { p_location: U, p_proposed: {}, p_attested: true, p_note: null }, list_my_submissions: {}, withdraw_my_submission: { p_id: U },
   submit_report: { p_location: U, p_issue: 'other', p_comment: null }, delete_my_account: { p_confirm: 'x' },
+  // Phase 3A (installed only after migrations 20261009000001-2): callable by authenticated users but they refuse non-admins; anon is denied.
+  am_i_admin: {}, admin_list_submissions: { p_limit: 1 }, admin_list_reports: { p_limit: 1 },
+  admin_decide_submission: { p_id: U, p_decision: 'hold', p_reason: null, p_note: null, p_edits: null, p_duplicate_of: null }, admin_resolve_report: { p_id: U, p_resolution: 'resolved', p_note: null },
 };
 for (const [fn, args] of Object.entries(accountFns)) {
   const r = await get(`/rest/v1/rpc/${fn}`, { method: 'POST', body: JSON.stringify(args) });

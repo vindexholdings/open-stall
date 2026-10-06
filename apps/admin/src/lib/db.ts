@@ -1,19 +1,7 @@
 import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
+import { readEnvironmentMd } from './envmd';
 import { assertExpectedProject } from './gate';
-
-function readEnvironmentMd(): string {
-  for (const rel of ['../../ENVIRONMENT.md', 'ENVIRONMENT.md']) {
-    try {
-      return readFileSync(path.resolve(process.cwd(), rel), 'utf8');
-    } catch {
-      // try next
-    }
-  }
-  throw new Error('ENVIRONMENT.md not found; refusing to connect without the recorded project ref');
-}
 
 let cached: SupabaseClient | null = null;
 

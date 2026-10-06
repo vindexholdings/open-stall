@@ -35,3 +35,13 @@ export function assertExpectedProject(url: string, environmentMd: string): strin
   if (ref !== recorded) throw new Error(`SUPABASE_URL project (${ref}) does not match ENVIRONMENT.md (${recorded}); refusing to connect`);
   return ref;
 }
+
+/**
+ * Session-client guard. Normally identical to assertExpectedProject. For local browser tests ONLY, a
+ * loopback backend is allowed when ADMIN_ALLOW_LOCAL_BACKEND=true; any hosted URL must still match ENVIRONMENT.md.
+ */
+export function assertSessionBackend(url: string, environmentMd: string, env: Record<string, string | undefined>): void {
+  const host = new URL(url).hostname;
+  if (env.ADMIN_ALLOW_LOCAL_BACKEND === 'true' && (host === '127.0.0.1' || host === 'localhost')) return;
+  assertExpectedProject(url, environmentMd);
+}

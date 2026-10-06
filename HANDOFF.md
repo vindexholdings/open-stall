@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: WORKING**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -69,21 +69,34 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 4. **Admin app**: `@supabase/ssr` session sign-in, MFA enroll/verify (AAL2 gate), middleware, functional review-queue UI (list, detail, decision forms) using only the user session — no service-role key. Existing local validator stays as-is. Build/test only; no hosting.
 5. **Tests + docs**: SQL (authorization, MFA/AAL2, self-adjudication, privacy/no leakage, immutability, decisions, held caps, unverified-on-approve, deletion/provenance, mutation checks), domain + admin unit tests, e2e where cheap; reconcile PROJECT_STATE/BACKLOG/SECURITY/DATABASE/TESTING/ADMIN_REVIEW; record migration list for Jake's live review.
 
-**Work completed (this checkpoint)**
-- Acknowledgment only. Phase 3A implementation starts after this commit.
+**Work completed — Phase 3A implementation (all local; committed to claude-local; NOTHING applied live, deployed or merged)**
+1. `supabase/migrations/20261009000001_admin_identity.sql`: `admin_users` (owner-SQL bootstrap only; `disabled_at`), internal `require_admin()` = listed + not disabled + JWT `aal2`, `am_i_admin()`, append-only `moderation_log`.
+2. `supabase/migrations/20261009000002_moderation_core.sql`: immutable original submissions (trigger), append-only `moderation_decisions` (reviewer id, reason code, note, edits, result/duplicate links), `admin_list_submissions`, `admin_list_reports`, `admin_decide_submission` (approve, edit_approve, reject with the six codes + `other` needs note, duplicate = separate status/link, hold/release), `admin_resolve_report`, self-adjudication blocked, approval creates a public but UNVERIFIED restroom with a `community_submission` source row (never Verified), approved corrections applied via the manual-edit path, held items stay `pending` (still count toward caps; cannot be withdrawn), `delete_my_account` keeps decided submissions/reports/decisions with `user_id` NULL and removes undecided/held items; active admins must be disabled by the owner before deleting.
+3. Admin app (`apps/admin`): `/signin`, `/mfa` (TOTP enroll + verify), `/queue` (submissions, reports, decision forms) with `@supabase/ssr` (free, added to apps/admin), `proxy.ts` session refresh, anon key + user session only (no service-role key), project-ref guard (loopback allowed only with `ADMIN_ALLOW_LOCAL_BACKEND=true` for tests). The older local validator `/review` is untouched. Nothing hosted.
+4. Docs reconciled: PROJECT_STATE, BACKLOG (OS-301/302/303 BUILT locally), SECURITY, DATABASE, TESTING, ADMIN_REVIEW (incl. first-admin SQL runbook), `.env.example` (names only), CI step for the admin e2e; doctor now also expects the five admin functions.
 
-**Tests / results**
-- None run for this commit. Last full local validation remains the 2026-10-05 recovery pass in PROJECT_STATE.md; live doctor + `live:account --contribute` passed 2026-10-06.
+**Tests / results (local)**
+- `npm run check` (lint, typecheck, unit: admin 17, mobile 32, domain 105, importer 65, ui 15, secret scan) PASS.
+- `npm run test:db` PASS (all 12 migrations + `moderation.test.sql`, account/review suites, two-session concurrency, importer contracts). 11 mutations of the new migrations were each caught (MFA check, disabled admin, self-adjudication x2, approve-as-verified, immutability trigger, append-only trigger, deletion keeps decided, withdraw-held, other-needs-note, duplicate-link).
+- `npm run test:e2e:admin` 26/26 (new), `test:e2e:auth` 56/56, `test:e2e` smoke 25/25, admin build, android/ios bundles PASS.
+- Not run: anything against live Supabase (no link here).
+
+**Assumptions to confirm (from the earlier question)**
+- Approved community restrooms: `status='unverified'`, `restroom_evidence='explicit'`, `restroom_verified=false` + `community_submission` source row. Implemented exactly so; UI/API show UNVERIFIED.
 
 **Blockers / environment**
-- This Claude session runs in the cloud container (GitHub access to this repo only; no Supabase CLI link, no Vercel CLI; Supabase MCP is bound to a different Vindex project and must not be used). Live steps need Jake's Mac. Everything above is local source + local DB tests.
-- Real hosted MFA enrollment can only be verified live; local tests simulate AAL2 via JWT claims. Reported as a limitation, not worked around.
+- This session is the cloud container: no Supabase CLI link, so migrations are validated only on the throwaway local Postgres. Real TOTP/AAL2 can only be verified live; local tests simulate AAL2 through JWT claims.
+- Not tested: two admins deciding the same item concurrently (the function takes `FOR UPDATE` and re-checks `status='pending'`, but there is no two-session test for it yet).
 
 **Questions requiring review**
-- None blocking. Assumption to confirm at the first review checkpoint: approved community restrooms are created with `status='unverified'`, `restroom_evidence='explicit'` and a first-party `community_submission` source row (needed to satisfy the existing visibility constraint) while staying UNVERIFIED in the UI.
+1. Held items are removed (with their hold decision) when their contributor deletes the account, while the `moderation_log` entry of the hold remains. Acceptable, or should held items be treated as decided/anonymised instead?
+2. `admin_decide_submission` blocks ALL decisions (including hold/release) on an admin's own submission, stricter than "final adjudication". Keep?
+3. Edit-and-approve in the UI edits text fields only (name, address, city, region, ZIP, access, hours); boolean facts stay as proposed. Enough for 3A?
+4. Admin bootstrap is owner SQL only (ADMIN_REVIEW.md). OK as the first-admin path?
+5. Community review history-in-place (audit finding) and the OS-309 retention policy remain untouched (Phase 3B-adjacent).
 
 **Exact next recommended action**
-- Build steps 1-2 (admin identity + moderation core migrations and SQL tests), then checkpoint with NEEDS_CHATGPT_REVIEW.
+- ChatGPT: review this checkpoint (migrations 20261009000001-2, admin routes, tests). On approval, Jake (on the Mac with the Supabase link) runs `npx supabase db push --dry-run`, reviews, and decides on applying; then enroll MFA for the first admin account in the local admin app and run the first-admin SQL from ADMIN_REVIEW.md. Claude stays idle until the review is recorded (no live step is authorized).
 
 ---
 

@@ -44,9 +44,9 @@ OS-209 DONE (UI + SQL + mock e2e tested; deletion in the real UI not exercised: 
 OS-210 DONE (tests; live doctor + live:account --contribute passed 2026-10-06 after 20261008000001) SQL account suite (mutation-checked), domain/app tests, real-browser mock-backend e2e. Earlier note: live verification waited for the owner applying the migrations.
 
 ## Phase 3 Admin/data
-OS-301 Admin authorization (the validator's requireAdmin() gate is local-only until this).
-OS-302 Moderation queue (PARTIAL: minimal seeded-location validator pulled forward, see ADMIN_REVIEW.md).
-OS-303 Approve/reject/edit (PARTIAL: review function + UI for existence/access/amenities/verification).
+OS-301 BUILT locally (Phase 3A; migrations 20261009000001-2 NOT applied; hosting NOT approved) Admin authorization: admin_users + MFA (aal2) enforced inside every admin function, user session + @supabase/ssr, no service-role credential in the new admin routes. The older local validator (/review) still uses its local-only service-role gate.
+OS-302 BUILT locally (Phase 3A, not applied) Moderation queue foundation: /queue (submissions + reports), private flags, held items, immutable originals, append-only decisions. Seeded-location validator (/review) unchanged, see ADMIN_REVIEW.md.
+OS-303 BUILT locally (Phase 3A, not applied) approve / edit-and-approve / reject (6 codes) / duplicate-link / hold / release; report resolve/dismiss. Approval publishes UNVERIFIED only (approval != verification). Seeded-location review function + UI unchanged.
 OS-304 Duplicate review/merge.
 OS-305 CSV import/export.
 OS-306 PARTIAL (core importer built in OS-110b) OSM-derived seed pipeline + attribution.
