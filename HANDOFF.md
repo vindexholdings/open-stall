@@ -84,6 +84,12 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 **Assumptions to confirm (from the earlier question)**
 - Approved community restrooms: `status='unverified'`, `restroom_evidence='explicit'`, `restroom_verified=false` + `community_submission` source row. Implemented exactly so; UI/API show UNVERIFIED.
 
+**Supabase connection check (2026-10-06, read-only; no live change made)**
+- **Open Stall project `xzzbcejgprilmolvdaes`: NOT accessible from this session.** The connected Supabase MCP exposes exactly one project, `ydohoixtdkjerstmuafi` ("Go Zip Trips", INACTIVE, us-west-2, a different Vindex project). Claude did NOT query, inspect or use it beyond listing project metadata (isolation rule). `get_project_url` for `xzzbcejgprilmolvdaes` returned "You do not have permission to perform this action".
+- Other routes checked earlier: Supabase CLI 2.118.0 is installed but has no access token and no project link; the public anon key is not available in this container; there is no network route to `*.supabase.co` for Open Stall.
+- **Live read-only/validation capability available to Claude from here: none** (no doctor, no `migration list`, no `db push --dry-run`, no `live:account`, no MFA enrollment). Those require Jake's Mac (CLI link + local `.env.local`) or an MCP/CLI connection actually bound to `xzzbcejgprilmolvdaes`.
+- **Blocker for the remaining Phase 3A live verification (after owner approval):** connect an Open Stall-scoped Supabase integration (re-authorize the Supabase MCP/plugin to the Open Stall org/project and disconnect the Go Zip Trips binding), or run the live steps on Jake's Mac and paste results into HANDOFF. Claude will not apply anything either way until a consequential approval is recorded in CHATGPT REVIEW.
+
 **Blockers / environment**
 - This session is the cloud container: no Supabase CLI link, so migrations are validated only on the throwaway local Postgres. Real TOTP/AAL2 can only be verified live; local tests simulate AAL2 through JWT claims.
 - Not tested: two admins deciding the same item concurrently (the function takes `FOR UPDATE` and re-checks `status='pending'`, but there is no two-session test for it yet).
