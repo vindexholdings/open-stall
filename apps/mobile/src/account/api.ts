@@ -101,20 +101,22 @@ export async function checkIn(c: RpcClientLike, id: string, at: { latitude: numb
 // ---------------------------------------------------------------- contributions
 /**
  * New restroom, placed at the contributor's CURRENT position (a fresh device fix). The position travels as
- * separate arguments, never inside `proposed`; the database rejects anything else. `coalesced` is true when
- * someone already reported this place and your report was added to that item instead of a new one.
+ * separate arguments, never inside `proposed`; the database rejects anything else. Every proposal is stored as its
+ * own item for review (nearby places are flagged privately for admins, never rejected or merged), and the response
+ * says nothing about neighbours. An exact repeat of your own pending request (same payload, fix and note, within
+ * 10 minutes) returns the same item; anything else is a new proposal.
  */
 export async function submitNewLocation(
   c: RpcClientLike,
   proposed: Record<string, unknown>,
   position: { latitude: number; longitude: number; accuracyM: number },
   note: string | null,
-): Promise<Outcome<{ coalesced: boolean }>> {
+): Promise<Outcome> {
   const r = await call(c, 'submit_location', {
     p_proposed: proposed, p_lat: position.latitude, p_lng: position.longitude, p_accuracy_m: position.accuracyM, p_attested: true, p_note: note,
   });
   if (!r.ok) return r;
-  return { ok: true, coalesced: obj(r.data).coalesced === true };
+  return { ok: true };
 }
 
 export async function submitEdit(c: RpcClientLike, id: string, proposed: Record<string, unknown>, note: string | null): Promise<Outcome> {

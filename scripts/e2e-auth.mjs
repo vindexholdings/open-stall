@@ -24,6 +24,7 @@ function findChrome() {
   if (process.env.CHROME_BIN && existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
   const base = '/opt/pw-browsers';
   if (existsSync(base)) for (const d of readdirSync(base).sort().reverse()) for (const rel of ['chrome-linux/headless_shell', 'chrome-linux/chrome']) if (existsSync(join(base, d, rel))) return join(base, d, rel);
+  for (const app of ['Google Chrome', 'Chromium']) for (const home of ['', process.env.HOME ?? '']) { const p = `${home}/Applications/${app}.app/Contents/MacOS/${app}`; if (existsSync(p)) return p; }
   for (const n of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) { const r = spawnSync('which', [n], { encoding: 'utf8' }); if (r.status === 0) return r.stdout.trim(); }
   throw new Error('No Chrome/Chromium found (set CHROME_BIN).');
 }
@@ -77,9 +78,9 @@ const mock = createServer(async (req, res) => {
     if (fn === 'submit_report') { acct.reports.push(data); return json(200, null); }
     if (fn === 'submit_location') {
       acct.submissionAttempts.push(data);
-      if (data.p_proposed?.name === 'Existing public place') return json(400, { code: '22023', message: 'restroom already listed nearby' });
+      // Real contract: every proposal is stored separately; the response never mentions neighbours.
       acct.submissions.push(data);
-      return json(200, data.p_proposed?.name === 'Shared place' ? { coalesced: true } : { coalesced: false, submission_id: 'sub-1' });
+      return json(200, { submission_id: `sub-${acct.submissions.length}` });
     }
     if (fn === 'submit_location_edit') { acct.edits = (acct.edits ?? 0) + 1; return json(200, 'sub-2'); }
     if (fn === 'check_in') { acct.checkins.push(data); return json(200, { checkin_id: 'c1' }); }
@@ -279,15 +280,13 @@ try {
       'submission carries the device fix and accuracy', JSON.stringify(sub));
     check(!('latitude' in sub.p_proposed) && !('longitude' in sub.p_proposed), 'payload contains no free-form coordinates');
 
-    // server-side duplicate / coalescing outcomes are explained to the user
+    // a nearby/similar place is just another proposal: sent for review, no merge or rejection message
     await page.goto(`${base}/contribute`);
-    await fill(page, 'Name of the place', 'Existing public place');
+    await fill(page, 'Name of the place', 'Shared place');
     await page.getByRole('checkbox', { name: /not inside a private home/ }).click();
     await button(page, 'Add restroom at my current location').click();
-    check(await text(page, 'already on the map'), 'an already-listed restroom is explained, not silently dropped');
-    await fill(page, 'Name of the place', 'Shared place');
-    await button(page, 'Add restroom at my current location').click();
-    check(await text(page, 'added your report to it'), 'a coalesced report tells the user it was added to an existing one');
+    check(await text(page, 'sent for review') && acct.submissions.length === 2, 'a second nearby proposal is sent for review as its own item', (await page.locator('body').innerText()).slice(0, 600).replace(/\n/g, ' | '));
+    check(!(await text(page, 'added your report')) && !(await text(page, 'already on the map')), 'no merge or duplicate wording is shown to the contributor');
 
     // corrections to existing restrooms need no location
     await page.goto(`${base}/contribute?id=${LOC_ID}&name=Mock%20Park%20Restroom`);

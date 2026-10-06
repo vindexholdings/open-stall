@@ -63,9 +63,14 @@ do $$ declare t text; f text; begin
     assert not has_function_privilege('anon', 'public.' || f, 'execute') and not has_function_privilege('authenticated', 'public.' || f, 'execute'),
       'internal function exposed: ' || f;
   end loop;
-  -- Signed-in users still cannot reach import/review (service) functions.
-  assert not has_function_privilege('authenticated', 'public.apply_location_review(uuid,text,text,text,boolean,boolean,boolean,boolean,boolean,text,boolean,date)', 'execute'),
-    'authenticated must not run validator functions';
+  -- Import/review (validator) functions are service-only: anon and signed-in users are denied.
+  foreach f in array array[
+    'apply_location_review(uuid,text,text,text,boolean,boolean,boolean,boolean,boolean,text,boolean,date,boolean,boolean,boolean)',
+    'apply_location_review_v2(uuid,text,text,text,boolean,date,jsonb)'] loop
+    assert not has_function_privilege('anon', 'public.' || f, 'execute'), 'anon must not run validator function ' || f;
+    assert not has_function_privilege('authenticated', 'public.' || f, 'execute'), 'authenticated must not run validator function ' || f;
+    assert has_function_privilege('service_role', 'public.' || f, 'execute'), 'service_role must run validator function ' || f;
+  end loop;
 end $$;
 
 -- Doctor regression: probing a key column that doesn't exist yields undefined_column (42703) BEFORE the
@@ -192,6 +197,45 @@ do $$ declare l public.locations; begin
   assert l.rating_count = 1 and l.average_rating = 4.0, 'delete recomputes aggregate (B deleted; A remains with 4)';
 end $$;
 
+-- ------------------------------------------------ public rating is community-only (admin ratings are history)
+-- Admin ratings (apply_location_review_v2) never move the public average/count, in any interleaving.
+set role service_role;
+select public.apply_location_review_v2(:'la'::uuid, 'Jake', 'local-admin', 'exists', true, current_date, '{"rating":1}'::jsonb);
+reset role;
+select pg_temp.ok((select rating_count = 1 and average_rating = 4.0 from public.locations where id = :'la'::uuid), 'admin rating does not change a community average');
+set role authenticated;
+select pg_temp.as_user(:'ua');
+select public.submit_review(:'la', 2, 'plain', null);
+reset role;
+select pg_temp.ok((select rating_count = 1 and average_rating = 2.0 from public.locations where id = :'la'::uuid), 'community update recomputes from community rows only');
+set role service_role;
+select public.apply_location_review_v2(:'la'::uuid, 'Other', 'other-admin', 'exists', true, current_date, '{"rating":5}'::jsonb);
+reset role;
+select pg_temp.ok((select rating_count = 1 and average_rating = 2.0 from public.locations where id = :'la'::uuid), 'a later admin rating still cannot overwrite the community average');
+set role authenticated;
+select pg_temp.as_user(:'ua');
+select public.delete_my_review(:'la');
+reset role;
+select pg_temp.ok((select rating_count = 0 and average_rating is null from public.locations where id = :'la'::uuid), 'community delete leaves no customer rating even though admin ratings exist');
+select pg_temp.ok((select count(*) = 2 and count(*) filter (where rating is not null) = 2 from public.location_reviews where location_id = :'la'::uuid and reviewer_kind = 'admin' and rating in (1, 5)),
+  'admin ratings are preserved in history/provenance');
+-- Admin-only place: no customer rating or count.
+set role service_role;
+select public.apply_location_review_v2(:'lc'::uuid, 'Jake', 'local-admin', 'exists', true, current_date, '{"rating":5}'::jsonb);
+reset role;
+select pg_temp.ok((select rating_count = 0 and average_rating is null from public.locations where id = :'lc'::uuid), 'admin-only place has no customer rating or count');
+select pg_temp.ok((select status = 'verified' from public.locations where id = :'lc'::uuid), 'admin verification still applies');
+-- A stale/contaminated stored aggregate is repaired from community rows only.
+update public.locations set average_rating = 5, rating_count = 7 where id = :'lc'::uuid;
+select public.recompute_location_rating(:'lc'::uuid);
+select pg_temp.ok((select rating_count = 0 and average_rating is null from public.locations where id = :'lc'::uuid), 'recompute repairs a stored aggregate from community rows');
+-- Restore community A rating for the rest of the suite.
+set role authenticated;
+select pg_temp.as_user(:'ua');
+select public.submit_review(:'la', 4, 'plain', null);
+reset role;
+select pg_temp.ok((select rating_count = 1 and average_rating = 4.0 from public.locations where id = :'la'::uuid), 'community rating restored');
+
 -- ------------------------------------------------ check-ins (position checked and discarded)
 do $$ begin
   assert not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'checkins'
@@ -246,15 +290,11 @@ select pg_temp.fails($q$select public.submit_location('[1,2]', 71.2, 71.2, 10, t
 select pg_temp.fails($q$select public.submit_location(null, 71.2, 71.2, 10, true)$q$, '22023');
 -- The old arbitrary-coordinate signature no longer exists.
 select pg_temp.fails($q$select public.submit_location('{"name":"x","latitude":71.2,"longitude":71.2}'::jsonb, true, null::text)$q$, '42883');
--- Already listed: within 25 m of a public restroom, or within 100 m with the same name.
-select pg_temp.fails($q$select pg_temp.nl('Anything', 71.00005, 71)$q$, '22023');
-select pg_temp.fails($q$select pg_temp.nl('ACC Verified A', 71.0008, 71)$q$, '22023');
 do $$ begin
   assert (select count(*) = 0 from public.list_my_submissions()), 'rejected submissions leave no rows';
 end $$;
 select (pg_temp.nl('Library restroom', 71.3, 71.3, 10, true, 'By the entrance', '{"wheelchair_accessible":true}'))->>'submission_id' as s1 \gset
-select pg_temp.fails($q$select pg_temp.nl('Library again', 71.30005, 71.3)$q$, '22023');          -- same person, same place
-select pg_temp.ok((select count(*) = 1 from public.list_my_submissions()), 'one queue item for the place');
+select pg_temp.ok((select count(*) = 1 from public.list_my_submissions()), 'one proposal so far');
 select (pg_temp.nl('Boat ramp restroom', 71.4, 71.4, 40))->>'submission_id' as s2 \gset
 select (pg_temp.nl('Far away restroom', 72.4, 71.4))->>'submission_id' as s3 \gset
 select pg_temp.fails($q$select pg_temp.nl('Fourth restroom', 71.6, 71.6)$q$, '54000');            -- 3 per hour
@@ -273,29 +313,80 @@ select pg_temp.fails(format('select public.submit_report(%L, ''closed'', ''https
 select pg_temp.fails(format('select public.submit_report(%L, ''closed'')', :'lg'), '22023');
 select public.submit_report(:'lb', 'private_property', null);
 select pg_temp.as_user(:'ub');
--- Another person reporting the SAME pending place adds support instead of a second queue item.
-select pg_temp.ok((pg_temp.nl('Library Restroom', 71.30005, 71.3))->>'coalesced' = 'true', 'second reporter coalesces');
-select pg_temp.fails($q$select pg_temp.nl('Library Restroom', 71.30005, 71.3)$q$, '22023');     -- and cannot pile on again
-select pg_temp.ok((select count(*) = 0 from public.list_my_submissions()), 'supporter creates no queue item of their own');
+-- Another person reporting the SAME pending place gets their own raw proposal (nothing is merged or hidden).
+select (pg_temp.nl('Library Restroom', 71.30005, 71.3))->>'submission_id' as s7 \gset
+select pg_temp.ok((select count(*) = 1 from public.list_my_submissions()), 'second reporter has their own queue item');
+select pg_temp.ok(not ((pg_temp.nl('Library Restroom', 71.30005, 71.3)) ? 'coalesced'), 'there is no coalesced outcome any more');
 -- Hidden candidate (ACC candidate G) within 25 m: accepted and flagged, never revealed.
 select (pg_temp.nl('Depot restroom', 71.00605, 71))->>'submission_id' as s5 \gset
 select public.submit_location_edit(:'la', '{"latitude":72.0,"longitude":71.0}', true) as s6 \gset
 reset role;
+
+-- ------------------------------------------------ nearby proposals are accepted and privately flagged (account D)
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000d4', 'd@test.invalid');
+\set ud '00000000-0000-0000-0000-0000000000d4'
+set role authenticated;
+select pg_temp.as_user(:'ud');
+-- Within 25 m of a public restroom, and 100 m with the same name: accepted (distinct units can share a place), flagged.
+select pg_temp.nl('Anything', 71.00005, 71)->>'submission_id' as d1 \gset
+select pg_temp.nl('ACC Verified A', 71.0008, 71)->>'submission_id' as d2 \gset
+select pg_temp.ok((select count(*) = 2 from public.list_my_submissions()), 'near-listed proposals are stored, not rejected');
+-- The client contract carries no neighbour information at all.
+select pg_temp.ok((select array(select jsonb_object_keys(pg_temp.nl('Anything', 71.00005, 71))) = array['submission_id']), 'response exposes only the id: no retry, duplicate or neighbour hints');
+select pg_temp.ok((pg_temp.nl('Anything', 71.00005, 71))->>'submission_id' = :'d1', 'an exact retry returns the same item');
+select pg_temp.ok((select count(*) = 2 from public.list_my_submissions()), 'exact retries create no extra queue items');
+select pg_temp.ok((select not (to_jsonb(s) ?| array['flags', 'possible_duplicate_of', 'duplicate_submission_ids']) from public.list_my_submissions() s limit 1), 'my-submissions never returns private flags');
+reset role;
+delete from public.action_log where action = 'new_restroom_hour';
+set role authenticated;
+select pg_temp.as_user(:'ud');
+-- Two distinct restrooms a few metres apart by the same person (mall units): both kept, second flags the first.
+select pg_temp.nl('Mall restroom', 71.9, 71.9, 10, true, null, '{"gender_neutral":true}')->>'submission_id' as d3 \gset
+select pg_temp.nl('Mall restroom', 71.90005, 71.9, 10, true, null, '{"wheelchair_accessible":true}')->>'submission_id' as d4 \gset
+select pg_temp.ok(:'d3' <> :'d4', 'distinct nearby proposals from one person are separate');
+-- Exact retry (identical payload, fix, accuracy and note within 10 min) is the same request: same id, no quota.
+-- Anything different, even only the note, is its own proposal (two real units get separate fixes).
+select (public.submit_location(jsonb_build_object('name', 'Mall restroom', 'wheelchair_accessible', true), 71.90005, 71.9, 10, true, null))->>'submission_id' as d4b \gset
+select (public.submit_location(jsonb_build_object('name', 'Mall restroom', 'wheelchair_accessible', true), 71.90005, 71.9, 10, true, 'second stall room'))->>'submission_id' as d4c \gset
+select pg_temp.ok(:'d4b' = :'d4', 'an identical repeat from the same user is the same proposal');
+select pg_temp.ok(:'d4c' <> :'d4', 'a changed repeat from the same user is a separate proposal');
+reset role;
+select pg_temp.ok((select possible_duplicate_of = :'la'::uuid and 'near_listed_restroom' = any (flags) from public.submissions where id = :'d1'::uuid), 'within 25 m of a public restroom: duplicate candidate recorded privately');
+select pg_temp.ok((select possible_duplicate_of in (:'la'::uuid, :'lb'::uuid) and 'near_listed_restroom' = any (flags) from public.submissions where id = :'d2'::uuid), 'same name within 100 m: nearest listed restroom recorded privately as the duplicate candidate');
+select pg_temp.ok((select 'near_own_pending' = any (flags) and duplicate_submission_ids = array[:'d3'::uuid] and possible_duplicate_of is null from public.submissions where id = :'d4'::uuid), 'second unit flags the first, no listed duplicate');
+select pg_temp.ok((select count(*) = 5 and count(distinct id) = 5 from public.submissions where user_id = :'ud'::uuid), 'every distinct call stored its own raw proposal; exact retries none');
+select pg_temp.ok((select count(*) = 3 from public.action_log where user_id = :'ud'::uuid and action = 'new_restroom_hour'), 'exact retries consumed no hourly quota');
+select pg_temp.ok((select count(distinct proposed) = 1 and count(note) = 1 from public.submissions where id in (:'d4'::uuid, :'d4c'::uuid)),
+  'the separate pair has equal payload and differs only in the note');
+select pg_temp.ok((select duplicate_submission_ids = array[:'d3'::uuid, :'d4'::uuid] and 'near_own_pending' = any (flags) from public.submissions where id = :'d4c'::uuid), 'the later proposal flags both earlier nearby ones');
+set role authenticated;
+select pg_temp.as_user(:'ud');
+select pg_temp.fails($q$select pg_temp.nl('Mall restroom', 71.90005, 71.9, 10, true, null, '{"baby_changing":true}')$q$, '53400');   -- pending cap unchanged
+-- Withdrawing one of the pair leaves the other.
+select public.withdraw_my_submission(:'d4c');
+reset role;
+select pg_temp.ok((select count(*) = 1 from public.submissions where id = :'d4'::uuid) and (select count(*) = 0 from public.submissions where id = :'d4c'::uuid), 'withdrawing one nearby proposal does not remove the other');
+delete from auth.users where id = :'ud'::uuid;
 
 select pg_temp.ok((select flags = '{new_account}' from public.submissions where id = :'s1'::uuid), 'first submission flagged only new_account');
 select pg_temp.ok((select 'low_accuracy' = any (flags) from public.submissions where id = :'s2'::uuid), 'imprecise fix flagged');
 select pg_temp.ok((select 'implausible_travel' = any (flags) from public.submissions where id = :'s3'::uuid), 'impossible travel flagged');
 select pg_temp.ok((select 'near_hidden_candidate' = any (flags) from public.submissions where id = :'s5'::uuid), 'hidden-candidate proximity flagged');
 select pg_temp.ok((select 'moved_far' = any (flags) from public.submissions where id = :'s6'::uuid), 'long pin move on a correction flagged, not blocked');
-select pg_temp.ok((select count(*) = 1 from public.submissions where kind = 'new_location' and proposed->>'latitude' like '71.3%'), 'exactly one moderation item for the shared place');
-select pg_temp.ok((select count(*) = 1 from public.submission_supporters where submission_id = :'s1'::uuid), 'supporter recorded');
+select pg_temp.ok((select count(*) = 2 from public.submissions where kind = 'new_location' and proposed->>'latitude' like '71.3%'), 'both raw proposals for the shared place are stored');
+select pg_temp.ok((select 'near_pending_submission' = any (flags) and duplicate_submission_ids = array[:'s1'::uuid] from public.submissions where id = :'s7'::uuid),
+  'the later proposal is privately flagged against the earlier one');
+select pg_temp.ok((select not ('near_pending_submission' = any (flags)) and duplicate_submission_ids = '{}' from public.submissions where id = :'s1'::uuid),
+  'the earlier proposal is left untouched');
+select pg_temp.ok((to_regclass('public.submission_supporters') is not null and (select count(*) = 0 from public.submission_supporters)),
+  'historical supporter table is preserved and the new submission path never writes to it');
 select pg_temp.ok((select capture_accuracy_m = 10 and attested_public and status = 'pending' from public.submissions where id = :'s1'::uuid), 'stored pending with accuracy and attestation');
 select pg_temp.ok((select (proposed->>'latitude')::float8 = 71.3 and (proposed->>'longitude')::float8 = 71.3 from public.submissions where id = :'s1'::uuid), 'coordinates are exactly the device fix');
 select pg_temp.ok((select count(*) = 2 from public.reports), 'duplicate open report deduplicated');
 select pg_temp.ok((select not (proposed ? 'status') from public.submissions where id = :'s1'::uuid), 'only whitelisted fields stored');
 -- No contributor location trail anywhere except the submission's own point.
 select pg_temp.ok((not exists (select 1 from information_schema.columns where table_schema = 'public'
-  and table_name in ('action_log', 'profiles', 'submission_supporters', 'reports') and column_name ~ '(lat|lng|lon|position|geo)')), 'no location columns outside submissions/locations/checkins-free tables');
+  and table_name in ('action_log', 'profiles', 'reports') and column_name ~ '(lat|lng|lon|position|geo)')), 'no location columns outside submissions/locations/checkins-free tables');
 -- Pending submissions are never public: location table and public API unchanged.
 select count(*) as locs_after from public.locations \gset
 select count(*) as pub_after from public.nearby_locations(71.0, 71.0, 50000, 100) \gset
@@ -325,7 +416,7 @@ reset role;
 insert into public.submissions (user_id, kind, proposed, attested_public, status)
   select :'uc'::uuid, 'new_location', '{"name":"good","latitude":61,"longitude":61}', true, 'approved' from generate_series(1, 2);
 set role authenticated;
-select pg_temp.ok((pg_temp.nl('Honest restroom', 71.7, 71.7))->>'coalesced' = 'false', 'approvals lift the pause');
+select pg_temp.ok((pg_temp.nl('Honest restroom', 71.7, 71.7)) ? 'submission_id', 'approvals lift the pause');
 reset role;
 delete from auth.users where id = :'uc'::uuid;
 
@@ -335,6 +426,13 @@ select pg_temp.as_user(:'ub');
 select public.withdraw_my_submission(:'s1');
 reset role;
 select pg_temp.ok((select count(*) = 1 from public.submissions where id = :'s1'::uuid), 'B cannot withdraw A''s submission');
+-- B withdraws their own separate proposal for the same place; A's is untouched.
+set role authenticated;
+select pg_temp.as_user(:'ub');
+select public.withdraw_my_submission(:'s7');
+reset role;
+select pg_temp.ok((select count(*) = 0 from public.submissions where id = :'s7'::uuid) and (select count(*) = 1 from public.submissions where id = :'s1'::uuid and status = 'pending'),
+  'withdrawing one separate proposal for a shared place leaves the other');
 set role authenticated;
 select pg_temp.as_user(:'ua');
 select public.withdraw_my_submission(:'s2');
@@ -388,8 +486,8 @@ select pg_temp.ok((not exists (select 1 from public.profiles where user_id = '00
 select pg_temp.ok((not exists (select 1 from public.favorites where user_id = '00000000-0000-0000-0000-0000000000b2')), 'favorites removed');
 select pg_temp.ok((not exists (select 1 from public.reviews where user_id = '00000000-0000-0000-0000-0000000000b2')), 'reviews removed');
 select pg_temp.ok((not exists (select 1 from public.action_log where user_id = '00000000-0000-0000-0000-0000000000b2')), 'action log removed');
-select pg_temp.ok((not exists (select 1 from public.submission_supporters where user_id = '00000000-0000-0000-0000-0000000000b2')), 'supporter rows removed');
-select pg_temp.ok((exists (select 1 from public.submissions where id = :'s1'::uuid)), 'the shared pending item survives a supporter leaving');
+select pg_temp.ok((not exists (select 1 from public.submissions where user_id = '00000000-0000-0000-0000-0000000000b2')), 'deleted user''s proposals removed');
+select pg_temp.ok((exists (select 1 from public.submissions where id = :'s1'::uuid)), 'the other user''s nearby pending proposal survives');
 select pg_temp.ok(((select rating_count = 0 and average_rating is null from public.locations where name = 'ACC verified C')), 'aggregate recomputed after deletion');
 select pg_temp.ok((exists (select 1 from auth.users where id = '00000000-0000-0000-0000-0000000000a1')), 'other users untouched');
 select pg_temp.ok(((select count(*) = :reports_a_before from public.reports where user_id = '00000000-0000-0000-0000-0000000000a1')), 'other users'' data untouched');

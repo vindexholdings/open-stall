@@ -110,9 +110,7 @@ try {
     if (args.has('--submit-new')) {
       // Creates ONE pending test item on the live project (only when explicitly requested).
       const sub = await rpc('submit_location', { ...base, p_note: 'Automated test - please ignore' });
-      check(sub.status === 200 && typeof sub.json?.coalesced === 'boolean', 'valid current-location submission accepted as pending', JSON.stringify(sub.json));
-      const again = await rpc('submit_location', { ...base, p_note: 'again' });
-      check(again.status === 400, 'the same account cannot create a duplicate moderation item for the same place', `status ${again.status}`);
+      check(sub.status === 200 && typeof sub.json?.submission_id === 'string' && !('coalesced' in sub.json) && !('retry' in sub.json), 'valid current-location submission accepted as its own pending item', JSON.stringify(sub.json));
       const pub = await rpc('nearby_locations', { p_lat: 44.5, p_lng: -109.0, p_radius_m: 5000, p_limit: 100, p_verified_only: false }, anon);
       check(!JSON.stringify(pub.json).includes('Automated test restroom'), 'pending submission is NOT visible in public discovery');
       const list = await rpc('list_my_submissions');

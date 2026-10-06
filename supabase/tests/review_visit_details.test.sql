@@ -12,19 +12,20 @@ begin
     'conditions',jsonb_build_object('seats','clean','mirrors','missing','stall_doors','broken','toilet_paper','out','floor','dirty'));
   result := public.apply_location_review_v2(lid,'Jake','local-admin','exists',true,current_date,answers);
   assert (select customers_only and family_bathroom and has_hot_water and has_cold_water and not purchase_required
-    and status = 'verified' and rating_count = 1 and average_rating = 4 from public.locations where id = lid), 'independent facts, family and both water types';
+    and status = 'verified' and rating_count = 0 and average_rating is null from public.locations where id = lid), 'independent facts, family and both water types; admin rating is not public';
   assert (select restroom_type = 'women' and rating = 4 and cleanliness_score = 3 and reviewer_kind = 'admin'
     and notes = 'Private note stays private' and public_comment = E'Useful restroom.\nSecond line.'
     and conditions->>'mirrors' = 'missing' and conditions->>'toilet_paper' = 'out'
     from public.location_reviews where id = (result->>'review_id')::uuid), 'typed visit, condition and comment history';
-  -- Same identity and a different display alias still contribute only one rating.
+  -- Admin ratings are history/provenance only; the public rating is community-only (see account.test.sql).
   result := public.apply_location_review_v2(lid,'Different alias','local-admin','exists',true,current_date - 2,answers || '{"rating":1,"public_comment":null}');
-  assert (select rating_count = 1 and average_rating = 4 and last_verified_at::date = current_date from public.locations where id = lid), 'old reconfirmation does not inflate users or move recency backwards';
+  assert (select rating_count = 0 and average_rating is null and last_verified_at::date = current_date from public.locations where id = lid), 'old reconfirmation adds no public rating and does not move recency backwards';
   assert (select count(*) = 2 and count(distinct reviewer_identity) = 1 from public.location_reviews where location_id = lid), 'two confirmations from one identity';
   result := public.apply_location_review_v2(lid,'Other admin','other-admin','exists',true,current_date,answers || '{"rating":2}');
-  assert (select rating_count = 2 and average_rating = 3 from public.locations where id = lid), 'one rating per distinct identity';
+  assert (select rating_count = 0 and average_rating is null from public.locations where id = lid), 'a second admin identity still adds no public rating';
   result := public.apply_location_review_v2(lid,'New alias again','local-admin','exists',true,current_date,answers || '{"rating":5}');
-  assert (select rating_count = 2 and average_rating = 3.5 from public.locations where id = lid), 'latest same-day rating replaces the earlier rating from that identity';
+  assert (select rating_count = 0 and average_rating is null from public.locations where id = lid), 'admin ratings stay history only; customer rating stays empty';
+  assert (select count(*) = 4 and count(*) filter (where rating is not null) = 4 from public.location_reviews where location_id = lid), 'every admin rating is preserved in history';
   select count(*) into before_count from public.location_reviews where location_id = lid;
   begin
     perform public.apply_location_review_v2(lid,'Jake','local-admin','exists',true,current_date,answers || '{"rating":6}');

@@ -39,7 +39,7 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [done, setDone] = useState<'sent' | 'coalesced' | null>(null);
+  const [done, setDone] = useState(false);
   const set = <K extends keyof LocationDraft>(k: K, v: LocationDraft[K]) => setD((x) => ({ ...x, [k]: v }));
   const isEdit = editId !== null;
 
@@ -47,9 +47,7 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
     return (
       <View style={styles.stack} accessibilityLiveRegion="polite">
         <Text style={styles.body}>
-          {done === 'coalesced'
-            ? 'Thank you. Someone already reported a restroom here, so we added your report to it. It will be reviewed before it appears.'
-            : `Thank you. Your ${isEdit ? 'suggestion' : 'restroom'} was sent for review. It won’t appear to others until a person has checked it.`}
+          {`Thank you. Your ${isEdit ? 'suggestion' : 'restroom'} was sent for review. It won’t appear to others until a person has checked it.`}
         </Text>
       </View>
     );
@@ -86,11 +84,11 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
     if (isEdit) {
       const r = await submitEdit(rpc, editId, built.proposed, built.note);
       setBusy(false);
-      return r.ok ? setDone('sent') : setErrors([r.message]);
+      return r.ok ? setDone(true) : setErrors([r.message]);
     }
     const r = await submitNewLocation(rpc, built.proposed, built.position!, built.note);
     setBusy(false);
-    if (r.ok) setDone(r.coalesced ? 'coalesced' : 'sent');
+    if (r.ok) setDone(true);
     else setErrors([r.message]);
   };
 

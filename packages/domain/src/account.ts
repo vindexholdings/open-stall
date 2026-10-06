@@ -225,8 +225,6 @@ export function accountErrorMessage(err: ErrLike): string {
   if (code === '53400') return 'You have too many pending submissions. Wait for some to be reviewed or withdraw one.';
   if (msg.includes('too far')) return `You need to be within ${CHECKIN_RADIUS_METERS} meters of the restroom to check in.`;
   if (msg.includes('already checked in')) return 'You already checked in here recently.';
-  if (msg.includes('already listed')) return 'This restroom is already on the map. Open it and use “Suggest a correction” if something is wrong.';
-  if (msg.includes('already submitted')) return 'You’ve already submitted this restroom. It’s waiting for review.';
   if (msg.includes('pending correction')) return 'You already have a correction waiting for this restroom.';
   if (msg.includes('not accurate enough')) return 'Your location isn’t accurate enough yet. Move near open sky and try again.';
   if (msg.includes('current location') || msg.includes('position must come')) return 'We need your current location to add a restroom. Stand at the restroom and try again.';

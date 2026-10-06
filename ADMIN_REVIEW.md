@@ -21,7 +21,7 @@ Unverified (public), Hidden candidates, Verified, Closed. "Save review and go to
 A Verified record still carries OSM-derived name/coordinates/address. Before launch, re-confirm those independently (or accept ODbL for the location layer) per OS-110c.
 
 ## Visit details (migration 20261005000002 applied)
-- Username is a display alias. Repeat visits use a stable configured admin identity (`ADMIN_REVIEWER_ID`, default `local-admin`); they are history, not extra people. Latest dated rating per identity contributes to the rating aggregate.
+- Username is a display alias. Repeat visits use a stable configured admin identity (`ADMIN_REVIEWER_ID`, default `local-admin`); they are history, not extra people. Admin ratings are stored in the review history/provenance only and do NOT contribute to the public rating (migration 20261008000001); the public average/count come from community ratings alone. Admin verification and observations still establish location facts.
 - Customer-only access is separate from purchase-required source data. Key and fee requirements remain independent. Family bathroom is separate from gender neutral.
 - The restroom checked (men, women, all gender, family, single occupancy, unspecified), optional stars, public comment, cleanliness score, water, seats/mirrors/stall doors/toilet paper/floor, and posted inspection log are stored per review. Transient conditions start unknown for each new visit.
 - Existing private notes are never promoted to public comments. Public comments are captured for the later gated public review page; private audit tables remain unavailable to public users.

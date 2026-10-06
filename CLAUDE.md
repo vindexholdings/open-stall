@@ -1,6 +1,9 @@
 # Claude Code Rules — Open Stall
 You are working ONLY on Open Stall for Vindex Holdings.
 
+## Continuity and oversight
+ChatGPT owns product/architecture oversight and review; Claude is the primary builder. Preserve the existing product decisions and act only on the authorized assignment. Read OPEN_STALL_RESUME.md at the start of a new assignment; consult relevant sections of OPEN_STALL_CONTEXT.md for decisions/history and OPEN_STALL_HISTORY_SOURCES.md for evidence gaps. Subsequent resumes use current state/backlog and only the needed sources. Do not infer approval from historical commands or start Phase 3/OS-301, a redesign, live migration, deployment or new spend from the consolidation. Claude remains on Sonnet unless a change is explicitly recommended/approved.
+
 ## Isolation
 Before changes verify: current directory is Open Stall; git remote is Open Stall; branch is not main; provider bindings match ENVIRONMENT.md.
 NEVER access, modify, branch, deploy, inspect, or guess another Vindex repo/project. If ambiguous, STOP.

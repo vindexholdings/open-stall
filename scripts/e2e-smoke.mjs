@@ -22,6 +22,12 @@ function findChrome() {
       }
     }
   }
+  for (const app of ['Google Chrome', 'Chromium']) {
+    for (const home of ['', process.env.HOME ?? '']) {
+      const p = `${home}/Applications/${app}.app/Contents/MacOS/${app}`;
+      if (existsSync(p)) return p;
+    }
+  }
   for (const name of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) {
     const r = spawnSync('which', [name], { encoding: 'utf8' });
     if (r.status === 0) return r.stdout.trim();
@@ -67,16 +73,21 @@ async function runSuite(name, env, checks, absent = []) {
     const port = server.address().port;
     const chrome = findChrome();
     // Async on purpose: the in-process server must keep serving while Chrome loads the page.
+    // Each load gets a disposable user-data-dir so the normal browser profile is never touched.
     const dump = async (path) => {
+      const profile = mkdtempSync(join(tmpdir(), 'open-stall-chrome-'));
       try {
         const { stdout } = await execFileAsync(
           chrome,
-          ['--no-sandbox', '--disable-gpu', '--no-proxy-server', '--virtual-time-budget=10000', '--dump-dom', `http://127.0.0.1:${port}${path}`],
+          ['--headless=new', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--no-sandbox', '--disable-gpu', '--no-proxy-server',
+            '--virtual-time-budget=10000', '--dump-dom', `http://127.0.0.1:${port}${path}`],
           { timeout: 60000, maxBuffer: 20 * 1024 * 1024 },
         );
         return stdout;
       } catch {
         return '';
+      } finally {
+        rmSync(profile, { recursive: true, force: true });
       }
     };
     for (const [path, texts] of checks) {

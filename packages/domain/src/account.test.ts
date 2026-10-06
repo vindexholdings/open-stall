@@ -120,8 +120,8 @@ describe('preferences and errors', () => {
     expect(accountErrorMessage({ code: '54000', message: 'rate limit exceeded for report' })).toMatch(/later/);
     expect(accountErrorMessage({ code: '22023', message: 'too far from the restroom to check in' })).toMatch(/150 meters/);
     expect(accountErrorMessage({ code: '28000', message: 'not authenticated' })).toMatch(/sign in/i);
-    expect(accountErrorMessage({ code: '22023', message: 'restroom already listed nearby' })).toMatch(/already on the map/);
-    expect(accountErrorMessage({ code: '22023', message: 'you already submitted this restroom' })).toMatch(/waiting for review/);
+    // Nearby/duplicate proposals are never rejected by the server any more, so there is no message for them.
+    expect(accountErrorMessage({ code: '22023', message: 'restroom already listed nearby' })).toBe('Some details weren’t accepted. Check them and try again.');
     expect(accountErrorMessage({ code: '22023', message: 'location not accurate enough' })).toMatch(/accurate/);
     expect(accountErrorMessage({ code: '22023', message: 'current location required' })).toMatch(/current location/);
     expect(accountErrorMessage({ code: '54000', message: 'submissions paused' })).toMatch(/paused/);
