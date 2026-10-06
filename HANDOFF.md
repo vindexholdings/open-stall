@@ -174,7 +174,28 @@ Do not merge PR #1 or main; merge the old claude/pensive-brahmagupta-wrrhxn bran
 3. Once acknowledged, proceed autonomously with routine Phase 3A implementation, targeted testing/debugging and ordinary commits/pushes within the approved scope. No additional Jake relay or routine permission is required. Maintain CLAUDE HANDOFF with real results, remaining work and exact next action.
 4. Use NEEDS_CHATGPT_REVIEW for substantive review checkpoints, NEEDS_OWNER_DECISION for a genuinely unresolved product choice, NEEDS_CONSEQUENTIAL_APPROVAL for a consequential gate, and NEEDS_USAGE_RESET for an included-allowance limit. Check CHATGPT REVIEW on resumption. Do not invent an automatic wakeup: GitHub stores coordination, but Claude must be running/resumed to read it.
 
-Older OPEN_STALL_CONTEXT.md, OPEN_STALL_RESUME.md and OPEN_STALL_HISTORY_SOURCES.md remain historical/reference sources; do not fold/delete/rewrite them in this coordination update. Use the latest owner instructions and current GitHub branch over stale historical restrictions. Jake is not the routine courier; ChatGPT Work exchanges reviews/instructions through its section of HANDOFF.md, and Claude reports through its section. No scheduled monitoring has been created by this update.
+Older OPEN_STALL_CONTEXT.md, OPEN_STALL_RESUME.md and OPEN_STALL_HISTORY_SOURCES.md remain historical/reference sources; do not fold/delete/rewrite them in this coordination update. Use the latest owner instructions and current GitHub branch over stale historical restrictions. Jake is not the routine courier; ChatGPT Work exchanges reviews/instructions through its section of HANDOFF.md, and Claude reports through its section. Work's existing Open Stall hourly oversight automation is configured and ACTIVE for :00 checks. Claude's actual :30 recurring execution must be configured and verified separately; the cadence below does not itself create a Claude schedule.
+
+---
+
+# STAGGERED COORDINATION PROTOCOL — permanent operating cadence
+
+Owner-authorized 2026-10-06. GitHub origin/claude-local and HANDOFF.md are the shared coordination layer. Jake is not the routine courier. ChatGPT Work is the owner-facing oversight/review/escalation layer; Claude Code is the implementation layer.
+
+- **ChatGPT Work checks at :00 each hour**, America/Denver, using the existing ACTIVE Open Stall hourly oversight automation (id open-stall-hourly-oversight), attached to the oversight chat. Do not create a duplicate Work automation.
+- **Claude checks at :30 each hour**, America/Denver. This is the required cadence, not a claim that Claude's scheduler is already configured. Claude must configure actual supported recurring execution, verify it, and report the mechanism, next run and constraints in CLAUDE HANDOFF. If unsupported, explicitly report that and the supported alternative; do not substitute a documented promise for a real schedule or buy capacity/services.
+- The intentional offset prevents simultaneous handoff edits and gives each agent approximately one hour between its own reviews. It does not guarantee that long tasks never overlap: refresh remote immediately before a handoff write and preserve intervening edits; never force-push or overwrite the other agent's section.
+- Each check is brief: refresh -> inspect the other agent's section -> act/respond if necessary -> continue working. Neither agent should interrupt productive work merely because a check time occurs; handle checks at a safe boundary and record any material scheduling constraint honestly.
+- Work reviews relevant Claude code/commits/test evidence and writes findings/instructions/approval within existing authority only in CHATGPT REVIEW. Commit/push HANDOFF.md only when coordination content actually changes; verify remote read-back. Work never becomes a substitute implementation builder.
+- Claude reads CHATGPT REVIEW, acknowledges new instructions in CLAUDE HANDOFF, and continues authorized autonomous Phase 3A implementation/testing/ordinary commits and pushes. Routine messages flow through GitHub, not Jake.
+- Routine unchanged checks stay silent. Work brings Jake only genuine owner decisions, consequential approvals, usage resets, material blockers that the agents cannot resolve within authority, or a major phase/milestone requiring owner attention. Explain what happened, the exact decision/action required and Work's recommendation; do not repeat unchanged escalations hourly.
+
+**Work inactivity fail-safe (existing automation)**
+- Track durable observations in the oversight workspace, not timestamp-only product-repository commits. When Claude is expected to be actively working, four consecutive successful hourly checks without new Claude HANDOFF activity, genuine Claude commits, status changes or other credible progress trigger one escalation to Jake in the oversight chat.
+- Include last Claude status, last activity/commit, approximate observed inactivity duration, whether Work is operating normally, and recommended recovery action. Work's own commits do not count as Claude progress; failed/missed Work checks do not prove Claude inactivity.
+- Do not alarm for NEEDS_OWNER_DECISION, NEEDS_CONSEQUENTIAL_APPROVAL, NEEDS_USAGE_RESET, PHASE_COMPLETE, NEEDS_CHATGPT_REVIEW while waiting for Work, acknowledgment pending, or another clearly documented intentional waiting state. Reset the active inactivity streak on progress or intentional waiting.
+- After the alarm, Work is authorized to pause its existing automation and verify the paused state. If self-disabling is unavailable or denied, latch the alarm and suppress repetitive alerts until genuine progress or owner direction starts a new episode. Report actual scheduler limitations.
+- Inactivity never authorizes coding, deployment, migrations, merges, spending or bypassing Claude. All consequential gates and the permanent included-subscription limit remain in force.
 
 ---
 
