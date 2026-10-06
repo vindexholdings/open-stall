@@ -419,6 +419,11 @@ set role authenticated;
 select pg_temp.ok((pg_temp.nl('Honest restroom', 71.7, 71.7)) ? 'submission_id', 'approvals lift the pause');
 reset role;
 delete from auth.users where id = :'uc'::uuid;
+-- Decided submissions survive the deletion, anonymised (Phase 3A); purge them as the superuser so later totals stay simple.
+select pg_temp.ok((select count(*) = 7 and bool_and(user_id is null) from public.submissions where proposed->>'name' in ('junk', 'good')), 'decided submissions are kept with the submitter severed');
+set session_replication_role = replica;
+delete from public.submissions where proposed->>'name' in ('junk', 'good');
+reset session_replication_role;
 
 -- Isolation + withdrawal.
 set role authenticated;
@@ -497,8 +502,10 @@ set role authenticated;
 select pg_temp.as_user(:'ua');
 select public.delete_my_account('DELETE');
 reset role;
-do $$ begin
-  assert (select count(*) = 0 from public.submissions) and (select count(*) = 0 from public.reports) and (select count(*) = 0 from public.checkins),
-    'submissions, reports and check-ins removed with the account';
-end $$;
+select pg_temp.ok((not exists (select 1 from public.submissions where user_id is not null)) and (select count(*) = 0 from public.reports) and (select count(*) = 0 from public.checkins),
+  'nothing linked to a deleted person remains (submissions, reports, check-ins)');
+-- Superuser-deleted accounts (test shortcuts above) leave anonymised pending rows; clear them so other suites start clean.
+set session_replication_role = replica;
+delete from public.submissions;
+reset session_replication_role;
 delete from public.locations where name like 'ACC %';
