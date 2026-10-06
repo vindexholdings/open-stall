@@ -9,7 +9,7 @@ Rules: each party edits only its own section (Jake may edit any). Canonical proj
 
 - **Repo:** vindexholdings/open-stall (https://github.com/vindexholdings/open-stall)
 - **Active branch:** `claude-local` (source of truth). Do NOT merge the old `claude/pensive-brahmagupta-wrrhxn` branch into it. PR #1 is still open and unmerged; `main` has no app.
-- **HEAD at creation of this file:** `f016638` — "Record successful Phase 2 live validation" (this file is the next commit on top of it).
+- **Reviewed HEAD:** `ac11004` (see CLAUDE HANDOFF); created on top of `f016638` "Record successful Phase 2 live validation".
 - **Live migration state (Supabase project `xzzbcejgprilmolvdaes`):** applied and ledger-aligned through `20261008000001` — i.e. 20261004000001-3, 20261005000001-2, 20261006000001-3, 20261007000001, 20261008000001. Nothing pending. (Source: PROJECT_STATE.md, 2026-10-06.)
 - **Current phase:** Phase 2 (accounts/contributions) COMPLETE and live-validated (doctor + permanent-account `live:account --contribute` passed). Phase 3 / OS-301 NOT started.
 - **Current authorized scope (Jake, 2026-10-06):** the smallest coherent Phase 3A described in CHATGPT REVIEW is authorized for Claude after it acknowledges this handoff. Local implementation, source migrations, testing, debugging, and ordinary commits/pushes to claude-local are authorized within that scope. Live database changes, deployment and merges remain gated. ChatGPT Work owns coordination/review, not product implementation.
@@ -50,54 +50,40 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: WORKING**
 
-**Latest architecture/build proposal**
-- None. No Phase 3 design has been proposed or authorized by Claude in this repository. Phase 3A proposals wait on the review items below.
+**Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
-**Work completed**
-- Phase 2 build, live migrations through 20261008000001 and live validation (see PROJECT_STATE.md for the detailed record; HEAD `f016638`).
-- Switched the working checkout to `claude-local` @ `f016638`; created this HANDOFF.md (the only file changed in this commit).
+**Acknowledgment (2026-10-06)**
+- **CHATGPT REVIEW:** read; status AUTHORIZED_AWAITING_CLAUDE_ACKNOWLEDGMENT; now acknowledged. I will not overwrite it.
+- **Audit findings:** noted as owner-supplied (admin is local/service-role only with no real identity; submissions lack durable decisions/reviewer identity/hold/duplicate/result links; reports lack moderator provenance; no moderation log; account deletion can destroy decided provenance; duplicate vs rejection not distinct; originals not protected as immutable). Community-review history-in-place is noted but is Phase 3B-adjacent and NOT in scope.
+- **Nine decisions:** (1) user session + server-side `admin_users`, no user-metadata authority, hosted admin never needs a service-role key; (2) MFA/AAL2 for admin capabilities using free Supabase MFA, blocker not spend; (3) deletion preserves decided evidence/decisions, severs/anonymizes identity; (4) no self-adjudication of own submissions/reports; (5) approval may publish but stays UNVERIFIED, approval != verification; (6) held items keep counting toward pending caps; (7) rejection codes private_or_residential, not_public_or_not_a_restroom, insufficient_or_unverifiable, invalid_or_inaccurate, spam_or_abuse, other (note required); duplicate is a separate resolution; (8) field semantics as written (closed = permanent; temporary closure/access directions/discoverability/cleaning are evolving/temporal evidence; restroom_type deferred to OS-310; no automatic Verified aging, keep last_verified_at); (9) @supabase/ssr OK if free; build/test admin auth + queue; NO hosting/deployment.
+- **Scope:** smallest coherent Phase 3A foundation only (OS-301 admin auth + MFA, queue, immutable originals, append-only decisions, approve / edit-and-approve / reject / duplicate-link / hold, report resolution, deletion provenance, tests). No Phase 3B, no reputation algorithm, no destructive consolidation, no facility/unit restructure.
+- **Consequential gates:** I stop (NEEDS_CONSEQUENTIAL_APPROVAL) before any live migration/mutation, deployment, merge, destructive op, force-push/history rewrite, cost, credentials only Jake has, unresolved product decision, or scope expansion. Source migrations are written and tested locally only; I do not apply them live. I do not merge `claude/pensive-brahmagupta-wrrhxn` or PR #1.
+- **Usage/cost rule:** acknowledged as a hard limit. I have NO authority to buy tokens, usage, credits, API capacity, overages, subscription changes or paid workarounds. I work only within the included allowance, read targeted files, and if approaching/reaching the limit I will checkpoint, commit/push safe work, update this section and set **NEEDS_USAGE_RESET**. Hitting a limit never grants authority to spend.
 
-**Phase 3A read-only audit — CONTENT NOT AVAILABLE TO CLAUDE**
-- The brief asked for this file to be seeded with the completed Phase 3A read-only audit and the nine open Phase 3A decisions. **Neither exists in the repository or in this Claude session's context** (searched the repo for Phase 3A material; none). They were produced elsewhere (ChatGPT / another session) and were not provided to Claude.
-- Claude did not reconstruct or guess them. To avoid inventing decisions, the audit text and the nine decisions are left for ChatGPT/Jake to paste below, verbatim, under CHATGPT REVIEW (or tell Claude where the source file lives).
+**Smallest implementation sequence (local only; each step committed + pushed to claude-local after targeted tests)**
+1. **Admin identity (migration `20261009000001`)**: `admin_users` (+ bootstrap by Jake/SQL only, never by app), `is_admin()` = listed, not disabled, and JWT `aal = aal2` (MFA); append-only `moderation_log`; admin functions are SECURITY DEFINER, granted to `authenticated`, and re-check admin + AAL2 inside; no table access for clients. Test stub gets `auth.jwt()`.
+2. **Moderation core (migration `20261009000002`)**: originals immutable (trigger blocks edits to `proposed`/submitter/position/attestation); append-only `moderation_decisions` (decision, reason code, note, reviewer, result location, duplicate link); `held` status that still counts toward caps; self-adjudication blocked; approve / edit-and-approve create the location as UNVERIFIED with community-origin provenance (never Verified); reject with the seven-code list (`other` needs a note); duplicate = separate resolution; report resolution with provenance.
+3. **Deletion/provenance (same migration set)**: `delete_my_account` removes undecided data but keeps decided submissions/reports/decisions with the submitter identity severed (nullable FK → null), plus tests.
+4. **Admin app**: `@supabase/ssr` session sign-in, MFA enroll/verify (AAL2 gate), middleware, functional review-queue UI (list, detail, decision forms) using only the user session — no service-role key. Existing local validator stays as-is. Build/test only; no hosting.
+5. **Tests + docs**: SQL (authorization, MFA/AAL2, self-adjudication, privacy/no leakage, immutability, decisions, held caps, unverified-on-approve, deletion/provenance, mutation checks), domain + admin unit tests, e2e where cheap; reconcile PROJECT_STATE/BACKLOG/SECURITY/DATABASE/TESTING/ADMIN_REVIEW; record migration list for Jake's live review.
 
-**Open Phase 3A decisions (nine)** — *to be supplied; placeholders only*
-1. (not supplied)
-2. (not supplied)
-3. (not supplied)
-4. (not supplied)
-5. (not supplied)
-6. (not supplied)
-7. (not supplied)
-8. (not supplied)
-9. (not supplied)
-
-**Product direction noted for Phase 3A (as stated by the owner; keywords only, not yet elaborated or designed)**
-- authoritative identity (of locations/restrooms)
-- evolving features
-- temporal conditions
-- derived values
-- community reputation
-- evidence
-- future data consolidation
-Claude has not designed or built any of these. Detail, scope and priority come from the audit/decisions above.
+**Work completed (this checkpoint)**
+- Acknowledgment only. Phase 3A implementation starts after this commit.
 
 **Tests / results**
-- Last full local validation (2026-10-05 recovery pass, per PROJECT_STATE.md): lint, typecheck, secret scan, 223 unit tests, `test:db` incl. two-session concurrency, auth e2e 56/56, smoke 25/25, admin build, web/android/ios bundles — all pass. Live: doctor + `live:account --contribute` passed 2026-10-06. Nothing run for this file.
+- None run for this commit. Last full local validation remains the 2026-10-05 recovery pass in PROJECT_STATE.md; live doctor + `live:account --contribute` passed 2026-10-06.
 
-**Blockers**
-- Missing Phase 3A audit + nine decisions (above).
-- This session has no Supabase CLI link/Vercel CLI; anything touching live infrastructure needs Jake's Mac or an authorized linked session.
+**Blockers / environment**
+- This Claude session runs in the cloud container (GitHub access to this repo only; no Supabase CLI link, no Vercel CLI; Supabase MCP is bound to a different Vindex project and must not be used). Live steps need Jake's Mac. Everything above is local source + local DB tests.
+- Real hosted MFA enrollment can only be verified live; local tests simulate AAL2 via JWT claims. Reported as a limitation, not worked around.
 
 **Questions requiring review**
-1. ChatGPT/Jake: supply the Phase 3A audit and the nine open decisions (or the file path).
-2. Is OS-301 (admin authorization) the first Phase 3 item once those are settled, or does Phase 3A change the order? (Not started; needs explicit go-ahead.)
-3. Do the older context files (OPEN_STALL_CONTEXT.md, OPEN_STALL_RESUME.md, OPEN_STALL_HISTORY_SOURCES.md) stay as reference now that HANDOFF.md exists, or should they be folded into canonical docs?
+- None blocking. Assumption to confirm at the first review checkpoint: approved community restrooms are created with `status='unverified'`, `restroom_evidence='explicit'` and a first-party `community_submission` source row (needed to satisfy the existing visibility constraint) while staying UNVERIFIED in the UI.
 
 **Exact next recommended action**
-- Wait for ChatGPT's response in CHATGPT REVIEW. On receipt: read it, record the outcome here, then (if scope is authorized) propose a Phase 3A design/plan in this section before any build.
+- Build steps 1-2 (admin identity + moderation core migrations and SQL tests), then checkpoint with NEEDS_CHATGPT_REVIEW.
 
 ---
 
