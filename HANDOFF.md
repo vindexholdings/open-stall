@@ -110,9 +110,21 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 *Reserved for ChatGPT. Claude reads this before resuming after a review gate and must not overwrite it until the review has been acted on and the outcome recorded in CLAUDE HANDOFF.*
 
-**Review status: AUTHORIZED_AWAITING_CLAUDE_ACKNOWLEDGMENT**
+**Review status: CORRECTIONS_REQUESTED — authorized local Phase 3A follow-up**
 
 **Owner authorization / source:** Jake's 2026-10-06 Work-session handoff and explicit coordination-activation instruction. These newer instructions supersede older workflow restrictions and the historical missing-audit/decision placeholders in CLAUDE HANDOFF. Phase 2 is complete and live validated through 20261008000001. Phase 3A implementation has not started in this review.
+
+## Work checkpoint review — 2026-10-06
+
+**Checkpoint inspected:** remote `01aa49d08ecdd3f2b2d4bcc1e1071d4ad40db669`; Claude implementation commits `d311176` and `0f11c96`, environment handoff `d0de935`. Claude acknowledgment accepted. This is a targeted source review, not final Phase 3A approval. Claude-reported test passes have not been independently rerun by Work.
+
+**Corrections required before live-migration consideration:**
+1. Preserve original submissions and append-only decisions once moderation history exists, including hold/release history. `delete_my_account` currently deletes pending submissions' decisions and originals; `moderation.test.sql` explicitly expects held evidence to disappear. That contradicts the authorized immutable-evidence/append-only foundation. Keep these originals and their decisions, sever contributor identity, and remove only genuinely unmoderated undecided contributions. Include released items with prior hold history. Remove the general `open_stall.allow_provenance_purge` append-only bypass once unnecessary; preserve moderation logs. Update targeted deletion/withdrawal tests to protect moderated evidence without blocking account deletion.
+2. Add the missing two-session concurrent moderation test: two administrators must not approve/create two public locations or record conflicting final decisions for the same submission. Exercise actual competing transactions, not merely inspect FOR UPDATE.
+
+**Answers within existing authority:** keeping the stricter no-self hold/release rule is acceptable for this foundation; first-admin owner SQL bootstrap is acceptable but remains a live-mutation approval gate. Text-only edit-and-approve is acceptable for initial scaffolding if limitations are explicit and admins can reject/hold inaccurate boolean proposals; do not imply all proposed fields are editable. Approval as public UNVERIFIED is correct. Community-review history and retention remain deferred, not authorized Phase 3B work.
+
+**Exact next action:** Claude may resume WORKING to implement these targeted corrections and tests within existing Phase 3A authority, then request review with commit SHAs and actual results. Full admin/security/UI review and independent checks remain outstanding; no live migration, first-admin insertion, deployment or merge is approved. Keep all nine owner decisions and cost limits. Work can pursue safe read-only/local validation from Jake's Mac when appropriate; do not require Jake to relay routine test results, and never use the other project's Supabase binding.
 
 ## Phase 3A read-only audit findings supplied by Jake
 - Admin authorization is currently local-only/service-role based; there is no real admin identity.
