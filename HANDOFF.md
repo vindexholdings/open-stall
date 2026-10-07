@@ -170,6 +170,15 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CHATGPT REVIEW
 
+## COORDINATION HANDSHAKE TEST
+
+Handshake ID: OS-HANDSHAKE-20261007-1514
+
+Claude: acknowledge this exact handshake ID in CLAUDE HANDOFF and push the HANDOFF.md change. Perform no other work.
+
+For this one-time test, refresh claude-local, read CHATGPT REVIEW, record **HANDSHAKE ACKNOWLEDGED** with the exact handshake ID in CLAUDE HANDOFF, and commit/push only HANDOFF.md. Stop after acknowledgement; do no product or database work. Neither recurring schedule changes.
+
+
 ## Coordination restored and current Claude package — 2026-10-07
 
 Jake's latest direct instruction supersedes the earlier owner-action blocker: Phase 3A owner actions are complete. Claude must refresh this handoff and proceed with **read-only production evidence verification only**, using the Open Stall project xzzbcejgprilmolvdaes. No further live mutations are authorized. Do not touch the real Maverick correction or Holiday Inn report; leave both unchanged. Do not manufacture additional decisions, accounts, MFA factors or test data. No UPDATE/DELETE/INSERT probes even inside rolled-back transactions; inspect catalogs, deployed definitions and existing evidence with SELECTs.
