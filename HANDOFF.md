@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_OWNER_DECISION**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -159,6 +159,34 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 3. Edit-and-approve in the UI edits text fields only (name, address, city, region, ZIP, access, hours); boolean facts stay as proposed. Enough for 3A?
 4. Admin bootstrap is owner SQL only (ADMIN_REVIEW.md). OK as the first-admin path?
 5. Community review history-in-place (audit finding) and the OS-309 retention policy remain untouched (Phase 3B-adjacent).
+
+## Phase 3A read-only production evidence verification — 2026-10-07 (Claude)
+
+Scope kept to Work's package: SELECT/catalog reads only on `xzzbcejgprilmolvdaes`; no INSERT/UPDATE/DELETE, no rollback probes, no repair; Maverick correction and Holiday Inn report untouched; no credentials, TOTP secrets or account identities recorded.
+
+**Observed facts (live):**
+- Admin: 1 `admin_users` row, active (`disabled_at` null). It has exactly 1 verified TOTP factor (1 factor total). It is not a contributor of any submission or report (distinct from the test account). `auth.users` = 2.
+- Decisions: 2 rows in `moderation_decisions`, 2 in `moderation_log` (ids 1,2, no gap), both with `reviewer_id`/`actor_id` = the admin. (1) `reject` of the pending NEW restroom submission, reason `insufficient_or_unverifiable`, note "Testing rejection"; log `submission_reject`. (2) `dismiss` of one report, note "Phase 3A live report validation"; log `report_dismissed`. Log target ids match the decided items; decision and log timestamps are identical.
+- Outcomes: rejected submission `status=rejected`, `reviewed_at` set, not held, no result location. Dismissed report `status=dismissed`, resolved. Self-adjudication count = 0. No `community_submission` source rows (0), no new public location from moderation (locations total 65, unchanged by this work).
+- Untouched as instructed: the pending `edit_location` submission (Maverick correction) is still `pending`, not held, not reviewed; 1 report still `open` (Holiday Inn).
+- Controls: triggers enabled (`O`) — `moderation_decisions_append_only`/`_no_truncate`, `moderation_log_append_only`/`_no_truncate`, `submissions_protect_original`. RLS on for admin_users, moderation_decisions, moderation_log, submissions, reports; anon and authenticated have no table privileges on them. Five admin-facing functions + `am_i_admin`: authenticated execute, anon denied; `require_admin`, `log_moderation`, `reject_append_only_change` not client-executable; all SECURITY DEFINER with `search_path=""`. Deployed `require_admin` contains the aal2 check.
+- Advisors (security): no new finding beyond the expected set (RLS-enabled-no-policy INFO on private tables by design; authenticated-executable SECURITY DEFINER WARNs for intended RPCs incl. the admin ones, which re-check admin+AAL2 internally; pre-existing public read RPCs; leaked-password protection off, pre-existing).
+
+**Inference (not directly observed):** the two decisions were made through a genuine AAL2 session — `require_admin` enforces aal2 inside every admin function and the only admin has a verified TOTP factor, so a decision row implies it. The JWT itself was not inspected.
+
+**Not exercised live (gaps vs. the earlier plan; Jake chose a smaller action set):** hold, release, report *resolve*, reject of the correction, approve / edit-approve / duplicate. Immutability/append-only was verified by catalog (triggers enabled, definition) and by the local test suite + mutation checks, NOT by a live UPDATE/DELETE attempt (prohibited by this package). Account-deletion preservation of moderated evidence is likewise test-only.
+
+**Assessment:** the core Phase 3A claims are evidenced live — admin bootstrap, genuine MFA enrollment, admin-only AAL2-gated decisions with real reviewer provenance and matching immutable logs, no public side effects, least privilege intact. I am closing Phase 3A as "validated with documented limitations" (the unexercised paths above rely on local tests only). Work/Jake may instead require a further live exercise of hold/release/resolve on disposable items — that would be a new mutation and is NOT assumed authorized.
+
+**Documentation checkpoint:** PROJECT_STATE.md and BACKLOG.md (OS-301/302/303) reconciled to the above.
+
+**Critical-path reassessment (proposal only, nothing started):**
+1. Hosting for the admin app (currently local-only on Jake's Mac) — owner gate: deployment, and any new cost. Needed before anyone but Jake can moderate; not needed while volume is ~0.
+2. OS-309 retention policy (submitter linkage / accuracy / flag lifetime after review) — owner decision, no code until decided; it touches the append-only evidence rules, so Work should rule on it first.
+3. Moderator ergonomics + audit export (small): surface flags in queue, history view of decisions. Low risk, local-only.
+4. Phase 3B/OS-304 (community review history-in-place) — separate gate, untouched.
+Recommended next package: (2) decision first (zero cost, unblocks design), then (3); defer (1) until real contributors exist. Dependencies: (3) needs nothing new; (1) needs owner deployment/cost approval. Nothing here is started or assumed authorized.
+
 
 **Exact next action (updated 2026-10-07)**
 - ChatGPT/Work: review the targeted follow-up tests above (this commit). Remaining open items need owner/live access and are not Claude-actionable: Open Stall-scoped live path, hosted real-MFA validation, first-admin bootstrap, migration dry-run/apply. Claude stays idle between :30 checks.
