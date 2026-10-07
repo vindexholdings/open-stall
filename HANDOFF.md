@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: PHASE_COMPLETE**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -141,7 +141,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 - Approval read and accepted: first admin insertion/activation, MFA enrollment + AAL2 end-to-end, only the live moderation mutations needed to validate, and verification of RLS/least privilege/immutable evidence. NOT authorized: deployment, merges, Phase 3B/OS-304, geography, destructive ops, production deletion, unrelated DB changes, costs, `npm audit fix`. I re-read HANDOFF, PROJECT_STATE, BACKLOG, ARCHITECTURE and ADMIN_REVIEW; nothing contradicts the runbook.
 - **Live state just re-checked (read-only, Supabase MCP bound to `xzzbcejgprilmolvdaes`):** auth users 1 (the permanent test account, confirmed), MFA factors 0, admin_users 0, moderation_decisions 0, moderation_log 0 (id sequence at its initial value, i.e. nothing has consumed audit ids), pending submissions 2 and open reports 2 (all from the permanent test account).
 - **Why I cannot complete the end-to-end myself (capability, not authorization):** (1) this container has no network route to `*.supabase.co` (the auth endpoint returns no response), so I cannot sign in, enroll TOTP or verify AAL2 through real Supabase Auth, and cannot run the admin app against the live project; the Supabase MCP exposes only SQL/ledger/advisors, which cannot honestly produce a real AAL2 session; (2) the first admin must be a real account with an authenticator that its owner controls (a TOTP secret I generated would be lost, locking the admin out); (3) only ONE account exists, and it is the contributor of every pending test item. An admin cannot adjudicate their own items (owner decision 4), so the first admin must be a DIFFERENT account. Creating that account needs a real inbox confirmation, which only Jake can do. I will not fabricate an admin session with simulated JWT claims in production: that would write permanent, append-only decisions/log rows that look real but did not pass through real authentication.
-- **What I need from Jake (NEEDS_OWNER_DECISION):**
+- **SUPERSEDED / COMPLETED 2026-10-07 — do not re-request.** Jake completed the admin account, first-admin insert, TOTP enrollment and a reduced set of queue actions (see 'Phase 3A read-only production evidence verification'). Original request kept as historical record:
   1. Create the admin account: in the customer app (web, same project) sign up a SECOND account with an inbox Jake controls (e.g. a different `+alias` than the permanent test account), and confirm the email. Tell me which email it is (a message in this file or chat is enough; I will look the id up by email in SQL, nothing secret is needed).
   2. Reply with "insert admin for <email>". I will then run the single statement from ADMIN_REVIEW.md (`insert into public.admin_users (user_id) select id from auth.users where email = '<email>';`) and verify it read-only. Order does not matter for safety (the database also requires AAL2), but the account must exist first.
   3. On Jake's Mac: create `apps/admin/.env.local` with `NEXT_PUBLIC_SUPABASE_URL=https://xzzbcejgprilmolvdaes.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY=<same public anon key as apps/mobile/.env.local>` (public values only, never the service-role key), run `npm run dev -w @open-stall/admin`, open http://127.0.0.1:3000/signin, sign in as the admin account, set up the authenticator at /mfa (scan the QR in any authenticator app) and verify the code. If enrollment errors, TOTP may be disabled in Supabase Auth (Authentication → Multi-Factor): tell me, that is a dashboard setting only Jake can change.
@@ -151,7 +151,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 - Escalations NOT needed now: no cost, no deployment, no merge, no destructive action, no unrelated change. No credentials were requested; the anon key is already in Jake's `apps/mobile/.env.local` and is public.
 
 **Blockers / environment**
-- Supabase MCP is now correctly bound to Open Stall (read-only use only); the Supabase CLI link/dry-run is still unavailable from this container. Real TOTP/AAL2 can only be verified live (gated); local tests simulate AAL2 through JWT claims.
+- None open. Supabase MCP is bound to Open Stall (read-only use only); the Supabase CLI link is unavailable from this container (not needed now). Live TOTP/AAL2 was exercised by the owner on his Mac; local tests simulate AAL2 through JWT claims.
 
 **Questions requiring review**
 1. (Resolved by Work's review: held/released items are now preserved with their history on account deletion.)
@@ -188,8 +188,9 @@ Scope kept to Work's package: SELECT/catalog reads only on `xzzbcejgprilmolvdaes
 Recommended next package: (2) decision first (zero cost, unblocks design), then (3); defer (1) until real contributors exist. Dependencies: (3) needs nothing new; (1) needs owner deployment/cost approval. Nothing here is started or assumed authorized.
 
 
-**Exact next action (updated 2026-10-07)**
-- ChatGPT/Work: review the targeted follow-up tests above (this commit). Remaining open items need owner/live access and are not Claude-actionable: Open Stall-scoped live path, hosted real-MFA validation, first-admin bootstrap, migration dry-run/apply. Claude stays idle between :30 checks.
+**Exact next action (updated 2026-10-07, after Work's checkpoint review be0e838)**
+- PHASE_COMPLETE. Phase 3A accepted by Work as validated with documented limits. Claude: idle between :30 checks; no next package is authorized (not OS-309, ergonomics/audit export, hosting, or Phase 3B) until Jake makes an explicit owner decision. Evidence limitation kept explicit: the AAL2 session path is inferred (verified TOTP + deployed require_admin aal2 check), NOT independently captured JWT proof. All admin/MFA/migration owner actions are complete and must not be re-requested.
+- (Historical, superseded) ChatGPT/Work: review the targeted follow-up tests above (this commit). Remaining open items need owner/live access and are not Claude-actionable: Open Stall-scoped live path, hosted real-MFA validation, first-admin bootstrap, migration dry-run/apply. Claude stays idle between :30 checks.
 
 **(Earlier) next recommended action**
 - ChatGPT: review the corrected checkpoint (commits `4b525a1` plus this handoff commit) and the earlier `d311176`/`0f11c96` (migrations 20261009000001-2, admin routes, tests). On approval, Jake (on the Mac with the Supabase link) runs `npx supabase db push --dry-run`, reviews, and decides on applying; then enroll MFA for the first admin account in the local admin app and run the first-admin SQL from ADMIN_REVIEW.md. Claude stays idle until the review is recorded (no live step is authorized).

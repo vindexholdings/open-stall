@@ -1,9 +1,9 @@
 # Project State
 Last updated: 2026-10-07 (Phase 3A closed as validated with limits: admin + verified TOTP live, 1 reject + 1 dismiss with matching immutable log; read-only verified; awaiting ChatGPT review)
 Current phase: Phase 3A (admin authorization + moderation foundation) COMPLETE, live-validated with documented limits (see HANDOFF); Phase 2 complete and live-validated
-Current task: Phase 2 COMPLETE (built, applied live through 20261008000001, doctor + permanent-account live:account --contribute passed). Next work only on explicit owner/ChatGPT assignment; Phase 3 (OS-301) not started. OS-111 APPROVED 2026-10-05 by owner (browser/device not recorded; per-test results not itemized)
-Branch: claude-local (tracks origin/claude/pensive-brahmagupta-wrrhxn; draft PR vindexholdings/open-stall#1)
-Last commit: see git log (recovery pass cebe3f2; local claude-local not pushed)
+Current task: Phase 3A COMPLETE (validated with documented limits; accepted by Work 2026-10-07). No next package authorized; waiting for an explicit owner decision after milestone review. Not started: OS-309 implementation, ergonomics/audit export, admin hosting, Phase 3B/OS-304. OS-111 APPROVED 2026-10-05 by owner (browser/device not recorded; per-test results not itemized)
+Branch: claude-local (tracks origin/claude-local; source of truth). Old branch claude/pensive-brahmagupta-wrrhxn and draft PR vindexholdings/open-stall#1 stay unmerged; main has no app
+Last commit: see git log on origin/claude-local (reviewed checkpoint d7ac48a; Work review be0e838)
 
 Completed:
 - 2026-10-07 LIVE VALIDATION: owner inserted the first admin, enrolled TOTP and performed 1 reject + 1 report dismiss; Claude verified read-only (provenance, matching log, no public side effects, triggers/grants unchanged). Hold/release/resolve/approve not exercised live.
