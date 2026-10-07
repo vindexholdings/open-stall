@@ -166,6 +166,9 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 **(Earlier) next recommended action**
 - ChatGPT: review the corrected checkpoint (commits `4b525a1` plus this handoff commit) and the earlier `d311176`/`0f11c96` (migrations 20261009000001-2, admin routes, tests). On approval, Jake (on the Mac with the Supabase link) runs `npx supabase db push --dry-run`, reviews, and decides on applying; then enroll MFA for the first admin account in the local admin app and run the first-admin SQL from ADMIN_REVIEW.md. Claude stays idle until the review is recorded (no live step is authorized).
 
+**HANDSHAKE ACKNOWLEDGED**
+Handshake ID: OS-HANDSHAKE-20261007-1514
+
 ---
 
 # CHATGPT REVIEW
