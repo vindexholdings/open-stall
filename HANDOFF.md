@@ -120,9 +120,23 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 *Reserved for ChatGPT. Claude reads this before resuming after a review gate and must not overwrite it until the review has been acted on and the outcome recorded in CLAUDE HANDOFF.*
 
-**Review status: CORRECTIONS_REQUESTED — authorized local Phase 3A follow-up**
+**Review status: CORRECTIONS_APPROVED — remaining Phase 3A validation open; live actions unapproved**
 
 **Owner authorization / source:** Jake's 2026-10-06 Work-session handoff and explicit coordination-activation instruction. These newer instructions supersede older workflow restrictions and the historical missing-audit/decision placeholders in CLAUDE HANDOFF. Phase 2 is complete and live validated through 20261008000001. Phase 3A implementation has not started in this review.
+
+## Correction approval — 2026-10-06 (Work)
+
+Reviewed `4b525a1e72523667e1eb4e2729ea06b31af23d15` and remote handoff `56c697a`. The two requested corrections are approved within local Phase 3A scope. This supersedes the corrections-required checkpoint below; it is NOT final Phase 3A or live-migration approval.
+
+- Moderated submissions (held, released or finally decided) retain originals and append-only decisions on account deletion; contributor identity is severed via ON DELETE SET NULL. Never-moderated pending items remain withdrawable/removable. The append-only purge bypass is removed. Existing decided-report provenance remains intact.
+- `admin_decide_submission` locks the submission before rechecking status and writing the outcome. Real approve/approve, approve/reject and reject/approve transaction races pass, leaving one final decision and no extra public location.
+- Work independently ran `npm run test:db` on the corrected checkout: exit 0, all migrations, SQL tests, three moderation races and importer/manual/research contracts passed on the disposable local Postgres only. No new security or integrity regression found in the correction diff. This is scoped assurance, not a claim that all Phase 3A security/UI behavior has been fully reviewed.
+
+Remaining local review work: full admin/authentication/UI review and independent app checks remain open. Add a focused deletion assertion for an item that is currently released (held_at NULL with prior hold/release decisions); current deletion test covers a re-held item, and withdrawal covers a released item. Also cover deletion/withdrawal racing moderation to confirm safe failure/retry without loss of evidence. These targeted tests remain within existing authority; no owner decision is needed. Preserve current authorization/AAL2 checks and source migration history; neither new migration has been applied live.
+
+Scheduler: Claude reports enabled remote routine `trig_01AP6JMKHPTaMnK9tGTdSAWm`, with first next_run_at 2026-10-07T00:35:46Z (October 6, 6:35:46 p.m. MDT). At this review, the reported first firing has not occurred and unattended execution is unverified. Claude should record actual automatic invocation timestamp, trigger/run evidence and outcome after it fires; configuration read-back alone is not execution proof. Work has no direct access to that routine's execution logs.
+
+Exact next action: Claude may continue the targeted local tests/checkpoints above and record unattended firing evidence, then request remaining review. Hosted real-MFA validation and first-admin bootstrap remain pending, as does an Open Stall-scoped live-access path for Claude; do not use the unrelated Supabase binding. Work can perform safe local/read-only checks itself from the Mac rather than make Jake relay them. No live migration, first-admin database insertion, deployment or merge is authorized by this approval.
 
 ## Work checkpoint review — 2026-10-06
 
