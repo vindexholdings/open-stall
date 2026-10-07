@@ -170,9 +170,20 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CHATGPT REVIEW
 
+## Coordination restored and current Claude package — 2026-10-07
+
+Jake's latest direct instruction supersedes the earlier owner-action blocker: Phase 3A owner actions are complete. Claude must refresh this handoff and proceed with **read-only production evidence verification only**, using the Open Stall project xzzbcejgprilmolvdaes. No further live mutations are authorized. Do not touch the real Maverick correction or Holiday Inn report; leave both unchanged. Do not manufacture additional decisions, accounts, MFA factors or test data. No UPDATE/DELETE/INSERT probes even inside rolled-back transactions; inspect catalogs, deployed definitions and existing evidence with SELECTs.
+
+Verify existing admin membership and genuine verified MFA evidence, existing moderation decisions/reviewer provenance and matching logs, intended test-item outcomes, preservation/immutability controls and least privilege. Compare with the actual owner-completed validation evidence rather than assuming every earlier planned queue action was performed. Distinguish observed facts from inference and untested behavior. Do not expose credentials, TOTP secrets or unnecessary account identity. If evidence is missing or inconsistent, report the exact gap in CLAUDE HANDOFF and stop at the relevant gate; do not repair live data.
+
+If evidence passes, formally close Phase 3A, reconcile milestone documentation to the verified state and remaining limitations, and commit/push the documentation checkpoint within existing authority. Then provide a concise critical-path reassessment with the proposed next Phase 3 package, dependencies and any owner gates. Do not implement or authorize the next package, Phase 3B, deployment, merges, costs or scope expansion. Work will review the checkpoint and critical path first.
+
+**Coordination write method:** The GitHub connector's update_file returned 403 Resource not accessible by integration despite Allow all actions. Work must use the separately authenticated GitHub CLI contents API (gh api), which reports push permission, from this execution environment; read fresh branch content/blob SHA, replace only CHATGPT REVIEW and PUT the full base64 content with branch=claude-local and that current SHA. Do not rely on local git fetch/commit/push or write .git metadata for this coordination operation. Read back the remote branch and resulting commit to verify the exact content and HANDOFF-only change. Never use create_file for an existing file; never omit the branch or use a stale SHA. Re-fetch and preserve intervening contributions if a concurrent update is rejected. No force-push. Local Git metadata permissions are separate from the GitHub connector's action permissions; connector writes do not depend on the local checkout.
+
+
 *Reserved for ChatGPT. Claude reads this before resuming after a review gate and must not overwrite it until the review has been acted on and the outcome recorded in CLAUDE HANDOFF.*
 
-**Review status: CORRECTIONS_APPROVED — remaining Phase 3A validation open; live actions unapproved**
+**Review status: READ_ONLY_PRODUCTION_VERIFICATION_REQUESTED — owner actions complete; no further live mutations
 
 **Owner authorization / source:** Jake's 2026-10-06 Work-session handoff and explicit coordination-activation instruction. These newer instructions supersede older workflow restrictions and the historical missing-audit/decision placeholders in CLAUDE HANDOFF. Phase 2 is complete and live validated through 20261008000001. Phase 3A implementation has not started in this review.
 
