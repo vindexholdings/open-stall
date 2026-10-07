@@ -138,13 +138,94 @@ q "do \$\$ begin
 end \$\$;"
 echo "concurrency: reject then approve race OK"
 
+# 4. Contributor actions racing moderation: withdrawal and account deletion must either lose cleanly or keep
+#    the evidence. Never an orphaned decision, never a lost moderated submission, never a public location from a
+#    submission that was already removed.
+UW=00000000-0000-0000-0000-00000000c0f6
+UD1=00000000-0000-0000-0000-00000000c0f7
+UD2=00000000-0000-0000-0000-00000000c0f8
+W1=00000000-0000-0000-0000-0000000005b1
+W2=00000000-0000-0000-0000-0000000005b2
+D1=00000000-0000-0000-0000-0000000005b3
+D2=00000000-0000-0000-0000-0000000005b4
+q "insert into auth.users (id, email) values ('$UW', 'uw@test.invalid'), ('$UD1', 'ud1@test.invalid'), ('$UD2', 'ud2@test.invalid');
+   insert into public.submissions (id, user_id, kind, proposed, attested_public)
+     select s.id, s.u, 'new_location', jsonb_build_object('name', 'CONC del ' || s.n, 'latitude', 80 + s.n, 'longitude', 80), true
+     from (values ('$W1'::uuid, '$UW'::uuid, 1), ('$W2'::uuid, '$UW'::uuid, 2), ('$D1'::uuid, '$UD1'::uuid, 3), ('$D2'::uuid, '$UD2'::uuid, 4)) as s(id, u, n);"
+race_sql() { # $1 = SQL of the first session (holds its transaction open for 2 s), $2 = SQL of the second (arrives 0.7 s later)
+  "${PSQL[@]}" -X -q >/dev/null <<SQL &
+begin;
+$1
+select pg_sleep(2);
+commit;
+SQL
+  local p1=$!
+  sleep 0.7
+  local rc=0
+  "${PSQL[@]}" -X -q >/dev/null 2>/tmp/conc_second.err <<SQL || rc=$?
+$2
+SQL
+  wait "$p1"
+  echo "$rc"
+}
+
+# 4a. An admin puts the submission on hold while its contributor withdraws it: the hold wins, nothing is lost.
+RC=$(race_sql "$(as_admin "$AD1")
+select public.admin_decide_submission('$W1', 'hold');" "$(as_user "$UW")
+select public.withdraw_my_submission('$W1');")
+[ "$RC" = "0" ] || { echo "FAIL: withdrawal racing a hold should be a quiet no-op (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 1 from public.submissions where id = '$W1' and held_at is not null), 'the held submission survived the withdrawal attempt';
+  assert (select count(*) = 1 from public.moderation_decisions where submission_id = '$W1' and decision = 'hold'), 'the hold decision is intact';
+end \$\$;"
+echo "concurrency: hold vs withdrawal OK"
+
+# 4b. The contributor withdraws first while an admin tries to hold: the admin gets 'not found'; no orphaned decision.
+RC=$(race_sql "$(as_user "$UW")
+select public.withdraw_my_submission('$W2');" "$(as_admin "$AD1")
+select public.admin_decide_submission('$W2', 'hold');")
+[ "$RC" != "0" ] && grep -q "submission not found" /tmp/conc_second.err || { echo "FAIL: hold after a committed withdrawal should report not found (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 0 from public.submissions where id = '$W2'), 'the never-moderated submission was withdrawn';
+  assert (select count(*) = 0 from public.moderation_decisions where submission_id = '$W2'), 'no orphaned decision';
+end \$\$;"
+echo "concurrency: withdrawal vs hold OK"
+
+# 4c. An admin approves while the contributor deletes their account: the approval wins and the evidence is kept,
+#     anonymised, together with the public location it produced.
+RC=$(race_sql "$(as_admin "$AD1")
+select public.admin_decide_submission('$D1', 'approve');" "$(as_user "$UD1")
+select public.delete_my_account('DELETE');")
+[ "$RC" = "0" ] || { echo "FAIL: account deletion racing an approval should succeed (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 1 from public.submissions where id = '$D1' and status = 'approved' and user_id is null), 'approved submission kept with the contributor severed';
+  assert (select count(*) = 1 from public.moderation_decisions where submission_id = '$D1' and decision = 'approve'), 'approval decision kept';
+  assert (select count(*) = 1 from public.location_sources where source = 'community_submission' and source_reference = '$D1'), 'the approved restroom exists';
+  assert not exists (select 1 from auth.users where id = '$UD1'), 'the account was deleted';
+end \$\$;"
+echo "concurrency: approval vs account deletion OK"
+
+# 4d. The account is deleted first (removing a never-moderated submission) while an admin tries to approve it:
+#     the admin gets 'not found'; no public location is created from removed data.
+RC=$(race_sql "$(as_user "$UD2")
+select public.delete_my_account('DELETE');" "$(as_admin "$AD1")
+select public.admin_decide_submission('$D2', 'approve');")
+[ "$RC" != "0" ] && grep -q "submission not found" /tmp/conc_second.err || { echo "FAIL: approval after a committed account deletion should report not found (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 0 from public.submissions where id = '$D2'), 'the unmoderated submission left with the account';
+  assert (select count(*) = 0 from public.location_sources where source = 'community_submission' and source_reference = '$D2'), 'no public location was created from removed data';
+  assert (select count(*) = 0 from public.moderation_decisions where submission_id = '$D2'), 'no decision exists for it';
+end \$\$;"
+echo "concurrency: account deletion vs approval OK"
+
 # cleanup of the admin scenario (superuser; bypasses the append-only triggers for test data only)
 q "set session_replication_role = replica;
-   delete from public.moderation_decisions where submission_id in ('$S1', '$S2', '$S3');
-   delete from public.moderation_log where target_id in ('$S1', '$S2', '$S3');
-   delete from public.submissions where id in ('$S1', '$S2', '$S3');
-   delete from public.location_sources where source = 'community_submission' and source_reference in ('$S1', '$S2', '$S3');
-   delete from public.locations where name like 'CONC race %';
+   delete from public.moderation_decisions where submission_id in ('$S1', '$S2', '$S3', '$W1', '$W2', '$D1', '$D2');
+   delete from public.moderation_log where target_id in ('$S1', '$S2', '$S3', '$W1', '$W2', '$D1', '$D2');
+   delete from public.submissions where id in ('$S1', '$S2', '$S3', '$W1', '$W2', '$D1', '$D2');
+   delete from public.location_sources where source = 'community_submission' and source_reference in ('$S1', '$S2', '$S3', '$D1');
+   delete from public.locations where name like 'CONC race %' or name like 'CONC del %';
+   delete from auth.users where id in ('$UW', '$UD1', '$UD2');
    delete from public.admin_users where user_id in ('$AD1', '$AD2');
    delete from auth.users where id in ('$AD1', '$AD2');"
 

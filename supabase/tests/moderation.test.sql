@@ -313,6 +313,25 @@ reset role;
 select pg_temp.ok((select count(*) = 1 from public.locations where id = :'loc_ok' and status = 'unverified'), 'an approved restroom is not deleted with its contributor');
 select pg_temp.ok((select count(*) = 1 from public.submissions where id = :'sub_ok' and user_id is null and status = 'approved' and result_location_id = :'loc_ok'), 'approved submission kept anonymised and linked');
 select pg_temp.ok((select count(*) = 4 and bool_and(user_id is null) from public.submissions where id in (:'sub_ok', :'sub_edit', :'sub_rej', :'sub_corr')), 'all of the contributor''s decided submissions kept anonymised');
+-- u3: an item that is CURRENTLY released (held_at NULL) but has hold/release history must survive deletion too.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f3', 'u3@test.invalid');
+\set u3 '00000000-0000-0000-0000-0000000000f3'
+set role authenticated;
+select pg_temp.login(:'u3', 'aal1');
+select pg_temp.nl('MOD released then deleted', 75.5, 75.5) as sub_rel \gset
+select pg_temp.nl('MOD never moderated', 75.6, 75.6) as sub_plain3 \gset
+select pg_temp.login(:'adm1');
+select public.admin_decide_submission(:'sub_rel', 'hold', null, 'check');
+select public.admin_decide_submission(:'sub_rel', 'release');
+select pg_temp.login(:'u3', 'aal1');
+select public.delete_my_account('DELETE');
+reset role;
+select pg_temp.ok((select count(*) = 1 and bool_and(user_id is null and held_at is null and status = 'pending') from public.submissions where id = :'sub_rel'),
+  'a currently-released item with hold history is kept, submitter severed');
+select pg_temp.ok((select count(*) = 2 and array_agg(decision order by created_at) = array['hold', 'release'] from public.moderation_decisions where submission_id = :'sub_rel'),
+  'its hold and release decisions are preserved');
+select pg_temp.ok((select count(*) = 0 from public.submissions where id = :'sub_plain3'), 'the same account''s never-moderated item was removed');
+select pg_temp.ok((select count(*) = 2 from public.moderation_log where target_id = :'sub_rel' and action in ('submission_hold', 'submission_release')), 'log entries kept');
 -- an active admin cannot delete their account until the owner disables them; afterwards deletion works and decisions keep reviewer ids
 set role authenticated;
 select pg_temp.login(:'adm2');
