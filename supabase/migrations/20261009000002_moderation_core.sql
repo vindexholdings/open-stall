@@ -1,6 +1,6 @@
 -- Phase 3A: moderation core. Immutable original submissions, append-only decisions with reviewer
 -- provenance, hold / duplicate / reject / approve / edit-and-approve, report resolution, and account
--- deletion that keeps decided evidence while severing the contributor's identity.
+-- deletion that keeps moderated evidence while severing the contributor's identity.
 --
 -- Owner decisions encoded here (HANDOFF.md): approval may publish a restroom but it stays UNVERIFIED
 -- (approval != verification); held items stay `pending` so they keep counting toward pending caps;
@@ -284,7 +284,8 @@ end;
 $$;
 
 -- ---------------------------------------------------------------- contributor-side changes
--- A held submission has a moderator's hold on record, so it can no longer be silently withdrawn.
+-- Once any moderation decision exists (hold, release, ...) the submission and its history are evidence and
+-- can no longer be withdrawn; only genuinely unmoderated pending submissions can.
 create or replace function public.withdraw_my_submission(p_id uuid)
 returns void
 language plpgsql
@@ -294,13 +295,16 @@ as $$
 declare uid uuid := auth.uid();
 begin
   if uid is null then raise exception 'not authenticated' using errcode = '28000'; end if;
-  delete from public.submissions where id = p_id and user_id = uid and status = 'pending' and held_at is null;
+  delete from public.submissions s
+    where s.id = p_id and s.user_id = uid and s.status = 'pending' and s.held_at is null
+      and not exists (select 1 from public.moderation_decisions d where d.submission_id = s.id);
 end;
 $$;
 
--- Deletion removes everything undecided and keeps decided evidence with the person severed
--- (submissions/reports: user_id becomes NULL via the foreign keys). Active administrators must be
--- disabled by the owner first so decision provenance and the admin roster stay intact.
+-- Deletion removes only genuinely UNMODERATED contributions (pending with no moderation history, open reports).
+-- Anything a moderator has acted on (decided, or held/released at any point) is evidence: its original and its
+-- append-only decisions stay, with the submitter severed (submissions/reports: user_id becomes NULL via the foreign
+-- keys). Active administrators must be disabled by the owner first so decision provenance and the admin roster stay intact.
 create or replace function public.delete_my_account(p_confirm text)
 returns void
 language plpgsql
@@ -314,13 +318,10 @@ begin
   if exists (select 1 from public.admin_users a where a.user_id = uid and a.disabled_at is null) then
     raise exception 'administrator accounts must be disabled by the owner before deletion' using errcode = '42501';
   end if;
-  perform set_config('open_stall.allow_provenance_purge', '1', true);
-  -- Undecided items (including held ones, whose hold decisions go with them) are removed outright.
-  delete from public.moderation_decisions d using public.submissions s
-    where d.submission_id = s.id and s.user_id = uid and s.status = 'pending';
-  delete from public.submissions where user_id = uid and status = 'pending';
+  delete from public.submissions s
+    where s.user_id = uid and s.status = 'pending' and s.held_at is null
+      and not exists (select 1 from public.moderation_decisions d where d.submission_id = s.id);
   delete from public.reports where user_id = uid and status = 'open';
-  perform set_config('open_stall.allow_provenance_purge', '0', true);
   delete from auth.users where id = uid;
 end;
 $$;

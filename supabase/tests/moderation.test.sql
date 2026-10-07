@@ -200,6 +200,23 @@ select public.admin_decide_submission(:'sub_hold', 'release');
 select pg_temp.fails(format('select public.admin_decide_submission(%L, ''release'')', :'sub_hold'), '22023');
 reset role;
 select pg_temp.ok((select held_at is null and status = 'pending' from public.submissions where id = :'sub_hold'), 'release clears the hold');
+-- Released items keep their hold history, so they still cannot be withdrawn away.
+set role authenticated;
+select pg_temp.login(:'u2', 'aal1');
+select public.withdraw_my_submission(:'sub_hold');
+reset role;
+select pg_temp.ok((select count(*) = 1 from public.submissions where id = :'sub_hold'), 'a released item with hold history cannot be withdrawn');
+select pg_temp.ok((select count(*) = 2 from public.moderation_decisions where submission_id = :'sub_hold' and decision in ('hold', 'release')), 'hold and release history intact');
+set session_replication_role = replica;
+delete from public.submissions where proposed->>'name' like 'MOD filler %';
+reset session_replication_role;
+delete from public.action_log where user_id = :'u2'::uuid;
+set role authenticated;
+select pg_temp.login(:'u2', 'aal1');
+select pg_temp.nl('MOD plain withdraw', 73.7, 73.7) as sub_plain \gset
+select public.withdraw_my_submission(:'sub_plain');
+reset role;
+select pg_temp.ok((select count(*) = 0 from public.submissions where id = :'sub_plain'), 'a never-moderated pending submission can still be withdrawn');
 set session_replication_role = replica;
 delete from public.submissions where proposed->>'name' like 'MOD filler %';
 reset session_replication_role;
@@ -269,6 +286,7 @@ set role authenticated;
 select pg_temp.login(:'adm1');
 select public.admin_decide_submission(:'sub_hold', 'hold', null, 'hold again');
 reset role;
+delete from public.action_log where user_id = :'u2'::uuid;
 set role authenticated;
 select pg_temp.login(:'u2', 'aal1');
 select public.submit_report(:'l1', 'other', 'pending report');
@@ -276,8 +294,11 @@ select pg_temp.nl('MOD pending delete', 75.0, 75.0) as sub_pend \gset
 select public.delete_my_account('DELETE');
 reset role;
 select pg_temp.ok((not exists (select 1 from auth.users where id = :'u2'::uuid)), 'account removed');
-select pg_temp.ok((select count(*) = 0 from public.submissions where id in (:'sub_pend', :'sub_hold')), 'undecided (pending and held) submissions removed');
-select pg_temp.ok((select count(*) = 0 from public.moderation_decisions where submission_id in (:'sub_pend', :'sub_hold')), 'holds on removed submissions go with them');
+select pg_temp.ok((select count(*) = 0 from public.submissions where id = :'sub_pend'), 'a never-moderated pending submission is removed with the account');
+select pg_temp.ok((select count(*) = 1 and bool_and(user_id is null and held_at is not null and status = 'pending' and proposed->>'name' = 'MOD Hold me') from public.submissions where id = :'sub_hold'),
+  'a submission with moderation history is kept (original intact), submitter severed, hold preserved');
+select pg_temp.ok((select count(*) = 3 and array_agg(decision order by created_at) = array['hold', 'release', 'hold'] from public.moderation_decisions where submission_id = :'sub_hold'),
+  'its full hold/release decision history is preserved');
 select pg_temp.ok((select count(*) = 0 from public.reports where comment = 'pending report'), 'open reports removed');
 select pg_temp.ok((select status = 'duplicate' and user_id is null and proposed->>'name' = 'MOD Dup me' from public.submissions where id = :'sub_dup'), 'decided submission kept, submitter severed');
 select pg_temp.ok((select count(*) = 1 from public.moderation_decisions where submission_id = :'sub_dup' and reviewer_id = :'adm1'::uuid), 'decision for it kept');

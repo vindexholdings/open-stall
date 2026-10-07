@@ -36,9 +36,6 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if tg_op = 'DELETE' and current_setting('open_stall.allow_provenance_purge', true) = '1' then
-    return old;  -- only delete_my_account sets this, for undecided (held) items
-  end if;
   raise exception '% is append-only', tg_table_name using errcode = '55000';
 end;
 $$;

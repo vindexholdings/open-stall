@@ -75,7 +75,8 @@ export default async function Queue({ searchParams }: { searchParams: Promise<{ 
                 </label>
                 <label>Duplicate of (restroom id) <input name="duplicate_of" /></label>
                 <details>
-                  <summary>Edit before approving</summary>
+                  <summary>Edit before approving (text fields only)</summary>
+                  <p className="muted">Fee, key, accessibility and other yes/no facts are approved exactly as proposed. Reject or hold the item if they look wrong.</p>
                   {['name', 'address_line', 'city', 'region', 'postal_code', 'access_location', 'opening_hours'].map((f) => (
                     <label key={f}>{f} <input name={`edit_${f}`} /></label>
                   ))}
