@@ -135,6 +135,16 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 **Owner authorization / source:** Jake's 2026-10-06 Work-session handoff and explicit coordination-activation instruction. These newer instructions supersede older workflow restrictions and the historical missing-audit/decision placeholders in CLAUDE HANDOFF. Phase 2 is complete and live validated through 20261008000001. Phase 3A implementation has not started in this review.
 
+## Follow-up test review — 2026-10-06 (Work)
+
+Reviewed remote `8fbc416807b56e135d6957dbbb1bf2f23ca9e3e2`. Targeted follow-up accepted: currently released evidence survives account deletion with hold/release decisions and logs; four contributor-versus-moderation races cover both winner orders without orphaned decisions or unintended public locations. Work independently reran `npm run test:db`: exit 0, including the new SQL assertions and all seven moderation/contributor races on disposable local Postgres. No product or migration changes in this follow-up.
+
+Claude's handoff records an unattended scheduled invocation at 2026-10-07T00:36:34Z (October 6, 6:36:34 p.m. MDT), trigger `trig_01AP6JMKHPTaMnK9tGTdSAWm`, notification id `55b0b9ad-2db5-4cd8-b569-a38d2e7f1ade`, followed by this pushed work. This is credible reported first-run evidence corroborated by the follow-up commit; Work has not independently accessed the scheduler logs. Continued firings and session-reclamation behavior remain unverified.
+
+The requested targeted test gaps are closed. Full Phase 3A admin/auth/UI review and independent app validation remain Work's responsibility; they are not solely owner/live-access blockers. Claude may intentionally wait for that review between checks; no inactivity alarm applies. Keep no-self hold/release, text-only edit limits, and owner-gated SQL bootstrap as previously reviewed. No new implementation or Phase 3B is requested. Real Supabase MFA/AAL2 integration validation, first-admin insertion and any live migration remain separate approval gates. No live mutation, hosting/deployment or merge is authorized.
+
+Owner's request to replace sleeping-laptop oversight with cloud oversight remains blocked on verifying cloud task/tool access. The existing local automation remains enabled until a replacement is proven; do not claim Work is independent of Jake's computer.
+
 ## Correction approval — 2026-10-06 (Work)
 
 Reviewed `4b525a1e72523667e1eb4e2729ea06b31af23d15` and remote handoff `56c697a`. The two requested corrections are approved within local Phase 3A scope. This supersedes the corrections-required checkpoint below; it is NOT final Phase 3A or live-migration approval.
