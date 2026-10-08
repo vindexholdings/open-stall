@@ -57,6 +57,18 @@ for (const [fn, args] of Object.entries(accountFns)) {
   const missing = r.json?.code === 'PGRST202' || r.status === 404;
   row(denied, `function ${fn}`, denied ? 'installed, anon denied' : missing ? 'NOT installed' : `UNEXPECTED status ${r.status} ${r.json?.code ?? ''} (anon may be able to call it!)`);
 }
+// Authenticated seed review (migration 20261010000001): NOT applied live until the owner approves it, so "missing" is INFO, never a failure.
+const pendingFns = {
+  admin_location_counts: {}, admin_list_locations: { p_status: 'candidate', p_limit: 1 }, admin_get_location: { p_id: U },
+  admin_apply_location_review: { p_location: U, p_reviewer: 'x', p_existence: 'unsure', p_personally_verified: false, p_verified_on: null, p_answers: {} },
+};
+for (const [fn, args] of Object.entries(pendingFns)) {
+  const r = await get(`/rest/v1/rpc/${fn}`, { method: 'POST', body: JSON.stringify(args) });
+  const denied = r.json?.code === '42501' || r.status === 401 || r.status === 403;
+  const missing = r.json?.code === 'PGRST202' || r.status === 404;
+  if (missing) row(null, `function ${fn}`, 'not installed yet (migration 20261010000001 awaits owner approval)');
+  else row(denied, `function ${fn}`, denied ? 'installed, anon denied' : `UNEXPECTED status ${r.status} ${r.json?.code ?? ''} (anon may be able to call it!)`);
+}
 const near = await get('/rest/v1/rpc/nearby_locations', { method: 'POST', body: JSON.stringify({ p_lat: 44.5263, p_lng: -109.0565, p_radius_m: 16000, p_limit: 100, p_verified_only: false }) });
 row(near.status === 200 && Array.isArray(near.json), 'public nearby_locations works', Array.isArray(near.json) ? `${near.json.length} public rows near Cody` : `status ${near.status}`);
 

@@ -1,22 +1,8 @@
 /**
- * Access gate for the admin/validator pages. Until real admin authorization exists (backlog
- * OS-301: Supabase Auth + independent admin check), these pages work ONLY on a developer's own
- * machine: explicit opt-in env, never on Vercel, and only for localhost Host headers. Every page
- * and action calls requireAdmin(), so replacing this one function later upgrades them all.
+ * Project guards for the admin app. Authorization itself is the signed-in admin's session plus the
+ * database (admin_users membership and an MFA/aal2 session, re-checked inside every admin function);
+ * see requireAdmin.ts. These helpers only keep the app from talking to the wrong Supabase project.
  */
-export type GateInput = { env: Record<string, string | undefined>; host: string | null };
-export type GateResult = { ok: true } | { ok: false; reason: string };
-
-const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/i;
-
-export function evaluateAccess({ env, host }: GateInput): GateResult {
-  if (env.ADMIN_LOCAL_ONLY !== 'true') return { ok: false, reason: 'ADMIN_LOCAL_ONLY is not enabled' };
-  if (env.VERCEL || env.VERCEL_ENV || env.VERCEL_URL) return { ok: false, reason: 'hosted deployments are disabled until admin authorization exists' };
-  if (!host || !LOCAL_HOST.test(host)) return { ok: false, reason: 'only localhost may use the validator' };
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return { ok: false, reason: 'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required (apps/admin/.env.local)' };
-  return { ok: true };
-}
-
 export function projectRefFromUrl(url: string): string {
   const m = /^([a-z0-9]+)\.supabase\.co$/.exec(new URL(url).hostname);
   if (!m?.[1]) throw new Error('SUPABASE_URL is not a hosted Supabase URL');

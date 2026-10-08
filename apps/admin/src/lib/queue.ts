@@ -1,6 +1,7 @@
 import 'server-only';
 import type { AccessChoice, Conditions, RestroomType } from '@open-stall/domain';
-import { adminDb } from './db';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { adminErrorMessage } from './moderation';
 
 export type View = 'unverified' | 'candidates' | 'verified' | 'closed';
 export const VIEWS: { key: View; label: string; status: string; hint: string }[] = [
@@ -24,59 +25,35 @@ export type LocationRow = {
 };
 export type { AccessChoice };
 
-const BASE =
-  'id,name,address_line,city,region,postal_code,latitude,longitude,status,restroom_evidence,restroom_verified,last_verified_at,' +
-  'wheelchair_accessible,gender_neutral,baby_changing,has_hot_water,has_cold_water,key_required,purchase_required,fee_required,opening_hours,possible_duplicate_of,' +
-  'location_sources(source,source_reference,is_primary,tags,license,attribution)';
-const DETAILS_REVIEWS = ',location_reviews(id,reviewer,existence,personally_verified,verified_on,notes,resulting_status,created_at,restroom_type,rating,cleanliness_score,public_comment,conditions,cleaning_log,reviewer_identity)';
-const REVIEWS = ',location_reviews(id,reviewer,existence,personally_verified,verified_on,notes,resulting_status,created_at)';
-
-/**
- * Reads work before the review migration is installed: if the reviews relationship does not exist
- * yet, retry without it and report reviewsAvailable=false (saving is disabled by the database).
- */
-async function query<T>(run: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<{ data: T; reviewsAvailable: boolean; detailsAvailable: boolean }> {
-  const details = await run(BASE + ',customers_only,family_bathroom' + DETAILS_REVIEWS);
-  if (!details.error) return { data: details.data as T, reviewsAvailable: true, detailsAvailable: true };
-  if (!/column|relationship|schema cache|location_reviews/i.test(details.error.message)) throw new Error(details.error.message);
-  const full = await run(BASE + REVIEWS);
-  if (!full.error) return { data: full.data as T, reviewsAvailable: true, detailsAvailable: false };
-  if (!/location_reviews|relationship|schema cache/i.test(full.error.message)) throw new Error(full.error.message);
-  const base = await run(BASE);
-  if (base.error) throw new Error(base.error.message);
-  return { data: base.data as T, reviewsAvailable: false, detailsAvailable: false };
+/** Reads go through the signed-in admin's own session; the database re-checks admin + MFA on every call. */
+async function rpc<T>(db: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<T> {
+  const { data, error } = await db.rpc(fn, args);
+  if (error) throw new Error(adminErrorMessage(error));
+  return data as T;
 }
 
 const withReviews = (rows: LocationRow[]): LocationRow[] => rows.map((r) => ({ ...r, location_reviews: r.location_reviews ?? [] }));
 
-export async function viewCounts(): Promise<Record<View, number>> {
-  const db = adminDb();
+export async function viewCounts(db: SupabaseClient): Promise<Record<View, number>> {
+  const c = await rpc<Record<string, number>>(db, 'admin_location_counts', {});
   const out = {} as Record<View, number>;
-  for (const v of VIEWS) {
-    const { count, error } = await db.from('locations').select('id', { count: 'exact', head: true }).eq('status', v.status);
-    if (error) throw new Error(error.message);
-    out[v.key] = count ?? 0;
-  }
+  for (const v of VIEWS) out[v.key] = c[v.status] ?? 0;
   return out;
 }
 
-export async function listView(view: View): Promise<{ rows: LocationRow[]; reviewsAvailable: boolean; detailsAvailable: boolean }> {
-  const { data, reviewsAvailable, detailsAvailable } = await query<LocationRow[]>((cols) =>
-    adminDb().from('locations').select(cols).eq('status', statusOf(view)).order('name').limit(500),
-  );
-  return { rows: withReviews(data ?? []), reviewsAvailable, detailsAvailable };
+export async function listView(db: SupabaseClient, view: View): Promise<{ rows: LocationRow[] }> {
+  const rows = await rpc<LocationRow[]>(db, 'admin_list_locations', { p_status: statusOf(view), p_limit: 500 });
+  return { rows: withReviews(rows ?? []) };
 }
 
-export async function getLocation(id: string): Promise<{ loc: LocationRow | null; reviewsAvailable: boolean; detailsAvailable: boolean }> {
-  const { data, reviewsAvailable, detailsAvailable } = await query<LocationRow | null>((cols) =>
-    adminDb().from('locations').select(cols).eq('id', id).maybeSingle(),
-  );
-  return { loc: data ? withReviews([data])[0]! : null, reviewsAvailable, detailsAvailable };
+export async function getLocation(db: SupabaseClient, id: string): Promise<{ loc: LocationRow | null }> {
+  const row = await rpc<LocationRow | null>(db, 'admin_get_location', { p_id: id });
+  return { loc: row ? withReviews([row])[0]! : null };
 }
 
 /** Next not-yet-reviewed location in the same view (by name), excluding the current one. */
-export async function nextUnreviewed(view: View, currentId: string): Promise<string | null> {
-  const { rows } = await listView(view);
+export async function nextUnreviewed(db: SupabaseClient, view: View, currentId: string): Promise<string | null> {
+  const { rows } = await listView(db, view);
   return rows.find((r) => r.id !== currentId && r.location_reviews.length === 0)?.id ?? null;
 }
 

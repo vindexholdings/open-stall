@@ -159,7 +159,7 @@ export function ReviewForm({
       <label className="stack">
         <strong>Username</strong>
         <input type="text" name="reviewer" defaultValue={defaults.reviewer} required maxLength={120} />
-        <small>Use the same username for repeat visits so they remain part of your history.</small>
+        <small>A display name for this review. Your review history is tied to your signed-in admin account.</small>
       </label>
 
       {preview && savingAvailable ? <p className={preview.status === 'verified' ? 'note good' : preview.publicAfter ? 'note warn' : 'note'} role="status"><strong>What saving does:</strong> {preview.message}</p> : null}

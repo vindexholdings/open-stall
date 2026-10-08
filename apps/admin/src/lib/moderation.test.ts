@@ -51,6 +51,7 @@ describe('report resolution and access', () => {
   it('explains errors without leaking backend text', () => {
     expect(adminErrorMessage({ code: '42501', message: 'multi-factor authentication required' })).toMatch(/Multi-factor/);
     expect(adminErrorMessage({ code: '42501', message: 'administrators cannot adjudicate their own submissions' })).toMatch(/Another administrator/);
+    expect(adminErrorMessage({ code: '42501', message: 'cannot review a restroom you contributed' })).toMatch(/Another administrator/);
     expect(adminErrorMessage({ code: '22023', message: 'submission already decided' })).toMatch(/already handled/);
     expect(adminErrorMessage({ message: 'relation "public.secret" does not exist' })).toBe('Something went wrong. Please try again.');
   });

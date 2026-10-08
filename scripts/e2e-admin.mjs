@@ -31,6 +31,11 @@ const ITEM = { id: '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d5e', kind: 'new_location',
 const OWN = { ...ITEM, id: '4a2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d5f', proposed: { name: 'Admin own restroom' }, is_mine: true, flags: [] };
 const REPORT = { id: '5b2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d60', location_id: '6c2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d61', location_name: 'Mock Park', issue_type: 'closed', comment: 'Locked all week', created_at: '2026-10-06T01:00:00Z', is_mine: false };
 
+const LOC = { id: '7d2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d62', name: 'Mock Hidden Candidate', address_line: '1 Test St', city: 'Cody', region: 'WY', postal_code: null, latitude: 44.5, longitude: -109.05,
+  status: 'candidate', restroom_evidence: 'inferred', restroom_verified: false, last_verified_at: null, wheelchair_accessible: null, gender_neutral: null, baby_changing: null, has_hot_water: null, has_cold_water: null,
+  customers_only: null, family_bathroom: null, key_required: null, purchase_required: null, fee_required: null, opening_hours: null, possible_duplicate_of: null,
+  location_sources: [{ source: 'osm', source_reference: 'node/1', is_primary: true, tags: { amenity: 'toilets' }, license: 'ODbL', attribution: 'OpenStreetMap contributors' }], location_reviews: [] };
+const reviews = [];
 const requests = [];
 const decisions = [];
 let enrolled = false;
@@ -59,6 +64,10 @@ const mock = createServer(async (req, res) => {
     if (aal !== 'aal2') return json(403, { code: '42501', message: 'multi-factor authentication required' });
     if (fn === 'admin_list_submissions') return json(200, [ITEM, OWN]);
     if (fn === 'admin_list_reports') return json(200, [REPORT]);
+    if (fn === 'admin_location_counts') return json(200, { candidate: 1, unverified: 0, verified: 0, closed: 0 });
+    if (fn === 'admin_list_locations') return json(200, data.p_status === 'candidate' ? [LOC] : []);
+    if (fn === 'admin_get_location') return json(200, data.p_id === LOC.id ? LOC : null);
+    if (fn === 'admin_apply_location_review') { reviews.push(data); return json(200, { review_id: 'r1', status: 'unverified', restroom_verified: false, public: true }); }
     if (fn === 'admin_decide_submission') { decisions.push(data); return json(200, { status: 'approved' }); }
     if (fn === 'admin_resolve_report') { decisions.push({ report: data }); return json(204); }
   }
@@ -78,7 +87,7 @@ function findChrome() {
 // The admin app runs WITHOUT any service-role credential: only the public URL + anon key.
 const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${MOCK}`, NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON, ADMIN_ALLOW_LOCAL_BACKEND: 'true', NEXT_TELEMETRY_DISABLED: '1' };
 delete env.SUPABASE_SERVICE_ROLE_KEY; delete env.SUPABASE_URL;
-const server = spawn('npx', ['next', 'dev', '-H', '127.0.0.1', '-p', String(APP)], { cwd: join(root, 'apps/admin'), env, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn('npx', ['next', 'dev', '-H', '127.0.0.1', '-p', String(APP)], { cwd: join(root, 'apps/admin'), env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 let serverLog = ''; server.stdout.on('data', (d) => { serverLog += d; }); server.stderr.on('data', (d) => { serverLog += d; });
 const base = `http://127.0.0.1:${APP}`;
 for (let i = 0; i < 120; i++) { try { const r = await fetch(`${base}/signin`); if (r.status === 200) break; } catch { /* starting */ } await new Promise((r) => setTimeout(r, 1000)); }
@@ -88,6 +97,8 @@ const check = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} 
 const browser = await chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--disable-gpu', '--no-proxy-server'] });
 const text = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false);
 const login = async (page, email) => { await page.goto(`${base}/signin`); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(PW); await page.getByRole('button', { name: 'Sign in' }).click(); };
+const loginAndWait = async (page, email) => { await login(page, email); await page.waitForURL((u) => !u.pathname.endsWith('/signin'), { timeout: 30000 }); };
+const locCalls = () => requests.filter((r) => /admin_(location_counts|list_locations|get_location|apply_location_review)$/.test(r.path));
 const listCalls = () => requests.filter((r) => r.path.endsWith('/admin_list_submissions'));
 
 try {
@@ -143,6 +154,49 @@ try {
     check(!requests.some((r) => /service/i.test(r.auth)), 'no service-role credential is used anywhere');
     await ctx.close();
   }
+  { // seeded-location review: refused without admin + MFA, no data requested
+    for (const [email, label] of [[null, 'signed-out'], ['plain@test.dev', 'non-admin'], ['admin@test.dev', 'admin without MFA']]) {
+      const ctx = await browser.newContext(); const page = await ctx.newPage(); page.setDefaultTimeout(30000);
+      const before = locCalls().length;
+      if (email) await loginAndWait(page, email);
+      await page.goto(`${base}/review`);
+      await page.waitForLoadState('networkidle');
+      const where = page.url();
+      const expected = email === null ? '/signin' : email.startsWith('plain') ? '/queue' : '/mfa';
+      check(where.endsWith(expected), `/review sends a ${label} visitor to ${expected}`, where);
+      await page.goto(`${base}/review/${LOC.id}`);
+      await page.waitForLoadState('networkidle');
+      check(locCalls().length === before && !(await page.content()).includes('Mock Hidden Candidate'), `${label}: no seeded-location data is requested or shown`);
+      await ctx.close();
+    }
+  }
+  { // seeded-location review with admin + MFA
+    const ctx = await browser.newContext(); const page = await ctx.newPage(); page.setDefaultTimeout(30000);
+    await loginAndWait(page, 'admin@test.dev');
+    await page.goto(`${base}/mfa`);
+    await page.getByLabel('6-digit code').fill('123456'); await page.getByRole('button', { name: 'Verify' }).click();
+    await text(page, 'Review queue');
+    await page.goto(`${base}/review?view=candidates`);
+    check(await text(page, 'Mock Hidden Candidate'), 'an MFA admin sees hidden candidates in the seeded-location list');
+    check(await page.getByRole('navigation', { name: 'Views' }).getByRole('link').count() === 4, 'view tabs are real labelled links');
+    await page.getByRole('link', { name: 'Review', exact: true }).click();
+    check(await text(page, 'Does the restroom exist?'), 'the review form opens');
+    // keyboard operation + labelled controls
+    await page.getByLabel('Yes, a restroom exists here').focus();
+    await page.keyboard.press('Space');
+    check(await page.getByLabel('Yes, a restroom exists here').isChecked(), 'existence can be chosen with the keyboard');
+    check((await page.getByLabel('Username').count()) === 1 && (await page.getByLabel('Visited in person').count()) === 1, 'form controls are labelled');
+    await page.getByLabel('Username').fill('Jake alias');
+    await page.getByRole('button', { name: 'Save review and go to next' }).press('Enter');
+    await text(page, 'Saved');
+    const sent = reviews.at(-1);
+    check(sent?.p_location === LOC.id && sent?.p_existence === 'exists' && sent?.p_reviewer === 'Jake alias' && sent?.p_personally_verified === false, 'the review is sent through admin_apply_location_review', JSON.stringify(sent));
+    check(sent && !('p_reviewer_identity' in sent), 'the browser never supplies a reviewer identity (the database uses the signed-in admin)');
+    const calls = locCalls();
+    check(calls.length > 0 && calls.every((r) => r.apikey === ANON && r.aal === 'aal2'), 'seeded-location calls use the anon key plus an MFA-verified user session');
+    check(!requests.some((r) => /service/i.test(r.auth) || r.path.includes('/rest/v1/locations')), 'no service-role credential and no direct table access');
+    await ctx.close();
+  }
   { // first-time enrollment
     const ctx = await browser.newContext(); const page = await ctx.newPage(); page.setDefaultTimeout(30000);
     await login(page, 'newadmin@test.dev');
@@ -155,7 +209,8 @@ try {
   }
 } finally {
   await browser.close();
-  server.kill('SIGTERM'); mock.close();
+  try { process.kill(-server.pid, 'SIGTERM'); } catch { server.kill('SIGTERM'); }
+  mock.close();
 }
 if (failures) { console.error(`\n${failures} check(s) failed.\n--- server log tail ---\n${serverLog.slice(-1500)}`); process.exit(1); }
 console.log('\nAdmin e2e passed.');

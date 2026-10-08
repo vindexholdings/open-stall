@@ -1,21 +1,21 @@
 import Link from 'next/link';
 import { listView, osmLink, parseView, viewCounts, VIEWS } from '@/lib/queue';
-import { requireAdmin } from '@/lib/requireAdmin';
+import { requireAdminSession } from '@/lib/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReviewList({ searchParams }: { searchParams: Promise<{ view?: string; saved?: string }> }) {
-  await requireAdmin();
+  const db = await requireAdminSession();
   const sp = await searchParams;
   const view = parseView(sp.view);
   let counts, list;
   try {
-    [counts, list] = await Promise.all([viewCounts(), listView(view)]);
+    [counts, list] = await Promise.all([viewCounts(db), listView(db, view)]);
   } catch (e) {
     return (
       <main className="wrap">
         <h1>Validate seeded locations</h1>
-        <p className="note bad" role="alert">Could not read the database: {(e instanceof Error && e.message) || 'network error (is Supabase reachable?)'}. Check apps/admin/.env.local and your connection.</p>
+        <p className="note bad" role="alert">Could not load the seeded locations: {(e instanceof Error && e.message) || 'network error (is Supabase reachable?)'}. Check apps/admin/.env.local and your connection.</p>
       </main>
     );
   }
@@ -25,9 +25,8 @@ export default async function ReviewList({ searchParams }: { searchParams: Promi
   return (
     <main className="wrap">
       <h1>Validate seeded locations</h1>
-      <p className="muted">Local validator (this machine only). Nothing becomes Verified unless you say so.</p>
+      <p className="muted">Signed-in administrators only (account + second factor). Nothing becomes Verified unless you say so. <Link href="/queue">Community review queue</Link></p>
       {sp.saved ? <p className="note good" role="status">Saved. {rows.some((r) => r.location_reviews.length === 0) ? 'Next unreviewed record is below.' : 'All records in this view are reviewed.'}</p> : null}
-      {!list.reviewsAvailable ? <p className="note warn">Preview only: saving awaits database approval. No reviews or verifications are recorded from this form yet.</p> : null}
       <nav className="tabs" aria-label="Views">
         {VIEWS.map((v) => (
           <Link key={v.key} href={`/review?view=${v.key}`} className={v.key === view ? 'tab active' : 'tab'} aria-current={v.key === view ? 'page' : undefined}>

@@ -1,33 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { assertExpectedProject, assertSessionBackend, evaluateAccess, parseEnvironmentRef, projectRefFromUrl } from './gate';
+import { assertExpectedProject, assertSessionBackend, parseEnvironmentRef, projectRefFromUrl } from './gate';
 
-const env = { ADMIN_LOCAL_ONLY: 'true', SUPABASE_URL: 'https://abcdefghij1234.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'k' };
-
-describe('evaluateAccess', () => {
-  it('allows only an explicit local opt-in on localhost with credentials', () => {
-    expect(evaluateAccess({ env, host: 'localhost:3000' }).ok).toBe(true);
-    expect(evaluateAccess({ env, host: '127.0.0.1:3000' }).ok).toBe(true);
-    expect(evaluateAccess({ env, host: '[::1]:3000' }).ok).toBe(true);
-  });
-  it('denies without the opt-in flag (the default on any deployment)', () => {
-    expect(evaluateAccess({ env: { ...env, ADMIN_LOCAL_ONLY: undefined }, host: 'localhost:3000' }).ok).toBe(false);
-    expect(evaluateAccess({ env: { ...env, ADMIN_LOCAL_ONLY: '1' }, host: 'localhost:3000' }).ok).toBe(false);
-  });
-  it('denies on Vercel even if the flag is set', () => {
-    for (const v of ['VERCEL', 'VERCEL_ENV', 'VERCEL_URL']) {
-      expect(evaluateAccess({ env: { ...env, [v]: '1' }, host: 'localhost:3000' }).ok).toBe(false);
-    }
-  });
-  it('denies non-local hosts (LAN, public names, DNS rebinding)', () => {
-    for (const host of ['192.168.1.5:3000', 'admin.example.com', 'localhost.evil.com', 'evil.com:3000', '', null]) {
-      expect(evaluateAccess({ env, host }).ok).toBe(false);
-    }
-  });
-  it('denies without credentials', () => {
-    expect(evaluateAccess({ env: { ...env, SUPABASE_SERVICE_ROLE_KEY: undefined }, host: 'localhost:3000' }).ok).toBe(false);
-    expect(evaluateAccess({ env: { ...env, SUPABASE_URL: undefined }, host: 'localhost:3000' }).ok).toBe(false);
-  });
-});
+const env = { SUPABASE_URL: 'https://abcdefghij1234.supabase.co' };
 
 describe('project guard', () => {
   const md = 'Project ref: abcdefghij1234 (approved)\n';

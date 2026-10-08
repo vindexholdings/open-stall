@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-/** Keeps the admin session cookies fresh for the sign-in, MFA and queue routes only. */
+/** Keeps the admin session cookies fresh for the sign-in, MFA, queue and seeded-location review routes. */
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -21,4 +21,4 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/signin', '/mfa', '/queue/:path*', '/queue'] };
+export const config = { matcher: ['/signin', '/mfa', '/queue/:path*', '/queue', '/review/:path*', '/review'] };

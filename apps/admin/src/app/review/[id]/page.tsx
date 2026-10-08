@@ -2,7 +2,7 @@ import { parseLocationId, type ReviewableStatus } from '@open-stall/domain';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getLocation, osmLink, parseView } from '@/lib/queue';
-import { requireAdmin } from '@/lib/requireAdmin';
+import { requireAdminSession } from '@/lib/requireAdmin';
 import { submitReview } from '../actions';
 import { ReviewForm, type FormDefaults } from '../ReviewForm';
 
@@ -16,24 +16,23 @@ export default async function ReviewOne({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ view?: string; error?: string; saved?: string }>;
 }) {
-  await requireAdmin();
+  const db = await requireAdminSession();
   const id = parseLocationId((await params).id);
   if (!id) notFound();
   const sp = await searchParams;
   const view = parseView(sp.view);
   let result;
   try {
-    result = await getLocation(id);
+    result = await getLocation(db, id);
   } catch (e) {
     return (
       <main className="wrap">
-        <p className="note bad" role="alert">Could not read the database: {(e instanceof Error && e.message) || 'network error (is Supabase reachable?)'}.</p>
+        <p className="note bad" role="alert">Could not load this location: {(e instanceof Error && e.message) || 'network error (is Supabase reachable?)'}.</p>
       </main>
     );
   }
   const loc = result.loc;
   if (!loc) notFound();
-  if (loc.status === 'pending') notFound();
 
   const defaults: FormDefaults = {
     key_required: tri(loc.key_required),
@@ -45,7 +44,7 @@ export default async function ReviewOne({
     baby_changing: tri(loc.baby_changing),
     hot_water: tri(loc.has_hot_water),
     cold_water: tri(loc.has_cold_water),
-    reviewer: process.env.ADMIN_REVIEWER_NAME ?? '',
+    reviewer: '',
   };
   const today = new Date().toISOString().slice(0, 10);
   const mapParams = new URLSearchParams({
@@ -61,7 +60,6 @@ export default async function ReviewOne({
       <p><Link href={`/review?view=${view}`}>← Back to list</Link></p>
       <h1>{loc.name}</h1>
       {sp.saved ? <p className="note good" role="status">Saved. Here is the next unreviewed record.</p> : null}
-      {!result.reviewsAvailable ? <p className="note warn">Nothing saved: review saving awaits database approval. This form is a preview; entering answers does not review or verify this location.</p> : null}
       {sp.error ? <p className="note bad" role="alert">{sp.error}</p> : null}
 
       <section className="card">
@@ -90,7 +88,7 @@ export default async function ReviewOne({
         </details>
       </section>
 
-      <ReviewForm action={action} currentStatus={loc.status as ReviewableStatus} defaults={defaults} today={today} savingAvailable={result.reviewsAvailable} detailsAvailable={result.detailsAvailable} />
+      <ReviewForm action={action} currentStatus={loc.status as ReviewableStatus} defaults={defaults} today={today} savingAvailable detailsAvailable />
 
       {loc.location_reviews.length > 0 ? (
         <section className="card">

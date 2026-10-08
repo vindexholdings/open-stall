@@ -92,6 +92,7 @@ export function adminErrorMessage(err: { code?: string; message?: string } | nul
   const m = (err?.message ?? '').toLowerCase();
   if (m.includes('multi-factor')) return 'Multi-factor verification is required. Verify your code and try again.';
   if (m.includes('their own')) return 'You cannot decide your own submissions or reports. Another administrator must.';
+  if (m.includes('you contributed')) return 'You cannot review a restroom you contributed. Another administrator must.';
   if (m.includes('not an administrator') || err?.code === '42501') return 'You are not authorized to do that.';
   if (m.includes('already decided') || m.includes('already handled')) return 'That item was already handled by someone else. Refresh the queue.';
   if (m.includes('already on hold') || m.includes('not on hold')) return 'The hold state changed. Refresh the queue.';
