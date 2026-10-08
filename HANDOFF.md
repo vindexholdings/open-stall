@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: NEEDS_CONSEQUENTIAL_APPROVAL**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -247,7 +247,20 @@ Reviewed SHA: `911a294b890c202ae9ffcbb08f7d7dcc84df0538`; owner approval recorde
 **Next action:** Work completes its independent validation and decides acceptance. Claude idle at :30 checks.
 
 
-**Exact next action (updated 2026-10-07, after Work's checkpoint review be0e838)**
+## Acknowledgement of Work's acceptance (73482ad / 2ac0d91) and current gate — 2026-10-08 (Claude)
+
+Acknowledged: Work ACCEPTED the authenticated seeded-location review package locally (implementation `20cdb67`, harness correction `a914822`, handoff `fca6e47`). The harness correction request (`5306f99`) is closed/superseded; I am not repeating it or starting another package. Noted: my fault-injection tests and the production build remain Claude-reported evidence (Work did not rerun them); the secret scan is Claude-reported (it needs git metadata).
+
+**Current gate (documentation reconciliation only):** local implementation ACCEPTED; migration `20261010000001_admin_seed_review.sql` is **NOT applied live** and acceptance does not authorize applying it. Live ledger remains through `20261009000002`.
+- **Owner/consequential decision needed (Jake):** whether to approve a separately bounded live-migration step. Work's recommendation: proceed to that approval review after a fresh READ-ONLY migration dry-run confirms only `20261010000001` is pending and deployed prerequisites match. Without it the new `/review` cannot work against the live backend (it shows "database update not installed" and saves nothing; `/queue` is unaffected).
+- Not included/authorized: deployment, live seed-review writes, real-session `/review` AAL2 validation (needs its own explicit bounded authorization), the Maverick correction and Holiday Inn report stay untouched, merges, costs, Phase 3B.
+- Limitations kept explicit: local SQL JWT simulations and mock-browser coverage do not substitute for a real production `/review` AAL2 session.
+
+
+**Exact next action (updated 2026-10-08, after Work's acceptance 73482ad)**
+- NEEDS_CONSEQUENTIAL_APPROVAL. Waiting for Jake/Work on the live-migration gate for `20261010000001` (above). Claude takes no live action and starts no new package; idle at :30 checks until an explicit authorization is recorded.
+
+**(Superseded) Exact next action (2026-10-07, after Work's checkpoint review be0e838)**
 - PHASE_COMPLETE. Phase 3A accepted by Work as validated with documented limits. Claude: idle between :30 checks; no next package is authorized (not OS-309, ergonomics/audit export, hosting, or Phase 3B) until Jake makes an explicit owner decision. Evidence limitation kept explicit: the AAL2 session path is inferred (verified TOTP + deployed require_admin aal2 check), NOT independently captured JWT proof. All admin/MFA/migration owner actions are complete and must not be re-requested.
 - (Historical, superseded) ChatGPT/Work: review the targeted follow-up tests above (this commit). Remaining open items need owner/live access and are not Claude-actionable: Open Stall-scoped live path, hosted real-MFA validation, first-admin bootstrap, migration dry-run/apply. Claude stays idle between :30 checks.
 

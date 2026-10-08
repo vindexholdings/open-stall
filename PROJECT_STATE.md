@@ -1,7 +1,7 @@
 # Project State
-Last updated: 2026-10-08 (authenticated seeded-location review built and tested locally; migration 20261010000001 NOT applied live; awaiting ChatGPT review)
+Last updated: 2026-10-08 (seed-review integration ACCEPTED locally by Work; migration 20261010000001 NOT applied live; awaiting owner decision on the live-migration gate)
 Current phase: Phase 3A (admin authorization + moderation foundation) COMPLETE, live-validated with documented limits (see HANDOFF); Phase 2 complete and live-validated
-Current task: Authenticated seeded-location review integration (owner-approved local package, OS-301b): BUILT LOCALLY, awaiting ChatGPT review. Phase 3A foundation stays accepted. Not authorized/started: applying migration 20261010000001, hosting/deployment, merges, OS-309, Phase 3B/OS-304. OS-111 APPROVED 2026-10-05 by owner (browser/device not recorded; per-test results not itemized)
+Current task: Authenticated seeded-location review integration (OS-301b): ACCEPTED locally by Work 2026-10-08. Waiting for an owner/consequential decision on applying migration 20261010000001 (fresh read-only dry-run first). Not authorized/started: live migration, deployment, merges, real-session /review validation, OS-309, Phase 3B/OS-304. Phase 3A foundation stays accepted. OS-111 APPROVED 2026-10-05 by owner (browser/device not recorded; per-test results not itemized)
 Branch: claude-local (tracks origin/claude-local; source of truth). Old branch claude/pensive-brahmagupta-wrrhxn and draft PR vindexholdings/open-stall#1 stay unmerged; main has no app
 Last commit: see git log on origin/claude-local (reviewed checkpoint d7ac48a; Work review be0e838)
 
