@@ -73,7 +73,6 @@ const mock = createServer(async (req, res) => {
   }
   return json(404, { msg: 'not mocked' });
 });
-await new Promise((r) => mock.listen(MOCK, '127.0.0.1', r));
 
 function findChrome() {
   if (process.env.CHROME_BIN && existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
@@ -87,14 +86,51 @@ function findChrome() {
 // The admin app runs WITHOUT any service-role credential: only the public URL + anon key.
 const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${MOCK}`, NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON, ADMIN_ALLOW_LOCAL_BACKEND: 'true', NEXT_TELEMETRY_DISABLED: '1' };
 delete env.SUPABASE_SERVICE_ROLE_KEY; delete env.SUPABASE_URL;
-const server = spawn('npx', ['next', 'dev', '-H', '127.0.0.1', '-p', String(APP)], { cwd: join(root, 'apps/admin'), env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-let serverLog = ''; server.stdout.on('data', (d) => { serverLog += d; }); server.stderr.on('data', (d) => { serverLog += d; });
+// ---- lifecycle: everything that can fail while starting up lives inside the single try/finally below, so a
+// startup, readiness or browser-launch failure is finite, reported, and always cleans up THIS run's processes only.
+const STARTUP_MS = Number(process.env.E2E_ADMIN_STARTUP_TIMEOUT_MS ?? 120000);
 const base = `http://127.0.0.1:${APP}`;
-for (let i = 0; i < 120; i++) { try { const r = await fetch(`${base}/signin`); if (r.status === 200) break; } catch { /* starting */ } await new Promise((r) => setTimeout(r, 1000)); }
+let server = null; let serverExited = false; let serverLog = ''; let browser = null; let mockStarted = false; let cleaned = false;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what} timed out after ${ms} ms`)), ms).unref())]);
+
+const startMock = () => new Promise((resolve, reject) => {
+  mock.once('error', reject);
+  mock.listen(MOCK, '127.0.0.1', () => { mockStarted = true; mock.off('error', reject); resolve(); });
+});
+function startServer() {
+  server = spawn('npx', ['next', 'dev', '-H', '127.0.0.1', '-p', String(APP)], { cwd: join(root, 'apps/admin'), env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+  server.stdout.on('data', (d) => { serverLog += d; }); server.stderr.on('data', (d) => { serverLog += d; });
+  server.on('exit', () => { serverExited = true; });
+  server.on('error', (e) => { serverLog += `spawn error: ${e.message}\n`; serverExited = true; });
+}
+async function waitReady() {
+  const deadline = Date.now() + STARTUP_MS;
+  while (Date.now() < deadline) {
+    if (serverExited) throw new Error('the admin dev server exited before it became ready');
+    try {
+      const r = await fetch(`${base}/signin`, { signal: AbortSignal.timeout(3000) });
+      if (r.status === 200) return;
+    } catch { /* still starting, or this request timed out: try again until the overall deadline */ }
+    await sleep(500);
+  }
+  throw new Error(`the admin dev server was not ready within ${STARTUP_MS} ms`);
+}
+/** Idempotent. Stops only what this run started: its browser, its server process group, its mock. */
+async function cleanup() {
+  if (cleaned) return; cleaned = true;
+  if (browser) await withTimeout(browser.close(), 10000, 'browser close').catch(() => {});
+  if (server && !serverExited) {
+    const gone = new Promise((r) => server.once('exit', r));
+    try { process.kill(-server.pid, 'SIGTERM'); } catch { try { server.kill('SIGTERM'); } catch { /* already gone */ } }
+    await withTimeout(gone, 5000, 'server stop').catch(() => { try { process.kill(-server.pid, 'SIGKILL'); } catch { /* already gone */ } });
+  }
+  if (mockStarted) { mock.closeAllConnections?.(); await new Promise((r) => mock.close(() => r())); }
+}
+for (const [sig, code] of [['SIGINT', 130], ['SIGTERM', 143]]) process.on(sig, () => { cleanup().finally(() => process.exit(code)); });
 
 let failures = 0;
 const check = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${ok ? '' : `  ${detail}`}`); if (!ok) failures++; };
-const browser = await chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--disable-gpu', '--no-proxy-server'] });
 const text = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false);
 const login = async (page, email) => { await page.goto(`${base}/signin`); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(PW); await page.getByRole('button', { name: 'Sign in' }).click(); };
 const loginAndWait = async (page, email) => { await login(page, email); await page.waitForURL((u) => !u.pathname.endsWith('/signin'), { timeout: 30000 }); };
@@ -102,6 +138,10 @@ const locCalls = () => requests.filter((r) => /admin_(location_counts|list_locat
 const listCalls = () => requests.filter((r) => r.path.endsWith('/admin_list_submissions'));
 
 try {
+  await startMock();
+  startServer();
+  await waitReady();
+  browser = await withTimeout(chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--disable-gpu', '--no-proxy-server'] }), 60000, 'browser launch');
   { // signed out / wrong password / non-admin
     const ctx = await browser.newContext(); const page = await ctx.newPage(); page.setDefaultTimeout(30000);
     await page.goto(`${base}/queue`);
@@ -207,10 +247,11 @@ try {
     check(await text(page, 'Review queue'), 'verifying the first code completes enrollment and opens the queue');
     await ctx.close();
   }
+} catch (e) {
+  failures++;
+  console.error(`\nE2E setup or run failed: ${e instanceof Error ? e.message : e}`);
 } finally {
-  await browser.close();
-  try { process.kill(-server.pid, 'SIGTERM'); } catch { server.kill('SIGTERM'); }
-  mock.close();
+  await cleanup();
 }
 if (failures) { console.error(`\n${failures} check(s) failed.\n--- server log tail ---\n${serverLog.slice(-1500)}`); process.exit(1); }
 console.log('\nAdmin e2e passed.');
