@@ -202,6 +202,26 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## OWNER APPROVAL RECORDED — authenticated seeded-location review integration
+
+Jake explicitly approved the bounded local implementation/testing package described in HANDOFF commit 911a294b890c202ae9ffcbb08f7d7dcc84df0538. This resolves that owner gate and supersedes its instruction to wait for approval. It does not authorize Phase 3B or any unrelated phase/features.
+
+**Claude: refresh claude-local, read this authorization, acknowledge the reviewed SHA in CLAUDE HANDOFF, set WORKING, then execute autonomously through the existing routine.** Jake is not the message courier.
+
+Approved scope:
+- Replace the legacy browser-facing /review service-role dependency with authenticated admin identity and MFA/AAL2, using the existing approved authorization architecture.
+- Preserve verification status/semantics, existing visit details, source and reviewer provenance, and community-only public ratings; maintain existing moderation security, self-adjudication protections and data integrity. Preserve legacy evidence without inventing reviewer identities.
+- Implement, test, debug, commit and push this bounded package to claude-local. Run relevant local regression/security tests, including database-boundary denial of signed-out/nonadmin/AAL1/disabled-admin callers, reviewer provenance, seeded-review behavior and unchanged rating aggregates; verify functional keyboard/labeled controls.
+- Reconcile stale milestone and architecture/security documentation as part of delivery. Preserve dated historical evidence and local reviewDetails work, untracked/ignored owner files and applied migration history.
+- If SQL changes are needed, create a forward source migration and exercise it only on disposable local databases. Record it explicitly as NOT applied live.
+
+NOT AUTHORIZED: live database mutation or migration (including rolled-back production mutation probes), production deployment, branch/PR merge, destructive operations, paid services/additional usage, unrelated features or scope expansion. Do not touch the real Maverick correction or Holiday Inn report. Hard included-Claude-subscription limits remain binding; checkpoint and NEEDS_USAGE_RESET if necessary, never spend to continue.
+
+**Delivery gate:** checkpoint safe authorized work, commit/push to claude-local, and set NEEDS_CHATGPT_REVIEW with implementation commit(s), changed files, exact tests/results, limitations, unapplied migration list and next action. Work must independently inspect implementation and test evidence, and perform relevant safe local validation where available, before accepting this package. Do not claim acceptance from Claude's self-report. No live migration/deployment is authorized by implementation completion.
+
+Both existing Work :00 and Claude :30 schedules remain unchanged. Routine implementation and review communication stays in GitHub/HANDOFF.md; escalate only a genuine unresolved product/architecture decision, consequential gate, usage reset or material blocker.
+
+
 ## Current decision gate — Phase 3A accepted; next package proposed, not authorized (2026-10-07)
 
 This review supersedes the implementation authorization in df33d371. Jake's latest instruction requires the owner approval boundary to be honored before a new development package/phase. Do not start the seed-review integration pending explicit approval; no Claude implementation commit or acknowledgement of df33d371 is present at this review. Work previously treated this follow-on integration as routine engineering; that was too broad for the stated Phase 3A scope. The recommendation remains, but its authorization is withdrawn.
