@@ -225,6 +225,28 @@ Reviewed SHA: `911a294b890c202ae9ffcbb08f7d7dcc84df0538`; owner approval recorde
 **Next action:** Work independently inspects the implementation and test evidence (and reruns `npm run test:db` / `node scripts/e2e-admin.mjs` locally if desired). Applying the migration live (CLI dry-run/push by Jake) is a separate owner approval and is NOT requested here. Claude is idle at :30 checks until Work's review.
 
 
+## Harness correction delivered (response to Work's review 5306f99) — 2026-10-08 (Claude)
+
+**Commit:** `a914822328a91be821bb31736bfcd5b9274f20a6` (harness only: `scripts/e2e-admin.mjs`). No product, migration or test-SQL change; migration `20261010000001` remains NOT applied live; no production contact.
+
+**What changed in `scripts/e2e-admin.mjs`:** mock listen, dev-server spawn, readiness wait and browser launch now all happen inside the single `try/catch/finally` that runs the tests, so any setup failure is reported and cleaned up.
+- Readiness: each request has `AbortSignal.timeout(3000)`; total startup is bounded (`E2E_ADMIN_STARTUP_TIMEOUT_MS`, default 120000); the loop now **fails explicitly** if readiness is not reached, and also fails immediately if the dev server exits early or cannot spawn.
+- Browser launch is wrapped in a 60 s timeout; mock `listen` errors (e.g. EADDRINUSE) reject instead of crashing.
+- `cleanup()` is idempotent and stops only what this run started: its browser (10 s bound), its own detached server **process group** (SIGTERM, then SIGKILL after 5 s), and its mock (only if it started it, so it never closes someone else's listener). SIGINT/SIGTERM run it too.
+
+**Failure-path tests run locally (intentional faults), each finite with exit code 1, a clear message, and afterwards no leftover next/chromium processes and ports 3199/54299 free (checked with /dev/tcp; an earlier `ss` check was invalid because `ss` is not installed here, so I redid it properly):**
+- A) `E2E_ADMIN_STARTUP_TIMEOUT_MS=1` -> "dev server was not ready within 1 ms", 2 s.
+- B) `CHROME_BIN=/bin/true` (real browser-launch failure) -> "browserType.launch: ... closed", 41 s.
+- C) app port 3199 occupied by another listener -> "dev server exited before it became ready", 2 s.
+- D) mock port 54299 occupied -> "listen EADDRINUSE", 1 s; the foreign listener was left alone (I killed my own blocker processes afterwards).
+
+**Sequential verification after the change (no concurrent `.next` writers):** `npm run check` (lint, typecheck of all workspaces incl. `next typegen`, unit tests admin 12 / 32 / 105 / 65 / 15, secrets scan 217 files) exit 0; then `node scripts/e2e-admin.mjs`: exit 0, 41 PASS, 0 FAIL ("Admin e2e passed"); then `npm run build -w @open-stall/admin`: compiled, `/review` and `/review/[id]` present. I did not re-run `npm run test:db` for this commit because only the Node harness changed (the SQL suite and migration are byte-identical to 20cdb67, where it passed; Work reproduced it).
+
+**Limitations:** unchanged from the delivery entry (local Postgres with simulated claims; mock backend; no real-MFA `/review` session). Cleanup is Linux/macOS-oriented (`process.kill(-pid)`).
+
+**Next action:** Work completes its independent validation and decides acceptance. Claude idle at :30 checks.
+
+
 **Exact next action (updated 2026-10-07, after Work's checkpoint review be0e838)**
 - PHASE_COMPLETE. Phase 3A accepted by Work as validated with documented limits. Claude: idle between :30 checks; no next package is authorized (not OS-309, ergonomics/audit export, hosting, or Phase 3B) until Jake makes an explicit owner decision. Evidence limitation kept explicit: the AAL2 session path is inferred (verified TOTP + deployed require_admin aal2 check), NOT independently captured JWT proof. All admin/MFA/migration owner actions are complete and must not be re-requested.
 - (Historical, superseded) ChatGPT/Work: review the targeted follow-up tests above (this commit). Remaining open items need owner/live access and are not Claude-actionable: Open Stall-scoped live path, hosted real-MFA validation, first-admin bootstrap, migration dry-run/apply. Claude stays idle between :30 checks.
