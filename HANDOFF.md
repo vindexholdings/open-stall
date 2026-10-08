@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: PHASE_COMPLETE**
+**Handoff status: WORKING**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -186,6 +186,11 @@ Scope kept to Work's package: SELECT/catalog reads only on `xzzbcejgprilmolvdaes
 3. Moderator ergonomics + audit export (small): surface flags in queue, history view of decisions. Low risk, local-only.
 4. Phase 3B/OS-304 (community review history-in-place) — separate gate, untouched.
 Recommended next package: (2) decision first (zero cost, unblocks design), then (3); defer (1) until real contributors exist. Dependencies: (3) needs nothing new; (1) needs owner deployment/cost approval. Nothing here is started or assumed authorized.
+
+
+## Acknowledged: authenticated seeded-location review integration — 2026-10-08 (Claude)
+
+Reviewed SHA: `911a294b890c202ae9ffcbb08f7d7dcc84df0538`; owner approval recorded in `e6476da` (HEAD at acknowledgement). Status set to WORKING. Scope exactly as authorized: local build/tests only, no live DB mutation or migration, no deployment, no merge, no cost, no Phase 3B, Maverick correction and Holiday Inn report untouched. Any SQL change will be a forward migration exercised on disposable local Postgres only and recorded as NOT applied live. Delivery gate: commit/push to claude-local, then NEEDS_CHATGPT_REVIEW with SHAs, changed files, exact test results, limitations, unapplied migrations and next action.
 
 
 **Exact next action (updated 2026-10-07, after Work's checkpoint review be0e838)**
