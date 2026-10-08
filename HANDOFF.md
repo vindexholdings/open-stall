@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: WORKING**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -191,6 +191,38 @@ Recommended next package: (2) decision first (zero cost, unblocks design), then 
 ## Acknowledged: authenticated seeded-location review integration — 2026-10-08 (Claude)
 
 Reviewed SHA: `911a294b890c202ae9ffcbb08f7d7dcc84df0538`; owner approval recorded in `e6476da` (HEAD at acknowledgement). Status set to WORKING. Scope exactly as authorized: local build/tests only, no live DB mutation or migration, no deployment, no merge, no cost, no Phase 3B, Maverick correction and Holiday Inn report untouched. Any SQL change will be a forward migration exercised on disposable local Postgres only and recorded as NOT applied live. Delivery gate: commit/push to claude-local, then NEEDS_CHATGPT_REVIEW with SHAs, changed files, exact test results, limitations, unapplied migrations and next action.
+
+
+## Delivery: authenticated seeded-location review integration — 2026-10-08 (Claude)
+
+**Implementation commit:** `20cdb67e5e8a44f23a609c1e337935469d4ee43c` (on top of `03f8a96` acknowledgement; HEAD of claude-local after the handoff commit that follows). Local build/tests only. **Nothing applied live, no deployment, no merge, no cost, no production read or write** (the Supabase MCP was not used for this package). Maverick correction and Holiday Inn report untouched.
+
+**What changed**
+- `/review` and `/review/[id]` (list, view tabs, review form, save-and-next) now run on the signed-in admin session + MFA exactly like `/queue`: `requireAdminSession()` (signed out -> /signin, no MFA -> /mfa, non-admin -> "Not authorized" via /queue). Reads/writes are `admin_*` RPCs with the public anon key. `proxy.ts` refreshes the session on /review too.
+- Removed the service-role path from the admin app: deleted `lib/db.ts`; removed `evaluateAccess` (ADMIN_LOCAL_ONLY/localhost/Vercel gate), `ADMIN_REVIEWER_ID/NAME`, and the pre-visit-details legacy fallback (live already has v2). The ENVIRONMENT.md project-ref guard (`assertSessionBackend`) is kept. Hosting is still NOT approved.
+- **New forward migration (NOT applied live):** `supabase/migrations/20261010000001_admin_seed_review.sql`: `admin_location_counts()`, `admin_list_locations(p_status, p_limit)`, `admin_get_location(p_id)`, `admin_apply_location_review(...)`, internal `admin_location_json(uuid)`. All SECURITY DEFINER, `search_path=''`, `authenticated`-only (anon denied). Each calls `require_admin()` (admin_users + aal2). The write wraps `apply_location_review_v2` unchanged (verification semantics, `open_stall` source row, visit details, community-only public ratings), records reviewer identity `admin:<auth uid>`, appends a `seed_review` row to the append-only `moderation_log`, and refuses (42501) a restroom the caller contributed (self-adjudication). Legacy `local-admin` rows are untouched; `apply_location_review(_v2)` remain service_role-only for importer/manual tooling.
+- Safety of a not-yet-applied migration: until the owner applies it, `/review` shows "The required review database update is not installed yet. Nothing was saved." (list pages show a friendly load error); `/queue` is unaffected. `npm run doctor` treats the four new functions as INFO "not installed yet" when missing and as a failure only if anon can call them.
+- Small UX/accessibility: view tabs are labelled links; Username helper text now says history is tied to the signed-in admin; link between /review and /queue; form controls verified labelled and keyboard-operable.
+- Docs reconciled: ADMIN_REVIEW, ARCHITECTURE (admin description no longer says service_role/local-only), SECURITY, DATABASE, TESTING, BACKLOG (OS-301b; OS-209 "cascades all account data" corrected to match implemented preservation of moderated evidence), PROJECT_STATE (stale "Phase 3 not started"/"awaiting review" header fixed), `.env.example`. Dated historical evidence retained.
+
+**Files:** apps/admin/src/{app/page.tsx, app/review/{page,actions,ReviewForm,[id]/page}.tsx, lib/{queue,requireAdmin,gate,gate.test,moderation,moderation.test}.ts, proxy.ts}, lib/db.ts (deleted), scripts/{e2e-admin.mjs, doctor-live.mjs}, supabase/migrations/20261010000001_admin_seed_review.sql, supabase/tests/seed_review_admin.test.sql, plus the docs above.
+
+**Exact tests and results (all run locally in this container)**
+- `bash scripts/test-db.sh` (disposable local Postgres, all migrations incl. the new one, all `*.test.sql`, concurrency, importer contract/manual/research fixtures): **DB validation passed**. New `seed_review_admin.test.sql` asserts: privileges (anon cannot execute any; authenticated can; internal json builder and v2 writer not client-callable); all four functions refused with nothing written for non-admin with admin-looking claims (42501), admin at aal1 and with empty aal (42501), disabled admin at aal2 (42501), signed-out (28000), anon role (42501); MFA admin can read hidden candidates, sources/attribution and legacy history; invalid status/limit handling; exists+visited -> verified with `open_stall` source and OSM source untouched; exists-not-visited -> unverified/public; not_exists -> closed/hidden; reviewer identity is `admin:<real id>`, audit row names the real admin; admin rating never changes the community-only public aggregate (rating_count/average unchanged, including on an already-rated verified place); legacy `local-admin` rows unchanged; invalid rating / missing date / unknown location / unknown answer key write nothing; admin cannot review a restroom they contributed (42501) while another admin can.
+- **Mutation checks** (temporary edits, restored byte-identical, verified with diff): removing `require_admin` from apply, removing it from list, removing the self-contribution guard, hard-coding the legacy identity, and renaming the audit action each make `seed_review_admin.test.sql` fail (5/5 killed; one earlier "mutant" was a syntax error, discarded and redone).
+- `npm run lint` pass; `npm run typecheck` (all workspaces) pass; `npm test`: admin 12, plus other workspaces 32/105/65/15 passing; `npm run check:secrets` pass (215 files); `npm run build -w @open-stall/admin` pass (routes /review and /review/[id] build).
+- `node scripts/e2e-admin.mjs` (Playwright against a local mock of Supabase Auth+REST): all checks pass, including new ones: /review sends signed-out -> /signin, non-admin -> /queue ("Not authorized"), no-MFA admin -> /mfa, each with zero seeded-location RPCs and no location content; MFA admin sees hidden candidates, 4 labelled view links, opens the form, picks existence with Space, labelled controls, saves with Enter via `admin_apply_location_review`; the browser sends no reviewer identity; calls carry the anon key and an aal2 session; no service-role credential and no direct table access.
+- I fixed one defect in my own e2e harness: a crashed run could leave the Next dev server on the port; the harness now kills the whole process group.
+
+**Limitations / not verified**
+- The new functions have only been exercised on disposable local Postgres with JWT claims simulated (same limitation as the Phase 3A tests); they have NOT been run against live Supabase, and real AAL2 for `/review` has not been exercised (same TOTP session path as `/queue`, which the owner validated live).
+- Browser tests use a mock backend; the visual layout was not redesigned (functional accessibility only).
+- No decision was taken on moving the reviewer alias default; the Username field is now empty by default (previously prefilled from `ADMIN_REVIEWER_NAME`).
+- After the migration is applied, `/review` needs a signed-in admin: Jake's existing admin account works the same as for `/queue`.
+
+**Unapplied migrations (not live):** `20261010000001_admin_seed_review.sql` only. Live ledger remains through `20261009000002`.
+
+**Next action:** Work independently inspects the implementation and test evidence (and reruns `npm run test:db` / `node scripts/e2e-admin.mjs` locally if desired). Applying the migration live (CLI dry-run/push by Jake) is a separate owner approval and is NOT requested here. Claude is idle at :30 checks until Work's review.
 
 
 **Exact next action (updated 2026-10-07, after Work's checkpoint review be0e838)**
