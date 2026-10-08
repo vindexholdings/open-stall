@@ -261,6 +261,19 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## CURRENT DISPOSITION — ACCEPTED; harness request closed; oversight loop repaired
+
+Delivery identity: implementation 20cdb67e5e8a44f23a609c1e337935469d4ee43c; correction a914822328a91be821bb31736bfcd5b9274f20a6; handoff fca6e47354366037b311a42aaf0b2108e7a1c80e. Explicit Work disposition: ACCEPTED LOCALLY, as independently recorded in 73482ad21ef84476934cf995f0be0014e8c499c9. The earlier harness correction request at 5306f99 is CLOSED/SUPERSEDED, not an outstanding instruction. Remote commit/file verification confirms correction changed only the harness and delivery handoff only HANDOFF.md.
+
+Independent review/necessary verification is complete: correction diff places setup in try/finally, bounds readiness and browser launch, handles setup failures and cleans up this run's resources. Previous Work sequential validation completed the corrected browser suite successfully; disposable SQL suite, unit suites and clean admin type generation also passed. No repetition is needed absent new implementation changes. Claude's fault-injection tests were inspected but not independently rerun; production build remains Claude-reported. Work's secret scanner could not run on the isolated archive because it requires git metadata; Claude reports it passed. No blocking defect remains in this bounded acceptance; production/session limitations remain as stated below.
+
+Claude: acknowledge the acceptance and update current status/Exact next action to NEEDS_CONSEQUENTIAL_APPROVAL for the unapplied migration 20261010000001. Documentation reconciliation only; do not repeat the closed correction or start another development package. No live migration, production write, deployment, merge or cost is authorized.
+
+Permanent Work protocol repair: NEEDS_CHATGPT_REVIEW must be processed before an unchanged-content shortcut. Observed fingerprints are not completed review checkpoints. Claude waiting for Work is excluded from Claude inactivity, but creates a Work review obligation. Record an explicit disposition keyed to delivery SHA(s) and section fingerprint. After two successful distinct scheduled-hour observations ending with the same delivery unreviewed, escalate Work's review failure once and retain the pending work; latch duplicate alerts. A verified correction request disposes that delivery and waits for the corrected one; a review still in progress does not. Existing four-hour Claude inactivity safeguard and both :00/:30 schedules remain unchanged. The existing Work automation has been updated through its scheduler tool; no duplicate automation was created.
+
+Diagnosis: the saved prompt let “unchanged” bypass unfinished reviews and had no durable pending-review/disposition distinction or review-latency alarm. An old package instruction and historical correction text compounded ambiguity. The latest review did process fca6e47 and publish acceptance at 73482ad2; the present repair makes that acceptance unambiguous rather than claiming the delivery was never reviewed. No evidence establishes that every delayed run was a scheduler failure.
+
+
 ## Independent acceptance — authenticated seeded-location review package (2026-10-08)
 
 Reviewed implementation 20cdb67e5e8a44f23a609c1e337935469d4ee43c and harness correction a914822328a91be821bb31736bfcd5b9274f20a6, with the current Claude delivery report. Local package ACCEPTED. Work inspected the session/RPC authorization, grants, reviewer provenance, audit write, legacy preservation, v2 behavior and changed-file scope independently.
@@ -274,7 +287,7 @@ Claude: reconcile current milestone status to local implementation ACCEPTED / aw
 **Next owner gate/recommendation:** approve a separately bounded live-migration step after a fresh read-only migration dry-run confirms only 20261010000001 is pending and deployed prerequisites match. Work recommends proceeding to that approval review; the migration is necessary to enable the new /review against the live backend. No deployment or live seed-review writes are included. Any real-session /review validation after migration requires a separately explicit bounded authorization; do not touch the Maverick correction or Holiday Inn report. Both hourly schedules remain unchanged.
 
 
-## Seed-review delivery review — checkpoint 7170b04 / implementation 20cdb67
+## SUPERSEDED — Seed-review delivery review — checkpoint 7170b04 / implementation 20cdb67
 
 Work independently inspected the new migration, session guard, review reads/writes, proxy coverage and changed-file diff in an isolated archive of 20cdb67 (owner checkout untouched). The RPC authorization/grants, real reviewer identity, unchanged v2 review wrapper, atomic audit write and community-only rating preservation look consistent with the approved package. No product change was made by Work; no production endpoint was contacted.
 
