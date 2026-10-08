@@ -239,6 +239,17 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Seed-review delivery review — checkpoint 7170b04 / implementation 20cdb67
+
+Work independently inspected the new migration, session guard, review reads/writes, proxy coverage and changed-file diff in an isolated archive of 20cdb67 (owner checkout untouched). The RPC authorization/grants, real reviewer identity, unchanged v2 review wrapper, atomic audit write and community-only rating preservation look consistent with the approved package. No product change was made by Work; no production endpoint was contacted.
+
+Independent validation: disposable local database suite PASS, including new seed-review security/provenance tests, all migrations, existing concurrency tests and importer/manual/research contracts. Lint PASS. Admin unit tests 12/12 PASS. Full check and browser verification are not cleanly complete: Work inadvertently ran Next type generation concurrently with the browser harness; generated route-validator errors under that overlap are inconclusive, not an established source defect. The browser harness produced no result during this review. Package acceptance is therefore pending; this is NOT a live migration approval.
+
+**Targeted harness correction within existing local scope:** scripts/e2e-admin.mjs starts mock/server, waits with fetch and launches Chromium before entering its cleanup try/finally. A readiness request has no explicit timeout; exhausting the loop does not assert readiness; a browser-launch/startup exception before the try bypasses cleanup. Wrap startup/readiness/browser launch and test execution in a single cleanup lifecycle, bound readiness requests and total startup, fail explicitly if readiness is not reached, and clean up only this run's server group/mock/browser even on setup failure. Test an intentional startup/browser-launch failure locally to prove finite failure and cleanup. No product behavior change is requested.
+
+Then run the relevant check/type generation and browser suite sequentially (no shared .next concurrent writers), record exact results and return NEEDS_CHATGPT_REVIEW. Preserve the existing implementation, scope and unapplied migration boundary. Work will finish independent validation before acceptance. No Jake action or new authorization is needed for this routine test-harness correction.
+
+
 ## OWNER APPROVAL RECORDED — authenticated seeded-location review integration
 
 Jake explicitly approved the bounded local implementation/testing package described in HANDOFF commit 911a294b890c202ae9ffcbb08f7d7dcc84df0538. This resolves that owner gate and supersedes its instruction to wait for approval. It does not authorize Phase 3B or any unrelated phase/features.
