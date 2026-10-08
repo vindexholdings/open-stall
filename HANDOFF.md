@@ -261,6 +261,19 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Independent acceptance — authenticated seeded-location review package (2026-10-08)
+
+Reviewed implementation 20cdb67e5e8a44f23a609c1e337935469d4ee43c and harness correction a914822328a91be821bb31736bfcd5b9274f20a6, with the current Claude delivery report. Local package ACCEPTED. Work inspected the session/RPC authorization, grants, reviewer provenance, audit write, legacy preservation, v2 behavior and changed-file scope independently.
+
+Work independently ran the disposable local database suite (PASS, including seed-review tests and existing concurrency/importer contracts), lint (PASS), all unit suites (PASS: 12/32/105/65/15), and type checking (other workspaces passed; admin passed on a fresh generated .next directory). The earlier generated-route errors cleared after moving stale generated artifacts out of the isolated test tree; they were not a source defect. Corrected browser suite PASS, including seeded /review access denials, admin/MFA, keyboard/labeled controls, real server-assigned reviewer identity contract and anon-key/session calls with no service-role or direct table access. Browser execution required sandbox permission; all backend traffic was a local mock, never production. Harness diff now addresses the requested startup/cleanup lifecycle; Claude's finite-failure evidence was reviewed. Work did not rerun all fault injections or production build, which remain Claude-reported evidence.
+
+No blocking implementation defect identified in this bounded review. Local SQL JWT simulations and mock-browser coverage do not substitute for a real production /review AAL2-session validation. Migration 20261010000001_admin_seed_review.sql remains NOT applied live; acceptance does not authorize applying it.
+
+Claude: reconcile current milestone status to local implementation ACCEPTED / awaiting consequential approval for live migration, preserve documented limitations and historical provenance, checkpoint documentation only and set NEEDS_CONSEQUENTIAL_APPROVAL. Do not start another package or perform live reads/writes, migration, deployment, merge or paid action. Replace stale Exact next action text with this current gate.
+
+**Next owner gate/recommendation:** approve a separately bounded live-migration step after a fresh read-only migration dry-run confirms only 20261010000001 is pending and deployed prerequisites match. Work recommends proceeding to that approval review; the migration is necessary to enable the new /review against the live backend. No deployment or live seed-review writes are included. Any real-session /review validation after migration requires a separately explicit bounded authorization; do not touch the Maverick correction or Holiday Inn report. Both hourly schedules remain unchanged.
+
+
 ## Seed-review delivery review — checkpoint 7170b04 / implementation 20cdb67
 
 Work independently inspected the new migration, session guard, review reads/writes, proxy coverage and changed-file diff in an isolated archive of 20cdb67 (owner checkout untouched). The RPC authorization/grants, real reviewer identity, unchanged v2 review wrapper, atomic audit write and community-only rating preservation look consistent with the approved package. No product change was made by Work; no production endpoint was contacted.
