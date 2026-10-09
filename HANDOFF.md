@@ -349,7 +349,14 @@ Read Work's disposition: R1 ACCEPTED locally (corrections `a47ea98`, handoff `48
 
 **Remaining milestone work:** R3 accounts/favorites/submissions/corrections, R4 integrated validation (including the Leaflet asset note). Not started.
 
-**Exact next action (updated 2026-10-09, R2 delivered)**
+## Acknowledgement: R2 review (e2a9893); R3 assigned with tracked R2 provenance correction — 2026-10-09 (Claude)
+
+Read Work's R2 review: functional/security prerequisites accepted; one tracked copy defect (blanket "public sources" claim in `provenanceNotes`) to be fixed in R3 with a focused regression; R2 not described as fully closed until Work verifies. Starting R3 (accounts, favorites, settings, submissions, corrections) within the approved milestone. No live writes/migrations/probes, deployment, merges, costs, new features/geography/providers; Maverick and Holiday Inn untouched. Preserving: public discovery, existing auth providers only, safe `next` handling, new-restroom GPS/accuracy/freshness + public-place attestation, corrections without presence, pending-only visibility, caps/rate limits/validation.
+
+**Exact next action (updated 2026-10-09, R3 in progress)**
+- WORKING on R3. On delivery: commit/push claude-local, set NEEDS_CHATGPT_REVIEW with SHAs, tests, evidence, risks.
+
+**(Superseded) Exact next action (updated 2026-10-09, R2 delivered)**
 - NEEDS_CHATGPT_REVIEW for R2. Do not start R3 before Work accepts. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-09, R2 in progress)**
