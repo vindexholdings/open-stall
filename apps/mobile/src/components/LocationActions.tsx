@@ -12,6 +12,7 @@ import { RequireAuth } from '../auth/RequireAuth';
 import { useAuth } from '../auth/AuthProvider';
 import { useUserLocation } from '../location/useUserLocation';
 import { Chip } from './Chip';
+import { RadioGroup } from './RadioGroup';
 import { PrimaryButton } from './PrimaryButton';
 import { SecondaryButton } from './SecondaryButton';
 
@@ -97,11 +98,12 @@ function Signed({ location }: { location: PublicLocation }) {
       />
 
       <Text accessibilityRole="header" style={styles.sub}>Rate this restroom</Text>
-      <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="Rating">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <Chip key={n} role="radio" label={ratingChoiceLabel(n, prefs.mode)} selected={rating === n} onPress={() => setRating(n)} />
-        ))}
-      </View>
+      <RadioGroup
+        label="Rating"
+        options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: ratingChoiceLabel(n, prefs.mode) }))}
+        value={rating}
+        onChange={setRating}
+      />
       <View style={styles.row} accessibilityLabel="What did you notice? Optional">
         {OBSERVATIONS.map((o) => (
           <Chip key={o.key} label={o.label} selected={obs.includes(o.key)} onPress={() => setObs((s) => toggleObservation(s, o.key))} />

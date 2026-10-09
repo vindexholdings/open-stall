@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { submitReport } from '../account/api';
 import { useAuth } from '../auth/AuthProvider';
 import { RequireAuth } from '../auth/RequireAuth';
-import { Chip } from '../components/Chip';
+import { RadioGroup } from '../components/RadioGroup';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
 import { TextField } from '../components/TextField';
@@ -36,11 +36,7 @@ function Form({ id, name }: { id: string; name: string | null }) {
   return (
     <View style={styles.stack}>
       <Text style={styles.body}>What’s wrong with {name ?? 'this restroom'}?</Text>
-      <View style={styles.stack} accessibilityRole="radiogroup" accessibilityLabel="What’s wrong">
-        {REPORT_ISSUES.map((i) => (
-          <Chip key={i.key} role="radio" label={i.label} selected={issue === i.key} onPress={() => setIssue(i.key)} />
-        ))}
-      </View>
+      <RadioGroup label="What’s wrong" options={REPORT_ISSUES.map((i) => ({ value: i.key, label: i.label }))} value={issue} onChange={setIssue} />
       <TextField label="Add a note (optional)" value={comment} onChangeText={setComment} autoCapitalize="sentences" multiline maxLength={300}
         hint="No links, emails or phone numbers." />
       {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}

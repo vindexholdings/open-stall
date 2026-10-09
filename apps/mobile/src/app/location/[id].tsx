@@ -18,7 +18,7 @@ import { colors, radii, spacing, typography } from '@open-stall/ui';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
-import { Chip } from '../../components/Chip';
+import { RadioGroup } from '../../components/RadioGroup';
 import { LocationActions } from '../../components/LocationActions';
 import { usePreferences } from '../../account/preferences';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -132,17 +132,12 @@ export default function LocationDetail() {
         <Text accessibilityRole="header" style={styles.sectionTitle}>
           Navigate
         </Text>
-        <View style={styles.modes} accessibilityRole="radiogroup" accessibilityLabel="Travel mode">
-          {(['walk', 'bike', 'drive'] as const).map((m) => (
-            <Chip
-              key={m}
-              role="radio"
-              label={m === 'walk' ? 'Walk' : m === 'bike' ? 'Bike' : 'Drive'}
-              selected={mode === m}
-              onPress={() => setMode(m)}
-            />
-          ))}
-        </View>
+        <RadioGroup
+          label="Travel mode"
+          options={[{ value: 'walk', label: 'Walk' }, { value: 'bike', label: 'Bike' }, { value: 'drive', label: 'Drive' }] as const}
+          value={mode}
+          onChange={setMode}
+        />
         <PrimaryButton
           label="Navigate with Google Maps"
           onPress={() => navigate('google')}

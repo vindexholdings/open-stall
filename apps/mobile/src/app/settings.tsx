@@ -3,7 +3,7 @@ import { colors, spacing, typography } from '@open-stall/ui';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { usePreferences } from '../account/preferences';
-import { Chip } from '../components/Chip';
+import { RadioGroup } from '../components/RadioGroup';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
 import { TextField } from '../components/TextField';
@@ -43,21 +43,23 @@ export default function SettingsScreen() {
     <Screen title="Settings">
       <View style={styles.group}>
         <Text accessibilityRole="header" style={styles.heading}>Display style</Text>
-        <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="Display style">
-          {MODES.map((m) => (
-            <Chip key={m.key} role="radio" label={m.label} selected={prefs.mode === m.key} onPress={() => void run({ ...prefs, mode: m.key })} />
-          ))}
-        </View>
+        <RadioGroup
+          label="Display style"
+          options={MODES.map((m) => ({ value: m.key, label: m.label }))}
+          value={prefs.mode}
+          onChange={(mode) => void run({ ...prefs, mode })}
+        />
         <Text style={styles.hint}>{MODES.find((m) => m.key === prefs.mode)!.hint}</Text>
       </View>
 
       <View style={styles.group}>
         <Text accessibilityRole="header" style={styles.heading}>Usual way of getting around</Text>
-        <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="Usual way of getting around">
-          {TRANSPORT_MODES.map((t) => (
-            <Chip key={t} role="radio" label={TRANSPORT_LABEL[t]} selected={prefs.transport === t} onPress={() => void run({ ...prefs, transport: t })} />
-          ))}
-        </View>
+        <RadioGroup
+          label="Usual way of getting around"
+          options={TRANSPORT_MODES.map((t) => ({ value: t, label: TRANSPORT_LABEL[t] }))}
+          value={prefs.transport}
+          onChange={(transport) => void run({ ...prefs, transport })}
+        />
         <Text style={styles.hint}>Used as the starting choice for directions.</Text>
       </View>
 

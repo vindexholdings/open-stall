@@ -1,30 +1,65 @@
 import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { spaceActivates, useFocusStyle } from './focus';
+import { type Roving, spaceActivates, useFocusStyle } from './focus';
 
-type Props = {
+type Common = {
   label: string;
-  selected: boolean;
   onPress: () => void;
-  role?: 'checkbox' | 'radio';
   /** Overrides the spoken name when the visible label alone is not enough. */
   accessibilityLabel?: string;
-  /** Adds a state hint such as "expanded" for disclosure toggles. */
-  expanded?: boolean;
 };
+type Choice = Common & {
+  selected: boolean;
+  /** 'checkbox' = independent toggle; 'radio' = one-of-many (use inside a RadioGroup). */
+  role?: 'checkbox' | 'radio';
+  /** Roving-focus wiring supplied by RadioGroup / useRovingRadios. */
+  roving?: Roving;
+};
+type Action = Common & {
+  /** An action, not a choice: exposes role=button and no checked state. */
+  role: 'button';
+  /** Disclosure toggles expose their expanded state. */
+  expanded?: boolean;
+  /** Visual emphasis only (for example while a disclosure is open). Never announced as "checked". */
+  emphasized?: boolean;
+};
+type Props = Choice | Action;
 
-export function Chip({ label, selected, onPress, role = 'checkbox', accessibilityLabel, expanded }: Props) {
+export function Chip(props: Props) {
   const focus = useFocusStyle();
+  const { label, onPress, accessibilityLabel } = props;
+  if (props.role === 'button') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        aria-expanded={props.expanded}
+        accessibilityLabel={accessibilityLabel ?? label}
+        onPress={onPress}
+        {...focus.handlers}
+        style={[styles.chip, props.emphasized && styles.selected, focus.style]}
+      >
+        <Text style={[styles.label, props.emphasized && styles.selectedLabel]}>{label}</Text>
+      </Pressable>
+    );
+  }
+  const { selected, role = 'checkbox', roving } = props;
+  const space = spaceActivates(onPress);
+  const keyProps = {
+    onKeyDown: (e: Parameters<typeof space.onKeyDown>[0]) => {
+      space.onKeyDown(e);
+      roving?.onArrowKey(e);
+    },
+  };
   return (
     <Pressable
+      ref={(el: never) => roving?.register(el)}
       accessibilityRole={role}
       aria-checked={selected}
-      aria-selected={role === 'radio' ? selected : undefined}
-      aria-expanded={expanded}
+      tabIndex={roving?.tabIndex}
       accessibilityLabel={accessibilityLabel ?? label}
       onPress={onPress}
       {...focus.handlers}
-      {...spaceActivates(onPress)}
+      {...keyProps}
       style={[styles.chip, selected && styles.selected, focus.style]}
     >
       <Text style={[styles.label, selected && styles.selectedLabel]}>{label}</Text>

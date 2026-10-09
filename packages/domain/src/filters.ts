@@ -13,7 +13,7 @@ export type LocationFilters = {
   coldWaterOnly: boolean;
   /** 'required' = key needed; 'not_required' = known to need no key. */
   key: 'any' | 'required' | 'not_required';
-  /** 'required' = purchase needed; 'free' = known to need no purchase. */
+  /** 'required' = purchase needed; 'free' = known to need no purchase (says nothing about a usage fee). */
   purchase: 'any' | 'required' | 'free';
 };
 
@@ -94,7 +94,7 @@ export function describeActiveFilters(f: LocationFilters): ActiveFilter[] {
   if (f.hotWater) out.push({ key: 'hotWater', label: 'Hot water' });
   if (f.coldWaterOnly) out.push({ key: 'coldWaterOnly', label: 'Cold water only' });
   if (f.key !== 'any') out.push({ key: 'key', label: f.key === 'required' ? 'Key required' : 'No key needed' });
-  if (f.purchase !== 'any') out.push({ key: 'purchase', label: f.purchase === 'required' ? 'Purchase required' : 'Free to use' });
+  if (f.purchase !== 'any') out.push({ key: 'purchase', label: f.purchase === 'required' ? 'Purchase required' : 'No purchase required' });
   return out;
 }
 

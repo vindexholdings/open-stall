@@ -7,6 +7,7 @@ import { submitEdit, submitNewLocation } from '../account/api';
 import { useAuth } from '../auth/AuthProvider';
 import { RequireAuth } from '../auth/RequireAuth';
 import { Chip } from '../components/Chip';
+import { RadioGroup } from '../components/RadioGroup';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
 import { SecondaryButton } from '../components/SecondaryButton';
@@ -24,11 +25,7 @@ function TriField({ label, value, onChange }: { label: string; value: Tri; onCha
   return (
     <View style={styles.tri}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel={label}>
-        {TRI.map((t) => (
-          <Chip key={t.label} role="radio" label={t.label} selected={value === t.value} onPress={() => onChange(t.value)} />
-        ))}
-      </View>
+      <RadioGroup label={label} options={TRI} value={value} onChange={onChange} />
     </View>
   );
 }

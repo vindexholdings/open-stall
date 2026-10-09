@@ -162,6 +162,11 @@ try {
     check(await page.getByRole('region', { name: /Map of nearby restrooms/ }).isVisible(), 'Map view shows a labeled map region');
     check((await page.locator('[role="listitem"]').count()) === 0, 'Map view hides the list (no duplicate content)');
     await page.screenshot({ path: join(SHOTS, 'narrow-3-map.png') });
+    // the List | Map switch is one radio group: arrow keys move selection, one tab stop
+    await page.keyboard.press('ArrowLeft');
+    check((await page.getByRole('radio', { name: 'List' }).getAttribute('aria-checked')) === 'true' && (await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === 'List', 'ArrowLeft on the view switch selects List and moves focus');
+    check((await page.getByRole('radiogroup', { name: 'Results view' }).getByRole('radio').evaluateAll((els) => els.filter((e) => e.tabIndex === 0).length)) === 1, 'the view switch has a single tab stop');
+    check((await page.locator('[role="radio"][aria-selected]').count()) === 0, 'the view switch exposes checked, not selected');
     await page.getByRole('radio', { name: 'List' }).click();
     check(await text(page, 'Corner Gas Station'), 'switching back to List restores the results');
 
@@ -176,27 +181,64 @@ try {
   {
     const { ctx, page } = await newPage();
     await findNearest(page);
-    const toggle = page.getByRole('checkbox', { name: 'Show filters' });
+    const toggle = page.getByRole('button', { name: 'Show filters' });
     check((await toggle.getAttribute('aria-expanded')) === 'false', 'the filter toggle reports collapsed');
     await toggle.click();
-    check((await page.getByRole('checkbox', { name: 'Hide filters' }).getAttribute('aria-expanded')) === 'true', 'the filter toggle reports expanded');
+    check((await page.getByRole('button', { name: 'Hide filters' }).getAttribute('aria-expanded')) === 'true', 'the filter toggle reports expanded');
     await page.screenshot({ path: join(SHOTS, 'narrow-4-filters.png') });
     await page.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
     check(await gone(page, 'Park Pavilion Restroom'), 'Verified only hides unverified restrooms');
     check(JSON.stringify(await cardNames(page)) === JSON.stringify(['Cody Library Restroom', 'Corner Gas Station']), 'the remaining results keep distance order');
-    await page.getByRole('checkbox', { name: 'Hide filters' }).click();
+    await page.getByRole('button', { name: 'Hide filters' }).click();
     check(await text(page, 'Verified only  ✕'), 'a collapsed filter panel still shows the active filter');
     check(await text(page, '2 restrooms nearby, filtered'), 'the header says results are filtered');
     await button(page, 'Remove filter: Verified only').click();
     check(await text(page, 'Park Pavilion Restroom'), 'removing the active-filter chip restores results');
     // filter that matches nothing -> recoverable empty state
-    await page.getByRole('checkbox', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'Show filters' }).click();
     await page.getByRole('checkbox', { name: 'Baby changing', exact: true }).click();
     check(await text(page, 'No restrooms match your filters'), 'a filter with no matches explains why the list is empty');
-    await button(page, 'Clear all filters').click();
+    await button(page, 'Clear all filters').first().click();
     check(await text(page, 'Cody Library Restroom') && (await cardNames(page)).length === 4, 'Clear all filters recovers the full list');
     await page.getByRole('checkbox', { name: 'Wheelchair accessible', exact: true }).click();
     check(JSON.stringify(await cardNames(page)) === JSON.stringify(['Cody Library Restroom', 'Far Trailhead Restroom']), 'an accessibility filter matches only restrooms known to be accessible');
+
+    // R1 corrections: action semantics, radio-group keyboard behavior, purchase wording
+    const clear = page.getByRole('button', { name: 'Clear all filters' });
+    check((await clear.count()) === 1 && (await clear.getAttribute('aria-checked')) === null, 'Clear all is a button with no checked state');
+    const hide = page.getByRole('button', { name: 'Hide filters' });
+    check((await hide.getAttribute('aria-checked')) === null && (await page.getByRole('checkbox', { name: /filters/i }).count()) === 0, 'the filters disclosure is a button, not a checkbox');
+    await hide.focus();
+    await page.keyboard.press('Enter');
+    check((await page.getByRole('button', { name: /Show filters/ }).getAttribute('aria-expanded')) === 'false', 'Enter collapses the disclosure and updates aria-expanded');
+    await page.keyboard.press('Space');
+    check((await page.getByRole('button', { name: 'Hide filters' }).getAttribute('aria-expanded')) === 'true', 'Space expands the disclosure and updates aria-expanded');
+    check((await page.locator('[role="radio"][aria-selected]').count()) === 0, 'no radio exposes the extraneous aria-selected');
+
+    const distance = page.getByRole('radiogroup', { name: 'Distance' });
+    const radios = distance.getByRole('radio');
+    const tabStops = async () => radios.evaluateAll((els) => els.filter((e) => e.tabIndex === 0).map((e) => e.getAttribute('aria-label')));
+    const checked = async () => radios.evaluateAll((els) => els.filter((e) => e.getAttribute('aria-checked') === 'true').map((e) => e.getAttribute('aria-label')));
+    check(JSON.stringify(await tabStops()) === JSON.stringify(await checked()) && (await tabStops()).length === 1, 'a radio group has a single tab stop on the selected radio', JSON.stringify(await tabStops()));
+    const before = (await checked())[0];
+    await radios.filter({ has: page.getByText(before, { exact: true }) }).first().focus();
+    await page.keyboard.press('ArrowRight');
+    const afterRight = await checked();
+    check(afterRight.length === 1 && afterRight[0] !== before, 'ArrowRight moves selection to the next radio', `${before} -> ${afterRight[0]}`);
+    check((await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === afterRight[0], 'focus follows the arrow-key selection');
+    await page.keyboard.press('ArrowLeft');
+    check(JSON.stringify(await checked()) === JSON.stringify([before]), 'ArrowLeft moves back');
+    await radios.first().focus();
+    await page.keyboard.press('ArrowLeft');
+    check((await checked())[0] === (await radios.last().getAttribute('aria-label')), 'arrow keys wrap from the first radio to the last');
+    await page.keyboard.press('Tab');
+    check(!(await page.evaluate(() => !!document.activeElement?.closest('[role="radiogroup"][aria-label="Distance"]'))), 'Tab leaves the radio group after one stop');
+
+    // the purchase filter never claims a restroom is free
+    const purchase = page.getByRole('radiogroup', { name: 'Purchase' });
+    check((await purchase.getByRole('radio', { name: 'No purchase needed' }).count()) === 1 && (await purchase.getByText(/^Free$/).count()) === 0, 'the purchase filter says "No purchase needed", not "Free"');
+    await purchase.getByRole('radio', { name: 'No purchase needed' }).click();
+    check(await text(page, 'No purchase required') && (await page.getByText('Free to use').count()) === 0, 'the active purchase chip reads "No purchase required"');
     await ctx.close();
   }
 
@@ -223,7 +265,7 @@ try {
     await findNearest(page);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     check(overflow <= 1, 'no horizontal scrolling at 320 CSS px (reflow)', String(overflow));
-    await page.getByRole('checkbox', { name: 'Show filters' }).click();
+    await page.getByRole('button', { name: 'Show filters' }).click();
     const audit = await page.evaluate(() => {
       const sel = '[role="button"],[role="link"],[role="radio"],[role="checkbox"],button,a';
       const els = [...document.querySelectorAll(sel)].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });

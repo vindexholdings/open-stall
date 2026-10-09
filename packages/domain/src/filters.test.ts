@@ -86,9 +86,23 @@ describe('active filter summary (R1)', () => {
   it('describes each active filter in plain language', () => {
     expect(describeActiveFilters(all).map((a) => a.label)).toEqual([
       'Within 5 mi', 'Verified only', 'Rating 4+', 'Wheelchair accessible', 'Gender-neutral', 'Baby changing',
-      'Hot water', 'Cold water only', 'No key needed', 'Free to use',
+      'Hot water', 'Cold water only', 'No key needed', 'No purchase required',
     ]);
     expect(describeActiveFilters({ ...DEFAULT_FILTERS, key: 'required', purchase: 'required' }).map((a) => a.label)).toEqual(['Key required', 'Purchase required']);
+  });
+  it('never implies a restroom is free of charge from a purchase filter', () => {
+    const labels = describeActiveFilters({ ...DEFAULT_FILTERS, purchase: 'free' }).map((a) => a.label.toLowerCase());
+    expect(labels).toEqual(['no purchase required']);
+    expect(labels.join(' ')).not.toMatch(/free/);
+  });
+  it('a no-purchase filter keeps fee-required and fee-unknown restrooms (fee is a separate fact)', () => {
+    const data = [
+      mk('no-purchase-fee', { purchaseRequired: false, feeRequired: true }),
+      mk('no-purchase-fee-unknown', { purchaseRequired: false, feeRequired: null }),
+      mk('no-purchase-no-fee', { purchaseRequired: false, feeRequired: false }),
+      mk('purchase-unknown', { purchaseRequired: null }),
+    ];
+    expect(names(applyFilters(data, { ...DEFAULT_FILTERS, purchase: 'free' }))).toEqual(['no-purchase-fee', 'no-purchase-fee-unknown', 'no-purchase-no-fee']);
   });
   it('clearing every listed filter one by one returns to the defaults', () => {
     let f = all;

@@ -3,6 +3,7 @@ import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui'
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Chip } from './Chip';
+import { RadioGroup } from './RadioGroup';
 import { useFocusStyle } from './focus';
 
 const METERS_PER_MILE = 1609.344;
@@ -26,14 +27,22 @@ function RemovableChip({ label, onRemove }: { label: string; onRemove: () => voi
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+function Group<T>({ title, options, value, onChange }: { title: string; options: readonly { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <View style={styles.group} accessibilityRole="radiogroup" accessibilityLabel={title}>
+    <View style={styles.group}>
       <Text style={styles.groupTitle}>{title}</Text>
-      <View style={styles.row}>{children}</View>
+      <RadioGroup label={title} options={options} value={value} onChange={onChange} />
     </View>
   );
 }
+const KEY_OPTIONS = [
+  { value: 'any', label: 'Any' }, { value: 'not_required', label: 'No key needed' }, { value: 'required', label: 'Key required' },
+] as const;
+const PURCHASE_OPTIONS = [
+  { value: 'any', label: 'Any' }, { value: 'free', label: 'No purchase needed' }, { value: 'required', label: 'Purchase required' },
+] as const;
+const RADIUS_OPTIONS = RADIUS_MILES.map((mi) => ({ value: mi * METERS_PER_MILE, label: `${mi} mi` }));
+const RATING_OPTIONS = RATINGS.map((r) => ({ value: r, label: r === null ? 'Any rating' : `${r}+` }));
 
 export function FilterPanel({ filters, onChange }: Props) {
   const [open, setOpen] = useState(false);
@@ -47,11 +56,12 @@ export function FilterPanel({ filters, onChange }: Props) {
         <Chip
           label={open ? 'Hide filters' : active ? `Filters (${active})` : 'Filters'}
           accessibilityLabel={open ? 'Hide filters' : active ? `Show filters, ${active} active` : 'Show filters'}
+          role="button"
           expanded={open}
-          selected={open}
+          emphasized={open}
           onPress={() => setOpen((v) => !v)}
         />
-        {active > 0 ? <Chip label="Clear all" accessibilityLabel="Clear all filters" selected={false} onPress={() => onChange(DEFAULT_FILTERS)} /> : null}
+        {active > 0 ? <Chip role="button" label="Clear all" accessibilityLabel="Clear all filters" onPress={() => onChange(DEFAULT_FILTERS)} /> : null}
       </View>
       {active > 0 ? (
         <View role="list" aria-label="Active filters" style={styles.row}>
@@ -64,28 +74,13 @@ export function FilterPanel({ filters, onChange }: Props) {
       ) : null}
       {open ? (
         <>
-          <Group title="Distance">
-            {RADIUS_MILES.map((mi) => (
-              <Chip
-                key={mi}
-                role="radio"
-                label={`${mi} mi`}
-                selected={Math.round(filters.radiusMeters) === Math.round(mi * METERS_PER_MILE)}
-                onPress={() => set({ radiusMeters: mi * METERS_PER_MILE })}
-              />
-            ))}
-          </Group>
-          <Group title="Rating">
-            {RATINGS.map((r) => (
-              <Chip
-                key={String(r)}
-                role="radio"
-                label={r === null ? 'Any rating' : `${r}+`}
-                selected={filters.minRating === r}
-                onPress={() => set({ minRating: r })}
-              />
-            ))}
-          </Group>
+          <Group
+            title="Distance"
+            options={RADIUS_OPTIONS}
+            value={RADIUS_OPTIONS.find((o) => Math.round(o.value) === Math.round(filters.radiusMeters))?.value ?? -1}
+            onChange={(v) => set({ radiusMeters: v })}
+          />
+          <Group title="Rating" options={RATING_OPTIONS} value={filters.minRating} onChange={(v) => set({ minRating: v })} />
           <View style={styles.group} role="group" aria-label="Features">
             <Text style={styles.groupTitle}>Features</Text>
             <View style={styles.row}>
@@ -97,16 +92,8 @@ export function FilterPanel({ filters, onChange }: Props) {
               <Chip label="Cold water only" selected={filters.coldWaterOnly} onPress={() => set({ coldWaterOnly: !filters.coldWaterOnly })} />
             </View>
           </View>
-          <Group title="Key">
-            <Chip role="radio" label="Any" selected={filters.key === 'any'} onPress={() => set({ key: 'any' })} />
-            <Chip role="radio" label="No key needed" selected={filters.key === 'not_required'} onPress={() => set({ key: 'not_required' })} />
-            <Chip role="radio" label="Key required" selected={filters.key === 'required'} onPress={() => set({ key: 'required' })} />
-          </Group>
-          <Group title="Purchase">
-            <Chip role="radio" label="Any" selected={filters.purchase === 'any'} onPress={() => set({ purchase: 'any' })} />
-            <Chip role="radio" label="Free" selected={filters.purchase === 'free'} onPress={() => set({ purchase: 'free' })} />
-            <Chip role="radio" label="Purchase required" selected={filters.purchase === 'required'} onPress={() => set({ purchase: 'required' })} />
-          </Group>
+          <Group title="Key" options={KEY_OPTIONS} value={filters.key} onChange={(v) => set({ key: v })} />
+          <Group title="Purchase" options={PURCHASE_OPTIONS} value={filters.purchase} onChange={(v) => set({ purchase: v })} />
         </>
       ) : null}
     </View>

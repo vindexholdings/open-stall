@@ -1,6 +1,6 @@
 import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { spaceActivates, useFocusStyle } from './focus';
+import { type Roving, spaceActivates, useFocusStyle, useRovingRadios } from './focus';
 
 type Option<T extends string> = { value: T; label: string };
 type Props<T extends string> = {
@@ -11,17 +11,25 @@ type Props<T extends string> = {
   onChange: (next: T) => void;
 };
 
-function Segment({ label, selected, onPress, first, last }: { label: string; selected: boolean; onPress: () => void; first: boolean; last: boolean }) {
+function Segment({ label, selected, onPress, first, last, rove }: { label: string; selected: boolean; onPress: () => void; first: boolean; last: boolean; rove: Roving }) {
   const focus = useFocusStyle();
+  const space = spaceActivates(onPress);
+  const keyProps = {
+    onKeyDown: (e: Parameters<typeof space.onKeyDown>[0]) => {
+      space.onKeyDown(e);
+      rove.onArrowKey(e);
+    },
+  };
   return (
     <Pressable
       accessibilityRole="radio"
       aria-checked={selected}
-      aria-selected={selected}
+      ref={(el: never) => rove.register(el)}
+      tabIndex={rove.tabIndex}
       accessibilityLabel={label}
       onPress={onPress}
       {...focus.handlers}
-      {...spaceActivates(onPress)}
+      {...keyProps}
       style={[styles.segment, first && styles.first, last && styles.last, selected && styles.selected, focus.style]}
     >
       <Text style={[styles.label, selected && styles.selectedLabel]}>{label}</Text>
@@ -31,10 +39,11 @@ function Segment({ label, selected, onPress, first, last }: { label: string; sel
 
 /** Two-or-three way switch (for example List | Map). Exposed as one radio group. */
 export function SegmentedControl<T extends string>({ label, options, value, onChange }: Props<T>) {
+  const rove = useRovingRadios(options.length, options.findIndex((o) => o.value === value), (i) => onChange(options[i]!.value));
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.row}>
       {options.map((o, i) => (
-        <Segment key={o.value} label={o.label} selected={o.value === value} onPress={() => onChange(o.value)} first={i === 0} last={i === options.length - 1} />
+        <Segment key={o.value} label={o.label} selected={o.value === value} onPress={() => onChange(o.value)} first={i === 0} last={i === options.length - 1} rove={{ tabIndex: rove.tabIndex(i), register: (el) => rove.register(i, el), onArrowKey: (e) => rove.onArrowKey(i, e) }} />
       ))}
     </View>
   );
