@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { communityRatingText, describeFacts, hoursLabel, quickFacts, ratingLabel, verificationBadge } from './facts';
+import { communityRatingDetail, communityRatingText, describeFacts, factMark, provenanceNotes, hoursLabel, quickFacts, ratingLabel, verificationBadge } from './facts';
 import type { PublicLocation } from './publicLocation';
 
 const loc = { keyRequired: true, purchaseRequired: false, wheelchairAccessible: null, feeRequired: true } as PublicLocation;
@@ -52,5 +52,31 @@ describe('result card highlights (R1)', () => {
     expect(communityRatingText(4.25, 0)).toBeNull();
     expect(communityRatingText(4.2, 12)).toBe('Community rating 4.2 / 5 (12 ratings)');
     expect(communityRatingText(5, 1)).toBe('Community rating 5.0 / 5 (1 rating)');
+  });
+});
+
+describe('detail presentation (R2)', () => {
+  it('marks every fact value with a symbol and a word', () => {
+    expect(factMark('yes')).toEqual({ symbol: '✓', text: 'Yes' });
+    expect(factMark('no')).toEqual({ symbol: '✕', text: 'No' });
+    expect(factMark('unknown')).toEqual({ symbol: '?', text: 'Not reported' });
+  });
+  it('labels ratings as community ratings and states when there are none', () => {
+    expect(communityRatingDetail(4.25, 12).headline).toBe('Community rating 4.3 / 5 (12 ratings)');
+    expect(communityRatingDetail(4.25, 12).hasRatings).toBe(true);
+    for (const d of [communityRatingDetail(null, 0), communityRatingDetail(4, 0), communityRatingDetail(null, 3)]) {
+      expect(d.hasRatings).toBe(false);
+      expect(d.headline).toBe('No community ratings yet');
+    }
+    expect(communityRatingDetail(null, 0).note).toMatch(/separate from verification/);
+  });
+  it('describes provenance without overclaiming', () => {
+    const verified = provenanceNotes({ verification: 'verified', lastVerifiedAt: '2026-09-01T00:00:00Z', attribution: null });
+    expect(verified[0]).toMatch(/^Verified Sep 2026: Open Stall confirmed this restroom exists/);
+    const unverified = provenanceNotes({ verification: 'unverified', lastVerifiedAt: null, attribution: '© Contributors' });
+    expect(unverified[0]).toBe('Unverified: Open Stall has not confirmed this restroom yet.');
+    expect(unverified.at(-1)).toBe('© Contributors');
+    for (const n of [verified, unverified]) expect(n.join(' ')).toMatch(/“Not reported” are unknown/);
+    expect(verified.join(' ')).not.toMatch(/community/i);
   });
 });

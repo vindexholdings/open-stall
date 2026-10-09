@@ -35,6 +35,8 @@ jobs:
         run: npm run test:e2e:auth
       - name: Discovery UI test (real browser, mock backend; list/map, filters, states, a11y audit)
         run: npm run test:e2e:discovery
+      - name: Restroom detail + reporting UI test (real browser, mock backend; facts, ratings, reports, failures, double taps)
+        run: npm run test:e2e:detail
       - name: Admin sign-in/MFA/queue UI test (real browser, mock backend)
         run: npm run test:e2e:admin
         env:

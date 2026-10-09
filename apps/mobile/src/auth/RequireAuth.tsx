@@ -1,8 +1,7 @@
-import { colors, radii, spacing, typography } from '@open-stall/ui';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { StatusBanner } from '../components/StatusBanner';
 import { useAuth } from './AuthProvider';
 
 /**
@@ -14,22 +13,16 @@ export function RequireAuth({ children, reason, next }: { children: ReactNode; r
   const router = useRouter();
 
   if (status === 'signed-in') return <>{children}</>;
-  if (status === 'loading') return <Text style={styles.body} accessibilityLiveRegion="polite">Checking your account…</Text>;
-  if (status === 'unavailable') return <Text style={styles.body}>Accounts aren’t available in this build.</Text>;
+  if (status === 'loading') return <StatusBanner tone="info" title="Checking your account…" />;
+  if (status === 'unavailable') return <StatusBanner tone="info" title="Accounts aren’t available in this build." />;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.body}>{reason}</Text>
+    <StatusBanner tone="info" title="Sign in to continue" message={reason}>
       <PrimaryButton
         label="Sign in or create account"
         onPress={() => router.push({ pathname: '/auth/sign-in', params: { next } })}
-        accessibilityHint="Opens the sign-in screen. Finding restrooms never needs an account."
+        accessibilityHint="Opens the sign-in screen, then returns you here. Finding restrooms never needs an account."
       />
-    </View>
+    </StatusBanner>
   );
 }
-
-const styles = StyleSheet.create({
-  card: { gap: spacing.md, padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  body: { ...typography.body, color: colors.text },
-});

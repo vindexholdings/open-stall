@@ -81,3 +81,32 @@ export function communityRatingText(average: number | null, count: number): stri
   if (average === null || count === 0) return null;
   return `Community rating ${ratingLabel(average, count)}`;
 }
+
+/** Symbol + word for a fact value, so Yes/No/Not reported never depends on color alone. */
+export function factMark(value: FactValue): { symbol: string; text: string } {
+  return value === 'yes' ? { symbol: '✓', text: 'Yes' } : value === 'no' ? { symbol: '✕', text: 'No' } : { symbol: '?', text: 'Not reported' };
+}
+
+/** Detail-page rating: always labeled as a community rating; "none yet" is stated, never shown as zero. */
+export function communityRatingDetail(average: number | null, count: number): { headline: string; hasRatings: boolean; note: string } {
+  const text = communityRatingText(average, count);
+  return {
+    headline: text ?? 'No community ratings yet',
+    hasRatings: text !== null,
+    note: 'Ratings come from signed-in community members. They are separate from verification.',
+  };
+}
+
+/** Plain-language provenance for the "About these details" block. Never claims more than the data supports. */
+export function provenanceNotes(l: Pick<PublicLocation, 'verification' | 'lastVerifiedAt' | 'attribution'>): string[] {
+  const badge = verificationBadge(l);
+  const out = [
+    l.verification === 'verified'
+      ? `${badge.label}: Open Stall confirmed this restroom exists. Other details can still change.`
+      : 'Unverified: Open Stall has not confirmed this restroom yet.',
+    'Facts marked “Not reported” are unknown. They are not the same as “No”.',
+    'Hours and other details come from public sources and may be out of date.',
+  ];
+  if (l.attribution) out.push(l.attribution);
+  return out;
+}
