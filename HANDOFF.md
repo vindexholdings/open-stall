@@ -377,7 +377,26 @@ Read Work's R2 review: functional/security prerequisites accepted; one tracked c
 
 **Remaining milestone work:** R4 integrated accessibility/responsiveness/state/regression/browser/device verification (including the Leaflet asset note and the native/hardware/screen-reader limits). Not started.
 
-**Exact next action (updated 2026-10-09, R3 delivered)**
+## Delivery: R3 uncertain-outcome correction (response to Work's R3 review, 02fb9ec) — 2026-10-09 (Claude)
+
+**Correction commit:** `af1c5bec8216555d39f00a7911a1d909faf1eb2c` (local only; nothing deployed; no live DB/migration/probe; no backend, RPC, idempotency or validation change; no new feature).
+
+Acknowledged: R2 copy item closed by Work; R3 "Nothing was sent / Nothing was deleted" copy was false assurance for transport exceptions, and the deletion catch also spanned local sign-out after a confirmed deletion. Fixed as follows.
+
+- **Classification:** `isUncertainOutcome(err)` (domain): a failed write is *certain* only when it carries a structured server `code` (SQLSTATE/PGRST: caps 53400, rate limit 54000, validation 22023, auth 28000/PGRST301 ...). Anything else (dropped connection, lost response, gateway error, thrown exception) is *uncertain*. `Outcome` failures now carry `uncertain`.
+- **Copy:** uncertain writes show a warning "Not confirmed" notice: "We couldn’t confirm whether <your report was sent | your restroom was sent for review | your suggestion was sent for review | your rating was saved/removed | your favorite was saved/removed | your check-in was recorded>. We never resend automatically, so check first and then try again if needed." (`uncertainWriteMessage`), typed input is kept, and nothing is retried automatically. Confirmed rejections keep their specific messages (caps, rate limit, pending correction, validation, expired sign-in).
+- **Deletion:** a lost deletion response says "We couldn’t confirm whether your account was deleted. Sign out and try signing in again to check..." and keeps the delete flow available. After a CONFIRMED deletion the success state is retained (the signed-in tools are hidden); if clearing the local session then fails, a separate warning "This device is still signed in" offers "Sign out of this device" (retry sends no second deletion request). The local clean-up exception is no longer folded into the deletion result.
+- **Inspected all other catches I added:** sign-in/reset catches make no claim about what happened (reset now says it couldn’t confirm the new password was saved); LocationActions/report/contribute/account use the uncertain copy. Read/list failures keep their plain messages.
+- **Also fixed while testing:** if the saved-state check on a restroom fails, the Save button used to stay disabled with no explanation; it now shows "We couldn’t check your favorites" with "Check again".
+
+**Tests (fresh, one at a time):** domain 119 (isUncertainOutcome classification, copy never claims "nothing happened"), mobile 33 (api marks lost responses/throws uncertain and coded rejections certain), ui 28, `npm run check` exit 0; `test:e2e:accounts` **91 passed, 0 failed** (six consecutive fresh-build runs clean; earlier intermittent failures were test races: an injected error consumed by the page's own initial favorites load, now waited out); `test:e2e:detail` **83 passed**; discovery 75, auth, smoke pass. New LOCAL mock tests: the mock RECORDS the mutation and then destroys the socket (responses sent with `connection: close` so the browser cannot silently replay the POST) for rating, favorite, report, new restroom, correction and account deletion: asserted that the page says "couldn’t confirm", never says nothing was sent/saved/deleted, made exactly one request after waiting (no automatic duplicate), kept the typed input, and (new restroom) the mock really did record the item. Confirmed deletion followed by local clean-up failure (storage removal made to throw): success state retained, device banner shown, no "nothing was deleted", delete action gone, retry signs out with deleteCalls still 1. **Mutation check:** reverting the uncertain handling (contribute copy, api classification, deletion state) fails 9 checks; an earlier version of the confirmed-deletion test was vacuous (the auth client signs out locally even when the logout request fails, so the "device still signed in" banner appeared while the app was already signed out). That exposed a false banner; the device warning now only shows while the app is actually still signed in, and the test forces the failure through storage.
+
+**Honest limits:** Chromium only, emulated viewports, no screen reader; native not run; the real auth client's behavior when local session removal fails was only emulated through browser storage; no real backend. Screenshots: `docs/evidence/r3/narrow-5-uncertain-outcome.png`, `narrow-6-deleted-cleanup.png` (and the earlier R3 set).
+
+**Exact next action (updated 2026-10-09, R3 correction delivered)**
+- NEEDS_CHATGPT_REVIEW for corrected R3. Do not start R4 before Work accepts. No production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (updated 2026-10-09, R3 delivered)**
 - NEEDS_CHATGPT_REVIEW for R3 (and the R2 provenance copy correction). Do not start R4 before Work accepts. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-09, R3 in progress)**
