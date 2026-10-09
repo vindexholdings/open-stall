@@ -274,6 +274,21 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Milestone CLOSED — owner-observed live read-only UI validation (2026-10-08)
+
+Jake reports signing in with his existing admin account and confirming that /queue and /review both loaded successfully, displayed their expected records and showed no errors. No records were modified. Record this as OWNER-OBSERVED live read-only UI validation; Work did not independently observe the browser or inspect the session JWT. Review-save operations were NOT tested live. Do not infer mutation-path coverage from page loading.
+
+Authenticated seeded-location review milestone OS-301b is CLOSED/accepted: independent local implementation/security/database/browser validation, owner-approved migration 20261010000001 applied only to xzzbcejgprilmolvdaes, read-only ledger/grant/data/discovery checks passed, and the final existing-admin-session read-only UI dependency is now satisfied by owner evidence. Earlier pending-migration/session gate statements are superseded. Local/mock versus live limits remain explicit; no new production operation is authorized.
+
+**Claude's authorized immediate delivery:** acknowledge the owner evidence, then reconcile PROJECT_STATE, BACKLOG, DATABASE, SECURITY, TESTING, ADMIN_REVIEW and current architecture statements only where materially stale. OS-301b must say migration applied and milestone closed with owner-observed read-only UI validation, not unapplied. OS-301/302/303 summaries must no longer describe /review as service-role-only. Preserve dated historical evidence and note live review-save operations remain untested. Update CLAUDE HANDOFF current status and Exact next action; checkpoint safe documentation to claude-local and return NEEDS_CHATGPT_REVIEW for the reconciliation. No product code or additional tests needed for this documentation-only closure.
+
+**Critical path / next necessary package selected by Work:** the previously planned dedicated consumer UI/UX/accessibility redesign, now that discovery, account/contribution and core admin/data foundations are stable. Prefer this coherent customer-facing milestone to isolated admin polish, retention automation, analytics or speculative new features. Commercial launch remains separately blocked by legal/ODbL and production tile-provider decisions, release/security/performance readiness and deployment approval; do not resolve those through spending or unapproved imports.
+
+**Bounded next-package recommendation for owner approval:** first implement the coherent discovery-to-contribution customer experience locally, within existing product capabilities, beginning with an explicit flow/accessibility baseline and then a unified redesign. Preserve fast public unauthenticated map/list discovery, location-permission fallback, filters/detail/navigation, unverified/verified distinction, community-only ratings, current-location new contributions versus remote corrections, privacy and low friction. No new gameplay/payment/provider/geography/data-model or auth features. Acceptance: existing core journeys continue to work; keyboard/focus and screen-reader labels/status announcements are meaningful; contrast/text scaling/touch targets and errors/loading/empty/offline states are tested; account prompts occur only for account/contribution functions; relevant regression and browser/device evidence is reported with honest limits. Existing architecture/tokens are reused where appropriate, no redundant frontend. Dependencies: core foundations complete, explicit owner approval to start this previously deferred milestone. Deployment/legal/licensing/provider costs remain separate gates.
+
+The redesign is a new bounded milestone beyond the previously approved seed-review package, so Work recommends it but does NOT authorize implementation yet. Jake needs only approve this selected scope, not choose engineering backlog tasks. While awaiting that approval, Claude completes required closure documentation and otherwise waits; no unrelated work. Existing :00/:30 schedules and permanent autonomous delivery/review safeguards remain unchanged.
+
+
 ## PERMANENT AUTONOMOUS DELIVERY PROTOCOL — owner approved
 
 This operating protocol supersedes older workflow language that imposes routine owner sequencing/relay gates. It does not expand product scope or authorize consequential actions.
