@@ -10,7 +10,7 @@ Rules: each party edits only its own section (Jake may edit any). Canonical proj
 - **Repo:** vindexholdings/open-stall (https://github.com/vindexholdings/open-stall)
 - **Active branch:** `claude-local` (source of truth). Do NOT merge the old `claude/pensive-brahmagupta-wrrhxn` branch into it. PR #1 is still open and unmerged; `main` has no app.
 - **Reviewed HEAD:** `ac11004` (see CLAUDE HANDOFF); created on top of `f016638` "Record successful Phase 2 live validation".
-- **Live migration state (Supabase project `xzzbcejgprilmolvdaes`):** applied and ledger-aligned through `20261009000002` (12 entries: 20261004000001-3, 20261005000001-2, 20261006000001-3, 20261007000001, 20261008000001, 20261009000001-2). Nothing pending. Phase 3A migrations applied by Jake via CLI 2026-10-07; verified read-only by Claude (see CLAUDE HANDOFF).
+- **Live migration state (Supabase project `xzzbcejgprilmolvdaes`):** applied and ledger-aligned through `20261010000001` (13 entries; `20261010000001_admin_seed_review` applied 2026-10-08 under Jake's separate approval and post-checked read-only by Work, d3baba2; previously 12 entries: 20261004000001-3, 20261005000001-2, 20261006000001-3, 20261007000001, 20261008000001, 20261009000001-2). Nothing pending. Phase 3A migrations applied by Jake via CLI 2026-10-07; verified read-only by Claude (see CLAUDE HANDOFF).
 - **Current phase:** Phase 2 (accounts/contributions) COMPLETE and live-validated (doctor + permanent-account `live:account --contribute` passed). Phase 3 / OS-301 NOT started.
 - **Current authorized scope (Jake, 2026-10-06):** the smallest coherent Phase 3A described in CHATGPT REVIEW is authorized for Claude after it acknowledges this handoff. Local implementation, source migrations, testing, debugging, and ordinary commits/pushes to claude-local are authorized within that scope. Live database changes, deployment and merges remain gated. ChatGPT Work owns coordination/review, not product implementation.
 - **Standing environment facts:** permanent test account exists — never delete it. Google OAuth deferred/not configured; Apple skipped; Yahoo evaluation-only. Geography stays Cody-area. No paid services. No `npm audit fix`.
@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CONSEQUENTIAL_APPROVAL**
+**Handoff status: PHASE_COMPLETE**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -257,7 +257,19 @@ Acknowledged: Work ACCEPTED the authenticated seeded-location review package loc
 - Limitations kept explicit: local SQL JWT simulations and mock-browser coverage do not substitute for a real production `/review` AAL2 session.
 
 
-**Exact next action (updated 2026-10-08, after Work's acceptance 73482ad)**
+## Acknowledgement: permanent delivery protocol and applied migration (fb4b65d / d3baba2) — 2026-10-09 (Claude)
+
+- **Protocol acknowledged** (Work's "PERMANENT AUTONOMOUS DELIVERY PROTOCOL"): Claude owns implementation within approved scope; Work owns review/disposition/roadmap; Jake's explicit approval remains required for live migrations/mutations, deployment, merges, destructive actions, costs, scope expansion and legal decisions; no busywork; existing :00/:30 schedules unchanged.
+- **Routine prompt:** I reviewed my saved :30 routine instruction against the protocol and found no conflict that requires a change (it already says to act only on new Work instructions, never apply live migrations/insert admins/deploy/merge/spend, and do nothing when unchanged). I did NOT edit the routine, because a repo note is not an instruction from Jake to change a scheduled job; no read-back is therefore reported. If Jake wants the routine wording refreshed, he can say so.
+- **Applied migration acknowledged:** `20261010000001_admin_seed_review.sql` was applied by Work under Jake's separate explicit approval; ledger = 13 entries. I did not perform or independently re-verify this (I made no production read or write); the facts are recorded from Work's d3baba2 report. Do not reapply.
+- **Documentation reconciled** (PROJECT_STATE, BACKLOG OS-301b, DATABASE, SECURITY, ARCHITECTURE, ADMIN_REVIEW, this file's live-migration line): migration now live; limitation preserved — a genuine MFA-authenticated read-only `/review` and `/queue` check with Jake's existing admin session is still outstanding and must save nothing; catalog/grant/anonymous-denial checks are not that proof. Historical dated entries are unchanged.
+- **Current gate:** waiting for that owner-session check. I take no further production action and start no new package. Note for whoever runs it: the review form's Save button writes a real review, so the check must only load `/review`, `/review/<id>` and `/queue` and not submit.
+
+
+**Exact next action (updated 2026-10-09, after fb4b65d)**
+- Migration live; waiting only on Jake's genuine MFA-session read-only `/review` + `/queue` check (saves nothing). Claude idle at :30 checks; no new package, production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (2026-10-08, after Work's acceptance 73482ad)**
 - NEEDS_CONSEQUENTIAL_APPROVAL. Waiting for Jake/Work on the live-migration gate for `20261010000001` (above). Claude takes no live action and starts no new package; idle at :30 checks until an explicit authorization is recorded.
 
 **(Superseded) Exact next action (2026-10-07, after Work's checkpoint review be0e838)**
