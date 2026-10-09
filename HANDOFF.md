@@ -397,7 +397,40 @@ Acknowledged: R2 copy item closed by Work; R3 "Nothing was sent / Nothing was de
 
 Read Work's disposition: R2 closed; R3 functional/security accepted with two tracked items (the deletion copy's false "if not, it was deleted"; `isUncertainOutcome` treating any non-empty code as certain). Starting R4: fix both with meaningful local tests, then verify the integrated consumer journey/state matrix across R1-R3 (keyboard/focus/semantics/contrast, narrow/wide/zoom, loading/empty/error/offline/recovery, privacy/auth/contribution boundaries), inspect the Leaflet asset/control warnings and map keyboard/touch targets/attribution locally, use any already-available browsers/runtimes at no cost, and deliver the milestone definition-of-done checklist with exact coverage and gaps. No live DB writes/migrations/probes, deployment, merges, costs, new features/geography; Maverick and Holiday Inn untouched; no paid tooling; no claims of device or screen-reader results from DOM/emulation.
 
-**Exact next action (updated 2026-10-09, R4 in progress)**
+## Delivery: R4 integrated validation + final uncertainty corrections — 2026-10-09 (Claude)
+
+**Commits:** uncertainty corrections `d3d625c`; integrated validation, fixes and docs `5b9a6e0b778a9b8abee20d5aa151727ef0e82b77`. Local only; nothing deployed; no live DB/migration/probe; no backend, RPC, data, ranking or security change; no paid tooling; no new feature; Maverick and Holiday Inn untouched.
+
+**1. Final uncertainty corrections (Work's two items)**
+- `UNCERTAIN_DELETE_MESSAGE` no longer concludes "if not, it was deleted". It now says not to assume either way, that a failed sign-in cannot tell us on its own, and draws only the sound conclusion (a successful sign-in proves the account exists).
+- `isUncertainOutcome` is now an allowlist: only `AUTHORITATIVE_REJECTION_CODES` (22023, 28000, 42501, 53400, 54000, 55000 - the errcodes the migrations raise - plus PostgREST PGRST301/302) prove "nothing was stored". ECONNRESET/ETIMEDOUT/ECONNREFUSED, 5xx/gateway codes, 57014/40001/08xxx/XX000, PGRST000/003, unknown codes, status-only 401/502 and no-code errors all stay uncertain. Tests: domain (positive/negative code tables, copy never says nothing happened, deletion copy), api (ECONNRESET, 504, XX000 now uncertain), accounts browser suite (ECONNRESET/XX000/SOMETHING_NEW unconfirmed, 53400 still a specific confirmed refusal; after a lost deletion response the user signs out, sign-in fails because of the network, and the page never asserts deletion). No automatic retries added; no backend/idempotency change.
+
+**2. Integrated validation (`npm run test:e2e:integrated`, `scripts/e2e-integrated.mjs`, 47 checks, CI step added)** - sequential, one mock for the whole app: end-to-end journey (find nearest, filter, open, back, Favorites gate, sign in, favorite, rate, settings, sign out), axe-core audit of 35 screen/width combinations, clickability sweep of every control on 16 screens at 390, 1280, 640x360 (200% zoom equivalent) and 320x180 (400% equivalent) to prove the sticky tab bar hides nothing, tab-label truncation, Tab sweep with visible-focus check, Enter + focus after navigation, cached-detail offline and recoverable errors, map controls, privacy/auth boundaries. Results: 47 passed, 0 failed (two consecutive runs); axe-core 0 violations on all 35 audits (report: `docs/evidence/r4/axe-report.json`). axe-core is the copy already in node_modules (transitive dev dependency); package.json untouched.
+
+**Defects the integrated run demonstrated, and fixes (all milestone-scope):**
+1. Going back from a restroom reset the filters and List|Map choice -> kept for the session (`state/discoverySession.ts`).
+2. Result cards could be Tab-focused but not opened with Enter (react-native-web does not activate `role=link` Pressables) -> `enterActivates` on cards and the verified hint. This was an R1-era defect no earlier suite had caught (they clicked).
+3. After opening a restroom, focus stayed on the hidden list -> pushed screens (detail, report, contribute, sign-in, reset, callback) move focus to the page heading; tab roots do not.
+4. No visible keyboard focus on tab bar links and text inputs -> global focus-visible rule + `TextField` ring.
+5. Map zoom controls were 30 px with no ring -> 44 px, focus ring, Tab-reachable (Leaflet's own keyboard support kept).
+6. Tab labels truncated at 320 px ("Favo...") -> side padding removed, 13 px label, label overflow visible.
+7. axe: content outside landmarks and heading order -> `main` landmark per screen, tab bar labeled "Main" navigation, card headings level 2.
+Test-quality notes: my first focus-ring test raced React's focus-state render and my first tab-truncation test measured the wrong thing; both fixed. **Mutation check:** removing Enter activation, focus management, session filters or the global styles fails 10 checks (37 passed / 10 failed), restored afterwards.
+
+**3. Other suites fresh and sequential after the changes:** `npm run check` exit 0 (lint, typecheck, domain 120, mobile 33, ui 28, importer/admin suites, secret scan); accounts 98; detail 83; discovery 75; auth and smoke pass. Android and iOS `expo export` both produce Hermes bundles (4.3 MB / 4 MB).
+
+**4. Leaflet asset warnings inspected:** the export warns that `leaflet.css` (lines 359-407) imports local images (layers-control sprite, default marker icon path). The app uses neither (vector circle markers, no layers control), the browser run shows no broken request and the only third-party request is the configured tile provider (z/x/y paths only), so no runtime effect; left as is. Provider/legal gate unchanged.
+
+**5. Visual inspection (screens viewed, not just generated):** phone discovery results, 320x180 detail (found and fixed the truncated tab labels and a stray heading focus box), wide discovery with map (zoom controls and ring), R3 deletion cleanup state, plus the earlier R1-R3 sets regenerated after the changes. The sticky tab bar is part of the layout (content scrolls above it), not an overlay; full-page captures show it overlapping only because Playwright stitches viewports.
+
+**6. Coverage matrix, gaps and definition-of-done:** `REDESIGN_DOD.md` (new). Covered: Chromium (Playwright headless 1194) on Linux at phone, wide, 200% and 400% zoom equivalents. NOT covered, with severity and minimum owner action: Firefox and WebKit/Safari (not installed here; medium; run the suites in those browsers or approve a runner), native iOS/Android runtime (none available; native bundles compile only; high for launch), screen readers VoiceOver/TalkBack/NVDA (none; axe + DOM checks are a substitute, not equivalent; high for launch), physical touch/GPS (medium), text-only browser zoom/OS font scaling (web text is px-based so "text size only" settings are not honored on web; medium; possible follow-up), manual contrast review of tile imagery (low). Known limitation: the tab bar is the navigator's `tablist` of links, arrow keys do not move between tabs. Unresolved launch/legal/deploy gates are listed separately in REDESIGN_DOD.md.
+
+**7. Docs reconciled:** PROJECT_STATE, BACKLOG, TESTING, DESIGN_SYSTEM, REDESIGN_DOD.md.
+
+**Exact next action (updated 2026-10-09, R4 delivered)**
+- NEEDS_CHATGPT_REVIEW for R4 and the two final uncertainty corrections. No next package invented. No production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (updated 2026-10-09, R4 in progress)**
 - WORKING on R4. On delivery: commit/push claude-local, set NEEDS_CHATGPT_REVIEW with SHAs, tests, evidence, risks, coverage matrix.
 
 **(Superseded) Exact next action (updated 2026-10-09, R3 correction delivered)**
