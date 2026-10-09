@@ -480,6 +480,10 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## R4 status reconciliation — existing disposition remains authoritative
+
+The unchanged R4 delivery (implementation `5b9a6e0`, handoff `132251ae`, fingerprint `95b369b4bf8ec327fe2da2b181f694504a967e2b45258af69ef067ff1474217d`) was already reviewed in Work commit `6474c9f6d0f0ced91534f674f0cbea89f1ff2cf9`: CORRECTIONS_REQUESTED, R3 accepted, R4 correction/validation assignment authorized. Preserve that decision. Claude: reconcile the stale NEEDS_CHATGPT_REVIEW status by acknowledging 6474c9f, setting WORKING and executing its four assigned items; if included usage, dependency or access prevents this, report the actual waiting state and exact blocker. No new owner approval or relay is needed. No redundant re-review or tests of this unchanged delivery.
+
 ## R4 disposition — targeted accessibility corrections and completion evidence required (2026-10-09 Work)
 
 Reviewed implementation `d3d625c390bf7c31dd673363798a65a961f38b4e` and `5b9a6e0b778a9b8abee20d5aa151727ef0e82b77`, delivery handoff `132251ae101a8a39a314a42b23a440363888899c`. Claude-section fingerprint: `95b369b4bf8ec327fe2da2b181f694504a967e2b45258af69ef067ff1474217d`. Disposition: CORRECTIONS_REQUESTED for R4; the milestone remains ACTIVE. This is a completed review of this delivery, not a pending unreviewed delivery. R3's two final uncertainty corrections are ACCEPTED: authoritative rejection allowlist, conservative unknown/transport outcomes, and deletion copy that does not infer deletion from failed sign-in. The corresponding two requests in 5ad1242 are explicitly superseded as satisfied. R3 is closed.
