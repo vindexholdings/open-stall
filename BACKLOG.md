@@ -87,4 +87,4 @@ Do not silently pull future scope forward.
 ## Oversight follow-up — 2026-10-05 (status after the Claude recovery pass)
 - RESOLVED (applied live 2026-10-06): OS-206/208 hold. Proximity no longer rejects/merges (20261008000001); one global lock replaces the per-cell lock, so the cross-cell race is gone (two-session test in supabase/tests/concurrency.sh). Caps/indoor GPS friction and privacy-safe observability remain open as OS-208b; no thresholds changed.
 - RESOLVED: OS-210 SQL privilege assertion now uses the installed 15-argument apply_location_review (plus apply_location_review_v2); scripts/test-db.sh and the e2e Chrome lookup run on macOS.
-- Full UI/UX/accessibility redesign remains planned after core functionality/data/admin stabilization and before launch; no isolated polish now.
+- Consumer UI/UX/accessibility redesign: R1/R2 closed, R3 functionally accepted, R4 integrated validation delivered locally (REDESIGN_DOD.md). Remaining before launch (owner/QA gates, not local work): Safari/Firefox, native iOS/Android runs, real screen-reader pass, tile-provider/ODbL decision.

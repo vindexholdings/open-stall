@@ -12,10 +12,11 @@ import {
   type LocationFilters,
 } from '@open-stall/domain';
 import { colors, layout, layoutFor, radii, spacing, touchTarget, typography } from '@open-stall/ui';
+import { getDiscoverySession, saveDiscoverySession, type ResultsView } from '../state/discoverySession';
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
-import { useFocusStyle } from '../components/focus';
+import { enterActivates, useFocusStyle } from '../components/focus';
 import { FilterPanel } from '../components/FilterPanel';
 import { LocationList, type LocationListItem } from '../components/LocationList';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -29,7 +30,6 @@ import { useNearbyLocations } from '../location/useNearbyLocations';
 import { useUserLocation } from '../location/useUserLocation';
 import { MapView, type MapMarker } from '../map';
 
-type ResultsView = 'list' | 'map';
 const VIEW_OPTIONS = [
   { value: 'list', label: 'List' },
   { value: 'map', label: 'Map' },
@@ -42,6 +42,7 @@ function VerifiedHint({ id, name, distance, onOpen }: { id: string; name: string
       accessibilityRole="link"
       accessibilityLabel={`Nearest verified restroom: ${name}, ${distance}`}
       onPress={() => onOpen(id)}
+      {...enterActivates(() => onOpen(id))}
       {...focus.handlers}
       style={[styles.hint, focus.style]}
     >
@@ -55,13 +56,21 @@ export default function NearbyScreen() {
   const { width } = useWindowDimensions();
   const wide = layoutFor(width) === 'wide';
   const { state, request } = useUserLocation();
-  const [view, setView] = useState<ResultsView>('list');
+  const [view, setViewState] = useState<ResultsView>(() => getDiscoverySession().view);
+  const setView = useCallback((next: ResultsView) => {
+    saveDiscoverySession({ view: next });
+    setViewState(next);
+  }, []);
   const openLocation = useCallback(
     (id: string) => router.push({ pathname: '/location/[id]', params: { id } }),
     [router],
   );
   const origin = state.kind === 'ready' ? state.coordinates : null;
-  const [filters, setFilters] = useState<LocationFilters>(DEFAULT_FILTERS);
+  const [filters, setFiltersState] = useState<LocationFilters>(() => getDiscoverySession().filters);
+  const setFilters = useCallback((next: LocationFilters) => {
+    saveDiscoverySession({ filters: next });
+    setFiltersState(next);
+  }, []);
   const nearby = useNearbyLocations(locationSource, origin, {
     radiusMeters: filters.radiusMeters,
     verifiedOnly: filters.verifiedOnly,

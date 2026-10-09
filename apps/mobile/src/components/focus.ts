@@ -13,6 +13,22 @@ export function useFocusStyle() {
 }
 
 /**
+ * Enter activates links. react-native-web does not activate a Pressable with role=link from the keyboard, so a
+ * focusable card or hint could be reached with Tab but never opened. (Space intentionally does nothing on a link.)
+ */
+export function enterActivates(onPress: () => void) {
+  return {
+    onKeyDown: (e: { key?: string; preventDefault?: () => void; nativeEvent?: { key?: string } }) => {
+      const key = e.key ?? e.nativeEvent?.key;
+      if (key === 'Enter') {
+        e.preventDefault?.();
+        onPress();
+      }
+    },
+  };
+}
+
+/**
  * Space activates radios and checkboxes (Enter alone is not enough for ARIA radio/checkbox widgets).
  * react-native-web activates Pressables on Enter; this adds Space without double-firing.
  */

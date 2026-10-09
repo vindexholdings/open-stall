@@ -19,7 +19,7 @@ export default function ResetPassword() {
 
   if (!client || status !== 'signed-in' || !recovery) {
     return (
-      <Screen title="Reset password" form>
+      <Screen moveFocus title="Reset password" form>
         <StatusBanner tone="info" title="Open the reset link from your email" message="The link lets you choose a new password. If it has expired, request a new one from the sign-in screen.">
           <SecondaryButton label="Back to sign in" onPress={() => router.replace('/auth/sign-in')} />
         </StatusBanner>
@@ -46,7 +46,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <Screen title="Choose a new password" form>
+    <Screen moveFocus title="Choose a new password" form>
       {error ? <StatusBanner tone="danger" urgent title={error} /> : null}
       <TextField label="New password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" hint="At least 8 characters." onSubmitEditing={() => void save()} />
       <PrimaryButton label={busy ? 'Saving…' : 'Save new password'} onPress={() => void save()} disabled={busy} />

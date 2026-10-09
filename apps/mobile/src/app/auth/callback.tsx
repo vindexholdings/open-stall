@@ -44,7 +44,7 @@ export default function AuthCallback() {
   }, [status]);
 
   return (
-    <Screen title="Signing you in" form>
+    <Screen moveFocus title="Signing you in" form>
       {shown ? (
         <StatusBanner tone="danger" urgent title={shown} message="Try signing in again. If it keeps failing, request a new link from the sign-in screen.">
           <SecondaryButton label="Back to sign in" onPress={() => router.replace('/auth/sign-in')} />

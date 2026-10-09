@@ -1,6 +1,7 @@
 import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import type { TextInputProps } from 'react-native';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusStyle } from './focus';
 
 type Props = Pick<TextInputProps, 'value' | 'onChangeText' | 'keyboardType' | 'autoComplete' | 'textContentType' | 'secureTextEntry' | 'returnKeyType' | 'onSubmitEditing' | 'multiline' | 'maxLength' | 'autoCapitalize'> & {
   label: string;
@@ -11,6 +12,7 @@ type Props = Pick<TextInputProps, 'value' | 'onChangeText' | 'keyboardType' | 'a
 
 /** Labelled input: the label is also the accessibility label so screen readers announce it. */
 export function TextField({ label, hint, error, autoCapitalize = 'none', multiline, ...input }: Props) {
+  const focus = useFocusStyle();
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -23,7 +25,8 @@ export function TextField({ label, hint, error, autoCapitalize = 'none', multili
         multiline={multiline}
         autoCorrect={false}
         placeholderTextColor={colors.textMuted}
-        style={[styles.input, multiline && styles.multiline, error ? styles.invalid : null]}
+        {...focus.handlers}
+        style={[styles.input, multiline && styles.multiline, error ? styles.invalid : null, focus.style]}
       />
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}

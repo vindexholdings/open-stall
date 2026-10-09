@@ -70,7 +70,7 @@ export default function ReportScreen() {
   const id = typeof p.id === 'string' && /^[0-9a-f-]{36}$/i.test(p.id) ? p.id : null;
   const name = typeof p.name === 'string' ? p.name.slice(0, 120) : null;
   return (
-    <Screen title="Report a problem">
+    <Screen moveFocus title="Report a problem">
       {id ? (
         <RequireAuth reason="Sign in to report a problem. Reports help keep information accurate and safe." next={`/report?id=${id}`}>
           <Form key={id} id={id} name={name} />

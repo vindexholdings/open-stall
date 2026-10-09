@@ -2,8 +2,13 @@ import { colors, touchTarget, typography } from '@open-stall/ui';
 import { StatusBar } from 'expo-status-bar';
 import { Tabs } from 'expo-router/js-tabs';
 import { AuthProvider } from '../auth/AuthProvider';
+import { useEffect } from 'react';
+import { installGlobalWebStyles, labelTabBarLandmark } from '../web/globalStyles';
+
+installGlobalWebStyles();
 
 export default function RootLayout() {
+  useEffect(() => labelTabBarLandmark(), []);
   return (
     <AuthProvider>
       <StatusBar style="dark" />
@@ -13,7 +18,7 @@ export default function RootLayout() {
           tabBarActiveTintColor: colors.primaryStrong,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle: { backgroundColor: colors.surface, minHeight: touchTarget.primary },
-          tabBarLabelStyle: { fontSize: typography.label.fontSize, fontWeight: typography.label.fontWeight },
+          tabBarLabelStyle: { fontSize: 13, fontWeight: typography.label.fontWeight },
           tabBarIconStyle: { display: 'none' },
         }}
       >

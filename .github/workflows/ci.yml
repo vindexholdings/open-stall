@@ -39,6 +39,8 @@ jobs:
         run: npm run test:e2e:detail
       - name: Account + contribution UI test (real browser, mock backend; sign-in, favorites, settings, submissions, deletion, double taps)
         run: npm run test:e2e:accounts
+      - name: Integrated journey + accessibility audit + zoom/sticky-nav/keyboard/map checks (real browser, mock backend)
+        run: npm run test:e2e:integrated
       - name: Admin sign-in/MFA/queue UI test (real browser, mock backend)
         run: npm run test:e2e:admin
         env:

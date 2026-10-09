@@ -181,7 +181,7 @@ export default function ContributeScreen() {
   const editId = typeof p.id === 'string' && /^[0-9a-f-]{36}$/i.test(p.id) ? p.id : null;
   const editName = typeof p.name === 'string' ? p.name.slice(0, 120) : null;
   return (
-    <Screen title={editId ? 'Suggest a correction' : 'Add restroom at my current location'} form>
+    <Screen moveFocus title={editId ? 'Suggest a correction' : 'Add restroom at my current location'} form>
       <RequireAuth reason="Sign in to add or correct restrooms. This helps us keep the map trustworthy." next={editId ? `/contribute?id=${editId}` : '/contribute'}>
         <Form key={editId ?? 'new'} editId={editId} editName={editName} />
       </RequireAuth>

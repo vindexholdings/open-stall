@@ -91,7 +91,7 @@ export default function LocationDetail() {
 
   if (!id) {
     return (
-      <Screen title="Restroom">
+      <Screen moveFocus title="Restroom">
         <StatusBanner tone="danger" urgent title="This restroom link isn’t valid." message="Check the link, or search for a restroom near you.">
           {backToSearch}
         </StatusBanner>
@@ -100,21 +100,21 @@ export default function LocationDetail() {
   }
   if (!locationSource) {
     return (
-      <Screen title="Restroom">
+      <Screen moveFocus title="Restroom">
         <StatusBanner tone="info" title="Restroom data isn’t connected in this build.">{backToSearch}</StatusBanner>
       </Screen>
     );
   }
   if (!current) {
     return (
-      <Screen title="Restroom">
+      <Screen moveFocus title="Restroom">
         <StatusBanner tone="info" title="Loading restroom details…" />
       </Screen>
     );
   }
   if (current.status === 'missing') {
     return (
-      <Screen title="Restroom">
+      <Screen moveFocus title="Restroom">
         <StatusBanner tone="warning" title="This restroom isn’t available." message="It may have been removed or hasn’t been confirmed yet.">
           {backToSearch}
         </StatusBanner>
@@ -123,7 +123,7 @@ export default function LocationDetail() {
   }
   if (current.status === 'error') {
     return (
-      <Screen title="Restroom">
+      <Screen moveFocus title="Restroom">
         <StatusBanner tone="danger" urgent title="We couldn’t load this restroom." message="Check your connection and try again.">
           <PrimaryButton label="Try again" onPress={() => setAttempt((n) => n + 1)} />
           {backToSearch}
@@ -220,7 +220,7 @@ export default function LocationDetail() {
   );
 
   return (
-    <Screen title={l.name}>
+    <Screen moveFocus title={l.name}>
       {current.fromCache ? (
         <StatusBanner tone="warning" title="Offline: showing saved details" message="These details may be out of date." />
       ) : null}

@@ -1,7 +1,7 @@
 import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import type { VerificationBadge as Badge } from '@open-stall/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusStyle } from './focus';
+import { enterActivates, useFocusStyle } from './focus';
 import { VerificationBadge } from './VerificationBadge';
 
 export type LocationListItem = {
@@ -41,13 +41,14 @@ function Card({ item, onSelect }: { item: LocationListItem; onSelect?: (id: stri
       accessibilityLabel={spoken}
       accessibilityHint="Opens restroom details."
       onPress={() => onSelect?.(item.id)}
+      {...enterActivates(() => onSelect?.(item.id))}
       {...focus.handlers}
       style={({ pressed }) => [styles.card, pressed && styles.pressed, item.tag ? styles.top : null, focus.style]}
     >
       <View style={styles.head}>
         <View style={styles.titleBlock}>
           {item.tag ? <Text style={styles.tag}>{item.tag}</Text> : null}
-          <Text accessibilityRole="header" aria-level={3} style={styles.name}>{item.name}</Text>
+          <Text accessibilityRole="header" aria-level={2} style={styles.name}>{item.name}</Text>
         </View>
         {item.distance ? (
           <View style={styles.distanceBlock}>
