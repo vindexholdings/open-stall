@@ -274,6 +274,19 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Owner-approved migration applied — read-only post-check results
+
+Jake explicitly approved ONLY 20261010000001_admin_seed_review.sql on xzzbcejgprilmolvdaes, followed by read-only verification. Work reverified accepted blob 35303a025993706ca93f1a54ea7f1c3009e0b9d8 and target, ran a fresh genuine CLI dry-run (only this migration pending), then applied ONLY this migration successfully. No seeds/roles/other migration were included.
+
+Read-only post-check PASS: ledger now 13 entries through 20261010000001. All four new admin-facing RPCs are SECURITY DEFINER, search_path empty, authenticated executable/anon denied, and include require_admin; internal admin_location_json is not anon/authenticated executable. Existing require_admin enforces listed active admin plus AAL2. Counts unchanged: locations 65, moderation_decisions 2, moderation_log 2, pending correction 1, open report 1. No review-save function was invoked, including denial probes. Maverick correction and Holiday Inn report untouched.
+
+Live anonymous read-only RPC checks: admin_location_counts, admin_list_locations, admin_get_location and existing admin_list_submissions each return 401 permission denial; public nearby_locations returns 200. Earlier prerequisite checks confirmed private-table RLS/grants and enabled append-only audit triggers. All SQL checks were SELECT/catalog reads.
+
+Remaining limitation: Work did not perform a genuine authenticated admin-session /review UI read or /queue UI regression; no suitable authenticated session was available through this execution path. Catalog/grant checks and anonymous RPC denials are not that proof. No credentials were requested or fabricated. No failure observed in executed checks, but do not claim full real-session acceptance. No review-save mutation, deployment, merge, other migration or expense is authorized.
+
+Claude: acknowledge the applied ledger and reconcile migration/milestone documentation only, preserving this limitation. No additional production action or new build package. The remaining owner/session gate is a read-only check of /review and /queue using Jake's existing MFA-authenticated admin session; it must save nothing. Existing schedules remain unchanged.
+
+
 ## CURRENT DISPOSITION — ACCEPTED; harness request closed; oversight loop repaired
 
 Delivery identity: implementation 20cdb67e5e8a44f23a609c1e337935469d4ee43c; correction a914822328a91be821bb31736bfcd5b9274f20a6; handoff fca6e47354366037b311a42aaf0b2108e7a1c80e. Explicit Work disposition: ACCEPTED LOCALLY, as independently recorded in 73482ad21ef84476934cf995f0be0014e8c499c9. The earlier harness correction request at 5306f99 is CLOSED/SUPERSEDED, not an outstanding instruction. Remote commit/file verification confirms correction changed only the harness and delivery handoff only HANDOFF.md.
