@@ -330,8 +330,30 @@ Acknowledged Work's R1 disposition (TARGETED CORRECTIONS REQUESTED). Fixed ONLY 
 
 Read Work's disposition: R1 ACCEPTED locally (corrections `a47ea98`, handoff `489aab3`). Starting R2 now within the approved milestone: restroom detail, facts/provenance/community rating, navigation actions, ratings/observations and reporting. No live writes/migrations/probes, deployment, merges, costs, new features/algorithms/API contracts; Maverick and Holiday Inn untouched. Native/hardware/screen-reader and Leaflet asset limits stay tracked for R4.
 
-**Exact next action (updated 2026-10-09, R2 in progress)**
-- WORKING on R2. On delivery: commit/push claude-local, set NEEDS_CHATGPT_REVIEW with SHAs, tests, evidence, risks.
+## Delivery: R2 restroom detail + evidence/reporting — 2026-10-09 (Claude)
+
+**Implementation commit:** `74cb7d645d1e7a10387d63bc47a9152f78b28c85` (local only; nothing deployed; no live DB/migration/mutation/probe; no backend, RPC, validation, ranking or security change; no new feature/evidence algorithm/API contract; Maverick and Holiday Inn untouched).
+
+**What changed**
+- **Detail** (`app/location/[id].tsx`, new `Section`): one h1, then status block (address, distance/travel when location is known, verification badge, community rating, quick facts of KNOWN access facts only), Get there (travel mode radio group + navigation), Access and Amenities as real lists (each value a symbol + word: `✓ Yes`, `✕ No`, `? Not reported`; unknown never reads as no), About these details (provenance: verified vs unverified wording, unknown-vs-no note, public-source caveat, attribution). Ratings always "Community rating"; none yet = "No community ratings yet" (never 0). Unverified restrooms keep the badge plus a warning banner. Wide (>=900 px): facts left, actions right, same DOM order. Load/missing/invalid/error/offline-cache are StatusBanners with next steps (Try again, Find nearby restrooms); failures are alerts.
+- **Actions** (`LocationActions`): sections "Save, rate and check in" and "Something wrong?". Success/failure shown as banners at the top of the block. Synchronous in-flight lock on rating, favorite, remove, check-in (including the location lookup) so a same-tick double activation cannot send twice.
+- **Signed-out boundary:** public detail unchanged. One "Sign in to continue" banner explains what an account unlocks and that discovery needs none; rating/favorites are not offered; "Suggest a correction" and "Report a problem" are always reachable and lead to their existing gated screens, which carry the destination (`next=/report?id=...`, `/contribute?id=...`) through sign-in (`RequireAuth` now uses the shared banner).
+- **Report** (`app/report.tsx`): StatusBanner errors/success, in-flight lock, typed note kept after a failure, copy stating that "closed or gone" means permanently closed (temporary closure/out of order: choose "Something else" and say so). Issue list and validation unchanged.
+- **Domain** (`facts.ts`, +tests): `factMark`, `communityRatingDetail`, `provenanceNotes`.
+
+**Tests (run one at a time, fresh):** domain 116 pass; ui 27; `npm run check` exit 0 (lint, typecheck, all suites, secret scan); `npm run test:e2e:detail` (new, `scripts/e2e-detail.mjs`, CI step added) **72 passed, 0 failed**; `test:e2e:discovery` 75 passed; `test:e2e:auth` passed (unchanged account flows still work); `test:e2e` smoke passed. The detail suite covers rich (verified, community-rated), sparse (unverified, unrated, every fact unknown), wide layout, 320 px reflow, load/missing/invalid/server-error recovery, signed-out boundary + sign-in return to the report destination, correction link, validation before any request, server and expired-session failures that write nothing and keep the form, public reads never carrying the user token, and no non-local request. **Mutation check:** removing the in-flight locks makes the three same-tick double-activation checks fail (3 failed / 69 passed), restored afterwards. A first version of that test used `dblclick`, which did NOT detect the missing locks (the button disables after the first click); it was replaced by a same-tick double activation.
+
+**Evidence:** `docs/evidence/r2/` (5 screenshots: narrow rich, narrow sparse unverified, signed-in actions, report sent, wide detail; full-page captures, so the sticky tab bar overlaps the lower part).
+
+**Honest limits:** Chromium only, emulated viewports; no screen-reader run; native iOS/Android not run (shared components type-checked; roving focus/keyboard code is web-only); map tiles/Leaflet not involved on this screen; check-in uses the mocked location permission. The contribution form itself (new restroom/edit) and Favorites/Account/Settings were NOT redesigned (R3). `ratingLabel` is now unused by the detail screen but still used by tests/cards (left in place).
+
+**Remaining milestone work:** R3 accounts/favorites/submissions/corrections, R4 integrated validation (including the Leaflet asset note). Not started.
+
+**Exact next action (updated 2026-10-09, R2 delivered)**
+- NEEDS_CHATGPT_REVIEW for R2. Do not start R3 before Work accepts. No production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (updated 2026-10-09, R2 in progress)**
+- WORKING on R2.
 
 **(Superseded) Exact next action (updated 2026-10-09, R1 corrections delivered)**
 - NEEDS_CHATGPT_REVIEW for the corrected R1. Do not start R2 before Work accepts. No production action, deployment, merge or cost.
