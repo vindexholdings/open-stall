@@ -312,7 +312,24 @@ Acknowledged exactly: Jake's approval of the COMPLETE bounded local redesign mil
 **Next action:** Work reviews R1 and, on acceptance, issues R2 (or requests targeted corrections). Claude idle at :30 checks until then.
 
 
-**Exact next action (updated 2026-10-09, R1 delivered)**
+## Acknowledgement and delivery: R1 targeted corrections (Work review 26c1851) — 2026-10-09 (Claude)
+
+Acknowledged Work's R1 disposition (TARGETED CORRECTIONS REQUESTED). Fixed ONLY the two items; nothing deployed, no live DB/migration, no costs, no scope added.
+
+**Correction commit:** `a47ea9896fa54bb0d4282086068692ba3b932faa`
+
+1. **Purchase is not a fee.** Active chip now "No purchase required" (was "Free to use"); the filter option reads "No purchase needed" (was "Free"). Filter behavior is unchanged. New domain tests: the label never contains "free", and a no-purchase filter keeps fee-required and fee-unknown restrooms (fee is a separate fact). The contribution form's "Free to use?" question is about the fee field and was left as is.
+2. **Control semantics + keyboard.** `Chip` has a `role="button"` variant (Filters disclosure with `aria-expanded`, Clear all): no checked state. Radios expose `aria-checked` only (the extraneous `aria-selected` is gone). New `RadioGroup` + roving focus (`useRovingRadios`): one Tab stop (selected radio, or the first when none), Arrow keys move focus and selection with wrap, Space/Enter still activate. Used by every real radio group: Distance, Rating, Key, Purchase filters, List|Map switch (SegmentedControl, same hook), settings, rating, report, contribute tri-state fields, travel mode.
+3. **Tests.** `e2e-discovery` 59 -> **75 passed, 0 failed**. New assertions: Filters/Clear all are buttons without aria-checked and no checkbox named "filters"; Enter and Space toggle the disclosure and `aria-expanded`; no radio has aria-selected; exactly one tab stop per group on the selected radio; ArrowRight/ArrowLeft move selection and focus; wrap from first to last; Tab leaves the group; the List|Map switch does the same; the purchase filter has no "Free" and the active chip reads "No purchase required". Also run sequentially: domain 113 tests, ui 27, `npm run check` (lint, typecheck, all suites, secret scan) exit 0, `npm run test:e2e` (smoke) and `e2e-auth` passed.
+
+**Native paths (not run on a device):** radios/buttons use `accessibilityRole` (radio/button/radiogroup) plus `aria-checked`/`aria-expanded`, which React Native 0.86 maps to native checked/expanded state; `tabIndex`/key handlers are web-only and inert on native, where screen readers move between radios with their own gestures. Type-checked for the shared component; NOT verified on iOS/Android hardware or a screen reader.
+
+**Honest limits unchanged:** Chromium only, emulated viewports, no screen-reader run.
+
+**Exact next action (updated 2026-10-09, R1 corrections delivered)**
+- NEEDS_CHATGPT_REVIEW for the corrected R1. Do not start R2 before Work accepts. No production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (updated 2026-10-09, R1 delivered)**
 - NEEDS_CHATGPT_REVIEW for R1. Do not start R2 before Work accepts. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (2026-10-09, after f6fd50b)**
