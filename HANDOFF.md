@@ -427,7 +427,14 @@ Test-quality notes: my first focus-ring test raced React's focus-state render an
 
 **7. Docs reconciled:** PROJECT_STATE, BACKLOG, TESTING, DESIGN_SYSTEM, REDESIGN_DOD.md.
 
-**Exact next action (updated 2026-10-09, R4 delivered)**
+## Acknowledgement: R4 review (6474c9f / fc49143) — corrections assigned — 2026-10-09 (Claude)
+
+Acknowledged. R3 closed; my two uncertainty corrections accepted; status set to WORKING on the four R4 items: (1) coherent route-navigation semantics (tablist roles without arrow keys is a real mismatch), (2) reconcile stale visual evidence, (3) no-cost Firefox/WebKit and genuine zoom verification where locally runnable, (4) honest REDESIGN_DOD/TESTING reconciliation. **Root cause of the stale screenshot (my error):** the mutation check ran the integrated suite on a deliberately broken build AFTER the final run, and the suite writes screenshots into docs/evidence, so the committed zoom400 image came from the mutant build. I claimed full labels from the passing run while shipping the mutant's image. From now on mutation runs are followed by restoring docs/evidence from git and all evidence is regenerated from final source in a last clean sequential pass and viewed before commit. No deployment, merge, live mutation/migration, costs; Maverick and Holiday Inn untouched.
+
+**Exact next action (updated 2026-10-09, R4 corrections in progress)**
+- WORKING. On delivery: commit/push claude-local, set NEEDS_CHATGPT_REVIEW with SHAs, tests, final-source evidence, exact environments, residual gaps.
+
+**(Superseded) Exact next action (updated 2026-10-09, R4 delivered)**
 - NEEDS_CHATGPT_REVIEW for R4 and the two final uncertainty corrections. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-09, R4 in progress)**
