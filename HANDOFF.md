@@ -274,6 +274,29 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## PERMANENT AUTONOMOUS DELIVERY PROTOCOL — owner approved
+
+This operating protocol supersedes older workflow language that imposes routine owner sequencing/relay gates. It does not expand product scope or authorize consequential actions.
+
+**Work owns delivery management:** act as senior engineering lead/technical project manager. Maintain roadmap/current milestone, critical path/dependencies, definition of done and acceptance criteria, blockers/owner approval gates, and the next dependency-ready package in coordination reviews, with Claude reconciling corresponding project documentation. Work selects routine technical sequencing within approved scope; Jake need not choose engineering backlog items.
+
+**Automatic review/continuation:** every new NEEDS_CHATGPT_REVIEW delivery must be reviewed at the next successful scheduled Work check. Inspect relevant commits/test evidence and independently validate meaningful risks sequentially. Accept or request specific targeted corrections, write the disposition to CHATGPT REVIEW and verify it remotely. No Jake relay. After acceptance, close the package, reconcile milestone status, and automatically continue only necessary dependency-ready work within previously approved scope, with clear acceptance criteria. If the next package requires new scope or consequential approval, present one concise owner decision with recommendation. Do not invent work to avoid idle time.
+
+**Claude owns implementation:** at each existing :30 check, refresh remote claude-local and read the latest CHATGPT REVIEW; acknowledge new instructions, implement approved packages, run appropriate tests/fix failures, commit/push safe checkpoints and report delivery with exact SHAs/results/limitations. Wait only for genuine Work review, owner approval, dependency or included-usage reset. Preserve the other agent's section. Work never substitutes itself as the product builder.
+
+**Owner approval policy:** no additional approval for routine implementation within approved scope, local testing/debugging, targeted corrections, acceptance documentation or safe claude-local commits/pushes. Explicit Jake approval remains mandatory for live database migrations/mutations, production deployment, branch/PR merges, destructive operations, new costs/paid usage, material scope expansion, unresolved product/architecture decisions and legal/licensing decisions. Batch related requests when practical; never infer an unapproved consequential action from a general approval. Hard included-Claude-subscription allowance remains unchanged.
+
+**Review latency safeguard:** an observed/unchanged fingerprint is not a completed review. NEEDS_CHATGPT_REVIEW is a Work obligation, not Claude inactivity. At the next successful scheduled check, process it. If the same delivery remains unreviewed after two successful distinct scheduled-hour checks, escalate the Work failure once with reason, pending checks, elapsed observed time and recovery recommendation. Persist disposition/delivery identity, pending-check count and alert latch; do not repeat alerts. Verified specific corrections dispose the reviewed delivery while awaiting the corrected one. Preserve the separate four-hour active-Claude inactivity safeguard; waiting states are excluded from that alarm.
+
+**No busywork:** assign only product/milestone-necessary, dependency-ready work within authority and supported by acceptance criteria. Idle is preferable to unnecessary development.
+
+**Cadence/coordination:** existing Work :00 and Claude :30 schedules remain unchanged. GitHub/HANDOFF is the shared layer; Work is owner-facing oversight/escalation, Claude is builder, Jake is product authority—not courier. Each check is brief and handled at a safe boundary without interrupting productive work. Refresh immediately before writing, preserve intervening edits, no force-push. Only meaningful review/protocol changes warrant HANDOFF commits.
+
+**Claude routine instruction:** apply this protocol through the existing routine; do not create a second routine or change :30. Acknowledge this permanent protocol at the next run. If the routine's saved prompt itself conflicts with it, update that prompt through Claude's supported existing routine interface, preserving id/cadence/limits, and report verified read-back; otherwise no routine edit is necessary. Work has no direct Claude routine-edit interface and does not claim one was used.
+
+**Current milestone/gate:** authenticated seeded-review integration is accepted locally. Migration 20261010000001 was already applied under Jake's separate explicit approval, recorded in d3baba2d, with ledger/catalog/grant/data-count and anonymous read checks passing. Jake's protocol message calling it pending is stale relative to that completed approved action; do not reapply it or silently rewrite history. Genuine existing-admin-session read-only /review and /queue UI verification remains incomplete. No review-save mutations, deployment, merges, other migrations, new package scope or costs are authorized here. Claude may acknowledge/reconcile coordination documentation, then await this genuine session dependency.
+
+
 ## Owner-approved migration applied — read-only post-check results
 
 Jake explicitly approved ONLY 20261010000001_admin_seed_review.sql on xzzbcejgprilmolvdaes, followed by read-only verification. Work reverified accepted blob 35303a025993706ca93f1a54ea7f1c3009e0b9d8 and target, ran a fresh genuine CLI dry-run (only this migration pending), then applied ONLY this migration successfully. No seeds/roles/other migration were included.
