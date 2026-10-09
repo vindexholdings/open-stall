@@ -358,6 +358,23 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## R1 ACCEPTED — R2 immediately authorized (2026-10-09 Work)
+
+Reviewed delivery: R1 implementation `0b3aa1281c836339fa60c3c7bd5d77062917a3c5`, corrections `a47ea9896fa54bb0d4282086068692ba3b932faa`, handoff `489aab309e89dc4e649f94a8c291a74691deb6ce`; Claude-section fingerprint: 8e4d1be62640e50892e47ad5d92b49185e648b2509987ada58a7a09d067c310f.
+
+Work independently inspected corrected source, shared radio wiring and affected account/contribution screen call sites. Purchase labels no longer imply absence of fees; disclosure/Clear all are buttons; actual radio groups expose checked state with roving focus/arrow selection. Independently rerun domain: 113 tests PASS. Independently built the Expo web export and reran discovery Chromium regression against local mock backend: **75 PASS, 0 FAIL**, including corrected keyboard semantics, signed-out discovery, filters, detail navigation, responsive/recovery/offline states and anon-only requests. Initial sandbox Chrome launch failed; permitted outside-sandbox rerun passed. No production backend was contacted by the regression; external requests were blocked. Existing Leaflet CSS asset warnings remain a third-party map presentation item to inspect in R4, not proof of a production error. Prior UI token tests: Work independently 27 PASS. Full check/smoke/auth results remain Claude-reported; no hardware/native/screen-reader/Safari/Firefox coverage is claimed. No new backend/security/data-integrity defect found in reviewed scope.
+
+**Disposition: R1 ACCEPTED locally.** Work's 26c1851 correction request is CLOSED/SUPERSEDED for this corrected delivery. Update milestone documentation accordingly without erasing evidence limits. Full redesign milestone remains ACTIVE, not complete.
+
+### CURRENT ASSIGNMENT — R2 detail + evidence/reporting vertical slice
+
+Claude proceed immediately within Jake's complete redesign approval; no additional owner approval or relay needed. Build on accepted R1 shared foundation. Redesign the existing restroom detail, amenity/access facts, verification/provenance/community rating presentation, navigation actions, ratings/structured observations and reporting journey together. Provide coherent reading hierarchy and action placement on narrow/wide screens, accessible labeled controls and focus/state/error handling. Preserve unknown vs false facts, permanent vs temporary closure meaning, community-only rating average/count, private notes/provenance, existing check-in location/privacy rules and all existing authentication/validation boundaries. Public detail must remain accessible without an account; existing signed-out contribution/report actions should explain the existing sign-in requirement and preserve destination intent where supported. Do not add new evidence algorithms, features, API contracts or backend rules.
+
+Acceptance: public detail/navigation and signed-out/sign-in boundaries remain functional; existing rating/observation/report flows complete against LOCAL test doubles with correct validation, pending/success/error states and no unintended duplicate writes; honest unknown/verified/community score presentation; keyboard/radio/focus/accessibility semantics and mobile/wide reflow; relevant domain/component and browser regressions, typecheck/lint/build as affected. Include local fixtures for unknown facts, admin-only vs community-rated locations, auth failures and server failures. Independently test meaningful risks; deliver screenshots/evidence with precise browser/device limitations. Commit/push, record implementation SHAs/tests/risks and set NEEDS_CHATGPT_REVIEW. Work then accepts or requires targeted corrections and immediately issues R3 when ready.
+
+Next pipeline: R3 accounts/favorites/submissions/corrections (depends on accepted R2 contribution patterns); R4 integrated responsiveness/accessibility/state/browser/device verification (depends on R1–R3). Native/hardware/screen-reader and Leaflet control/asset limitations remain explicitly tracked for R4, not silently asserted as completed. Routine sequencing within this milestone is Work-owned. No live writes/migrations/probes, deployment, merges, new cost/geography/features; Maverick and Holiday Inn remain untouched. Keep :00/:30 schedules.
+
+
 ## R1 disposition — TARGETED CORRECTIONS REQUESTED (2026-10-08 Work)
 
 Delivery reviewed: implementation `0b3aa1281c836339fa60c3c7bd5d77062917a3c5`, handoff `46bf180c67679cd92243c78798eb2e20a3f17504`. Claude-section fingerprint: 78b078631ad630df6afafb3b4753a514ca132d376cd9f86bb1f13bed32f4833f.
