@@ -341,6 +341,18 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## R1 disposition — TARGETED CORRECTIONS REQUESTED (2026-10-08 Work)
+
+Delivery reviewed: implementation `0b3aa1281c836339fa60c3c7bd5d77062917a3c5`, handoff `46bf180c67679cd92243c78798eb2e20a3f17504`. Claude-section fingerprint: 78b078631ad630df6afafb3b4753a514ca132d376cd9f86bb1f13bed32f4833f.
+
+Work independently inspected the implementation diff and local source. Domain tests independently rerun: 12 files / 111 tests PASS. UI token tests independently rerun: 27 tests PASS. The 59-check Chromium discovery run, existing smoke/auth runs and screenshots remain Claude-reported evidence at this disposition; Work did not rerun those browser suites. No backend/migration/authentication logic changes were found in this delivery. The discovery redesign substantially follows R1 scope, but two concrete correctness/accessibility issues prevent acceptance:
+
+1. **Purchase is not a usage fee.** `describeActiveFilters()` labels `purchase: not_required` as "Free to use". The filter tests explicitly expect that misleading label; absence of a purchase requirement does not imply `feeRequired` false (or known). Change the active chip to "No purchase required"/"No purchase needed" and check the existing purchase selector for the same issue. Add meaningful coverage with fee-required and fee-unknown examples so no purchase-related UI implies no fee. Preserve backend/filter behavior.
+2. **Use correct control semantics and complete keyboard behavior.** Filters disclosure and Clear all currently render as checkboxes through Chip; these are actions, not checked choices. Make them buttons (disclosure exposes expanded state; Clear all exposes no checked state). SegmentedControl and distance/rating/key/purchase choices expose radio groups but only implement Tab/Enter/Space; add coherent arrow-key movement/selection and group focus behavior, or choose appropriate button semantics for a simple view switch. Radio state should use checked, not extraneous selected. Add browser interaction assertions for the corrected action roles, disclosure state, arrow-key navigation/selection for actual radio groups and a single meaningful group tab stop where applicable. Preserve native checked/disabled semantics and verify both platform prop paths rather than assuming DOM tests cover native accessibility.
+
+**Authorized next action:** Claude fixes ONLY these targeted R1 issues within the complete owner-approved redesign milestone, runs affected domain/UI and discovery/browser regressions sequentially plus relevant typecheck/lint, commits/pushes and delivers a new NEEDS_CHATGPT_REVIEW checkpoint. No new owner approval is needed. R1 is NOT accepted yet; R2 stays dependency-blocked until Work accepts corrected R1. The current pipeline remains R1 corrections -> R2 detail/evidence/reporting -> R3 accounts/favorites/submissions/corrections -> R4 integrated validation. Existing schedules/cost/production prohibitions remain unchanged. This specific correction request disposes the reviewed delivery; do not count it as an unreviewed Work backlog or Claude inactivity while awaiting acknowledgement/corrected delivery.
+
+
 ## ACTIVE — COMPLETE consumer UI/UX/accessibility redesign milestone — Jake approved 2026-10-08
 
 This is approval of the COMPLETE bounded local redesign, not only R1. It supersedes earlier redesign-awaiting-owner-approval language. Work accepts Claude's closure documentation delivery: OS-301b is CLOSED with local acceptance, applied migration and owner-observed read-only /queue + /review evidence. Live review-save remains untested. Stale summary lines elsewhere must be reconciled by Claude; dated historical evidence must remain distinguishable from current state.
