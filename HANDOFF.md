@@ -353,8 +353,35 @@ Read Work's disposition: R1 ACCEPTED locally (corrections `a47ea98`, handoff `48
 
 Read Work's R2 review: functional/security prerequisites accepted; one tracked copy defect (blanket "public sources" claim in `provenanceNotes`) to be fixed in R3 with a focused regression; R2 not described as fully closed until Work verifies. Starting R3 (accounts, favorites, settings, submissions, corrections) within the approved milestone. No live writes/migrations/probes, deployment, merges, costs, new features/geography/providers; Maverick and Holiday Inn untouched. Preserving: public discovery, existing auth providers only, safe `next` handling, new-restroom GPS/accuracy/freshness + public-place attestation, corrections without presence, pending-only visibility, caps/rate limits/validation.
 
-**Exact next action (updated 2026-10-09, R3 in progress)**
-- WORKING on R3. On delivery: commit/push claude-local, set NEEDS_CHATGPT_REVIEW with SHAs, tests, evidence, risks.
+## Delivery: R3 accounts/favorites/settings/submissions/corrections + R2 provenance correction — 2026-10-09 (Claude)
+
+**Implementation commit:** `5849fdedc042b249b457e6199467921f944e776e` (local only; nothing deployed; no live DB/migration/probe; no backend, RPC, validation, cap, rate-limit, GPS/attestation or security change; no new feature or provider; Maverick and Holiday Inn untouched).
+
+**R2 provenance correction (tracked item):** `provenanceNotes` no longer claims "Hours and other details come from public sources"; it now says "Details can change. If something here is out of date, tell us." and shows attribution only when present. The hours-source caveat in `hoursLabel` (for actual source hours text) is unchanged. I also removed the same blanket claim from `UNVERIFIED_EXPLANATION` ("It comes from public sources") since it is the same defect class; it now reads "Access and condition may differ from what is listed." Regression (facts.test.ts): without attribution no provenance line or the unverified explanation matches /public source|openstreetmap|from .* sources/, the last note is the source-neutral line, attribution is appended only when present.
+
+**What changed**
+- **Shared:** `Screen form` (640 px column on wide screens, `layout.formMaxWidth`), `TextField error` (`aria-invalid` + message under the field), reuse of `Section`/`StatusBanner`.
+- **Auth** (`auth/sign-in`, `reset`, `callback`, `RequireAuth`): banners for errors/confirmations (generic wording unchanged), synchronous lock against double submit, network failure caught and explained with the form kept; "Almost done" / "Check your inbox" confirmations; reset-without-link and failed-callback states give a next step. Safe `next` handling untouched (`safeNextPath`).
+- **Account:** sections (Your account, Add a missing restroom, Delete account), success banner after deletion, deletion lock; delete flow semantics unchanged (type DELETE).
+- **Favorites:** loading/error (Try again)/empty (with "Find nearby restrooms")/full ("5 of 5 saved" + how to make room) states; distances still computed on device (no coordinates sent).
+- **Settings:** sections, "Saved." confirmation for preference changes, inline display-name error, save lock, signed-out note says settings are saved on this device.
+- **Contribute (new + correction):** grouped sections (About the place, Access and facilities, Location, Before you send), "Not sure" explained as unknown, location status banner, errors in one banner next to the submit button, attestation is a normal checkbox (no longer inside an alert), whole-submit lock (including the fresh-fix lookup), success banner with onward links, input kept on any failure. New restroom still needs a fresh current-device fix + public-place attestation and has no way to type/pick a position; corrections still need no location.
+
+**Tests (fresh, one at a time):** domain 116, ui 28 (new form-width token test), `npm run check` exit 0 (lint, typecheck, all suites, secret scan); new `npm run test:e2e:accounts` (`scripts/e2e-accounts.mjs`, CI step added) **70 passed, 0 failed** (3 consecutive clean runs after one unreproduced click timeout on the first run, which I attributed to a test race: the favorites list can reload itself while the test is clicking "Try again"; the test now tolerates that). Also fresh: `test:e2e:detail` 72, `test:e2e:discovery` 75, `test:e2e:auth` passed (existing account journeys unchanged), `test:e2e` smoke passed. The accounts suite covers: sign-in failure/network failure/double activation, sign-up (weak password rejected before any request, one request on double tap), reset generic message, three hostile `next` values staying in-app and a safe one honored, favorites empty/error+retry/full/cap-message, settings and display-name rejection with the value kept, new-restroom submission (name+attestation required, caps and rate limits explained with the form kept, one proposal on double tap, device fix + accuracy sent as separate arguments, no coordinates in the payload, refused without location, no coordinate inputs), correction without any location (one request, pending-correction refusal explained, answers kept), account deletion (disabled until DELETE, failed deletion keeps the account, one delete on double tap, signed out afterwards), forms staying <= 640 px on wide screens, no horizontal scroll at 320 px, one screen-reader-reachable h1 per screen and labeled inputs, public reads never carrying the user token, favorites never carrying coordinates, no non-local request. **Mutation check:** removing the in-flight locks in sign-in, settings, contribution and deletion fails 6 same-tick double-activation checks (64 passed / 6 failed), restored afterwards.
+
+**Finding worth knowing (not a defect introduced here):** the tab navigator keeps visited screens mounted but `aria-hidden`, so a naive DOM count shows two h1s after client-side navigation; screen readers only reach one. The new tests count only headings outside `aria-hidden` screens. R2's detail test counts on a fresh page load, where this does not arise.
+
+**Evidence:** `docs/evidence/r3/` (sign-in confirmation notice, favorites full, contribute form, contribution sent, wide contribute; full-page captures, so the sticky tab bar overlaps the lower part).
+
+**Honest limits:** Chromium only, emulated viewports, no screen-reader run, native iOS/Android and the native Apple/Google sign-in flows not run (Google web PKCE round trip is covered by the existing auth e2e; email confirmation and reset links are only simulated at the "request sent" level, not by opening a real link); roving-focus/keyboard code is web-only; no real backend contacted. `ratingLabel` remains used by cards/tests only.
+
+**Remaining milestone work:** R4 integrated accessibility/responsiveness/state/regression/browser/device verification (including the Leaflet asset note and the native/hardware/screen-reader limits). Not started.
+
+**Exact next action (updated 2026-10-09, R3 delivered)**
+- NEEDS_CHATGPT_REVIEW for R3 (and the R2 provenance copy correction). Do not start R4 before Work accepts. No production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (updated 2026-10-09, R3 in progress)**
+- WORKING on R3.
 
 **(Superseded) Exact next action (updated 2026-10-09, R2 delivered)**
 - NEEDS_CHATGPT_REVIEW for R2. Do not start R3 before Work accepts. No production action, deployment, merge or cost.
