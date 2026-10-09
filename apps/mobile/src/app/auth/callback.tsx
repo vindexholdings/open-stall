@@ -1,10 +1,10 @@
 import { safeNextPath } from '@open-stall/domain';
-import { colors, typography } from '@open-stall/ui';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text } from 'react-native';
+import { Platform } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { SecondaryButton } from '../../components/SecondaryButton';
+import { StatusBanner } from '../../components/StatusBanner';
 import { useAuth } from '../../auth/AuthProvider';
 import { completeAuthCallback } from '../../auth/authService';
 
@@ -44,20 +44,15 @@ export default function AuthCallback() {
   }, [status]);
 
   return (
-    <Screen title="Signing you in">
+    <Screen title="Signing you in" form>
       {shown ? (
-        <>
-          <Text style={styles.error} accessibilityRole="alert">{shown}</Text>
+        <StatusBanner tone="danger" urgent title={shown} message="Try signing in again. If it keeps failing, request a new link from the sign-in screen.">
           <SecondaryButton label="Back to sign in" onPress={() => router.replace('/auth/sign-in')} />
-        </>
+        </StatusBanner>
       ) : (
-        <Text style={styles.body} accessibilityLiveRegion="polite">One moment…</Text>
+        <StatusBanner tone="info" title="One moment…" message="Finishing sign-in." />
       )}
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  body: { ...typography.body, color: colors.textMuted },
-  error: { ...typography.body, color: colors.status.danger.fg },
-});

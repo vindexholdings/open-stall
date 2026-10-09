@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio } from './contrast';
-import { breakpoints, colors, focusRing, layoutFor, tones, touchTarget } from './tokens';
+import { breakpoints, colors, focusRing, layout, layoutFor, tones, touchTarget } from './tokens';
 
 const AA = 4.5;
 
@@ -42,6 +42,10 @@ describe('tokens meet WCAG AA', () => {
 });
 
 describe('R1 layout and focus tokens', () => {
+  it('keeps form columns narrower than the page column and at least phone width', () => {
+    expect(layout.formMaxWidth).toBeLessThan(layout.maxContentWidth);
+    expect(layout.formMaxWidth).toBeGreaterThanOrEqual(360);
+  });
   it('chooses wide layout from the breakpoint up', () => {
     expect(layoutFor(breakpoints.wide - 1)).toBe('narrow');
     expect(layoutFor(breakpoints.wide)).toBe('wide');

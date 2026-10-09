@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { communityRatingDetail, communityRatingText, describeFacts, factMark, provenanceNotes, hoursLabel, quickFacts, ratingLabel, verificationBadge } from './facts';
+import { communityRatingDetail, communityRatingText, describeFacts, factMark, provenanceNotes, hoursLabel, quickFacts, ratingLabel, UNVERIFIED_EXPLANATION, verificationBadge } from './facts';
 import type { PublicLocation } from './publicLocation';
 
 const loc = { keyRequired: true, purchaseRequired: false, wheelchairAccessible: null, feeRequired: true } as PublicLocation;
@@ -78,5 +78,11 @@ describe('detail presentation (R2)', () => {
     expect(unverified.at(-1)).toBe('© Contributors');
     for (const n of [verified, unverified]) expect(n.join(' ')).toMatch(/“Not reported” are unknown/);
     expect(verified.join(' ')).not.toMatch(/community/i);
+    // No blanket source claim: without attribution nothing says where the details came from.
+    for (const l of [{ verification: 'verified' as const, lastVerifiedAt: null, attribution: null }, { verification: 'unverified' as const, lastVerifiedAt: null, attribution: null }]) {
+      expect(provenanceNotes(l).join(' ')).not.toMatch(/public source|openstreetmap|from .* sources/i);
+    }
+    expect(UNVERIFIED_EXPLANATION).not.toMatch(/public source/i);
+    expect(provenanceNotes({ verification: 'verified', lastVerifiedAt: null, attribution: null }).at(-1)).toBe('Details can change. If something here is out of date, tell us.');
   });
 });

@@ -1,13 +1,14 @@
 import { safeNextPath } from '@open-stall/domain';
-import { colors, radii, spacing, typography } from '@open-stall/ui';
+import { colors, radii, typography } from '@open-stall/ui';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, Text } from 'react-native';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { Screen } from '../../components/Screen';
+import { StatusBanner } from '../../components/StatusBanner';
 import { SecondaryButton } from '../../components/SecondaryButton';
 import { TextField } from '../../components/TextField';
 import { useAuth } from '../../auth/AuthProvider';
@@ -18,7 +19,7 @@ import {
 WebBrowser.maybeCompleteAuthSession();
 
 type Mode = 'sign-in' | 'sign-up';
-type Notice = { kind: 'error' | 'info'; text: string } | null;
+type Notice = { kind: 'error' | 'info'; title: string; message?: string } | null;
 
 export default function SignInScreen() {
   const { client, status, redirectUrl } = useAuth();
@@ -32,6 +33,7 @@ export default function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const running = useRef(false); // synchronous lock: a double tap must not start two sign-ins
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
@@ -45,20 +47,29 @@ export default function SignInScreen() {
 
   if (status === 'unavailable' || !client) {
     return (
-      <Screen title="Sign in">
-        <Text style={styles.body}>Accounts aren’t available in this build. You can still find restrooms without signing in.</Text>
-        <SecondaryButton label="Back to restrooms" onPress={() => router.replace('/')} />
+      <Screen title="Sign in" form>
+        <StatusBanner tone="info" title="Accounts aren’t available in this build." message="You can still find restrooms without signing in.">
+          <SecondaryButton label="Back to restrooms" onPress={() => router.replace('/')} />
+        </StatusBanner>
       </Screen>
     );
   }
 
   async function run(action: () => Promise<Result<object>>, onOk?: (r: Result<object>) => void) {
+    if (running.current) return;
+    running.current = true;
     setBusy(true);
     setNotice(null);
-    const r = await action();
-    setBusy(false);
-    if (r.ok) onOk?.(r);
-    else if (!r.cancelled) setNotice({ kind: 'error', text: r.message });
+    try {
+      const r = await action();
+      if (r.ok) onOk?.(r);
+      else if (!r.cancelled) setNotice({ kind: 'error', title: r.message });
+    } catch {
+      setNotice({ kind: 'error', title: 'Something went wrong. Please try again.' });
+    } finally {
+      running.current = false;
+      setBusy(false);
+    }
   }
 
   const submit = () =>
@@ -66,7 +77,7 @@ export default function SignInScreen() {
       () => (mode === 'sign-in' ? signInWithEmail(client, email, password) : signUpWithEmail(client, email, password, redirectUrl)),
       (r) => {
         if ('needsEmailConfirmation' in r && r.needsEmailConfirmation) {
-          setNotice({ kind: 'info', text: 'Almost done: we sent a confirmation link. Open it on this device, then sign in.' });
+          setNotice({ kind: 'info', title: 'Almost done', message: 'We sent a confirmation link. Open it on this device, then sign in.' });
           setMode('sign-in');
           setPassword('');
         }
@@ -75,7 +86,7 @@ export default function SignInScreen() {
 
   const forgot = () =>
     run(() => requestPasswordReset(client, email, redirectUrl), () =>
-      setNotice({ kind: 'info', text: 'If that email has an account, we sent a reset link. Check your inbox.' }),
+      setNotice({ kind: 'info', title: 'Check your inbox', message: 'If that email has an account, we sent a reset link.' }),
     );
 
   const google = () =>
@@ -99,16 +110,12 @@ export default function SignInScreen() {
     );
 
   return (
-    <Screen title={mode === 'sign-in' ? 'Sign in' : 'Create account'}>
+    <Screen title={mode === 'sign-in' ? 'Sign in' : 'Create account'} form>
       <Text style={styles.body}>
         An account lets you save favorites and contribute. You never need one to find a restroom.
       </Text>
 
-      {notice ? (
-        <View style={[styles.notice, notice.kind === 'error' ? styles.error : styles.info]} accessibilityRole="alert" accessibilityLiveRegion="polite">
-          <Text style={notice.kind === 'error' ? styles.errorText : styles.infoText}>{notice.text}</Text>
-        </View>
-      ) : null}
+      {notice ? <StatusBanner tone={notice.kind === 'error' ? 'danger' : 'success'} urgent={notice.kind === 'error'} title={notice.title} message={notice.message} /> : null}
 
       <TextField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" returnKeyType="next" />
       <TextField
@@ -150,10 +157,5 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   body: { ...typography.body, color: colors.textMuted },
   divider: { ...typography.label, color: colors.textMuted, textAlign: 'center' },
-  notice: { padding: spacing.md, borderRadius: radii.md, borderWidth: 1 },
-  error: { backgroundColor: colors.status.danger.bg, borderColor: colors.status.danger.fg },
-  info: { backgroundColor: colors.status.verified.bg, borderColor: colors.status.verified.fg },
-  errorText: { ...typography.body, color: colors.status.danger.fg },
-  infoText: { ...typography.body, color: colors.status.verified.fg },
   apple: { height: 56, width: '100%' },
 });

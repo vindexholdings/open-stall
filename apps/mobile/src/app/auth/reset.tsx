@@ -1,10 +1,9 @@
-import { colors, typography } from '@open-stall/ui';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { useRef, useState } from 'react';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { Screen } from '../../components/Screen';
 import { SecondaryButton } from '../../components/SecondaryButton';
+import { StatusBanner } from '../../components/StatusBanner';
 import { TextField } from '../../components/TextField';
 import { useAuth } from '../../auth/AuthProvider';
 import { setNewPassword } from '../../auth/authService';
@@ -16,36 +15,42 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const saving = useRef(false);
 
   if (!client || status !== 'signed-in' || !recovery) {
     return (
-      <Screen title="Reset password">
-        <Text style={styles.body}>Open the reset link from your email to choose a new password.</Text>
-        <SecondaryButton label="Back to sign in" onPress={() => router.replace('/auth/sign-in')} />
+      <Screen title="Reset password" form>
+        <StatusBanner tone="info" title="Open the reset link from your email" message="The link lets you choose a new password. If it has expired, request a new one from the sign-in screen.">
+          <SecondaryButton label="Back to sign in" onPress={() => router.replace('/auth/sign-in')} />
+        </StatusBanner>
       </Screen>
     );
   }
 
   const save = async () => {
+    if (saving.current) return;
+    saving.current = true;
     setBusy(true);
     setError(null);
-    const r = await setNewPassword(client, password);
-    setBusy(false);
-    if (!r.ok) return setError(r.message);
-    clearRecovery();
-    router.replace('/account');
+    try {
+      const r = await setNewPassword(client, password);
+      if (!r.ok) return setError(r.message);
+      clearRecovery();
+      router.replace('/account');
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      saving.current = false;
+      setBusy(false);
+    }
   };
 
   return (
-    <Screen title="Choose a new password">
-      {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
+    <Screen title="Choose a new password" form>
+      {error ? <StatusBanner tone="danger" urgent title={error} /> : null}
       <TextField label="New password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" textContentType="newPassword" hint="At least 8 characters." onSubmitEditing={() => void save()} />
       <PrimaryButton label={busy ? 'Saving…' : 'Save new password'} onPress={() => void save()} disabled={busy} />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  body: { ...typography.body, color: colors.textMuted },
-  error: { ...typography.body, color: colors.status.danger.fg },
-});

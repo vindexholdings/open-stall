@@ -5,23 +5,27 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 type Props = Pick<TextInputProps, 'value' | 'onChangeText' | 'keyboardType' | 'autoComplete' | 'textContentType' | 'secureTextEntry' | 'returnKeyType' | 'onSubmitEditing' | 'multiline' | 'maxLength' | 'autoCapitalize'> & {
   label: string;
   hint?: string;
+  /** Field-level problem: shown under the field, announced, and marks the input invalid. */
+  error?: string | null;
 };
 
 /** Labelled input: the label is also the accessibility label so screen readers announce it. */
-export function TextField({ label, hint, autoCapitalize = 'none', multiline, ...input }: Props) {
+export function TextField({ label, hint, error, autoCapitalize = 'none', multiline, ...input }: Props) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         {...input}
         accessibilityLabel={label}
-        accessibilityHint={hint}
+        accessibilityHint={error ? `${error}${hint ? ` ${hint}` : ''}` : hint}
+        aria-invalid={error ? true : undefined}
         autoCapitalize={autoCapitalize}
         multiline={multiline}
         autoCorrect={false}
         placeholderTextColor={colors.textMuted}
-        style={[styles.input, multiline && styles.multiline]}
+        style={[styles.input, multiline && styles.multiline, error ? styles.invalid : null]}
       />
+      {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>
   );
@@ -40,6 +44,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: typography.body.fontSize,
   },
+  invalid: { borderColor: colors.status.danger.fg, borderWidth: 2 },
+  error: { ...typography.label, color: colors.status.danger.fg },
   multiline: { minHeight: 96, paddingVertical: spacing.sm, textAlignVertical: 'top' },
   hint: { ...typography.label, fontWeight: '400', color: colors.textMuted },
 });

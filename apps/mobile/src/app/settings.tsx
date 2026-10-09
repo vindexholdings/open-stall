@@ -1,11 +1,11 @@
 import { TRANSPORT_MODES, validateDisplayName, type DisplayMode, type TransportMode } from '@open-stall/domain';
-import { colors, spacing, typography } from '@open-stall/ui';
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
 import { usePreferences } from '../account/preferences';
 import { RadioGroup } from '../components/RadioGroup';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
+import { Section } from '../components/Section';
+import { StatusBanner } from '../components/StatusBanner';
 import { TextField } from '../components/TextField';
 
 const MODES: { key: DisplayMode; label: string; hint: string }[] = [
@@ -19,70 +19,75 @@ export default function SettingsScreen() {
   const [draft, setName] = useState<string | null>(null);
   const name = draft ?? prefs.displayName ?? '';
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const inFlight = useRef(false); // synchronous lock: one save at a time
 
   const run = async (next: typeof prefs) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setMessage(null);
-    const err = await update(next);
-    if (err) setMessage({ text: err, error: true });
+    try {
+      const err = await update(next);
+      setMessage(err ? { text: err, error: true } : { text: 'Saved.', error: false });
+    } finally {
+      inFlight.current = false;
+    }
   };
 
   const saveName = async () => {
+    if (inFlight.current) return;
     const trimmed = name.trim();
     const bad = trimmed === '' ? null : validateDisplayName(trimmed);
-    if (bad) return setMessage({ text: bad, error: true });
+    setNameError(bad);
+    if (bad) return;
+    inFlight.current = true;
     setSaving(true);
     setMessage(null);
-    const err = await update({ ...prefs, displayName: trimmed === '' ? null : trimmed });
-    setSaving(false);
-    if (!err) setName(null);
-    setMessage(err ? { text: err, error: true } : { text: 'Saved.', error: false });
+    try {
+      const err = await update({ ...prefs, displayName: trimmed === '' ? null : trimmed });
+      if (!err) setName(null);
+      setMessage(err ? { text: err, error: true } : { text: 'Saved.', error: false });
+    } finally {
+      inFlight.current = false;
+      setSaving(false);
+    }
   };
 
   return (
-    <Screen title="Settings">
-      <View style={styles.group}>
-        <Text accessibilityRole="header" style={styles.heading}>Display style</Text>
+    <Screen title="Settings" form>
+      {message ? (
+        <StatusBanner tone={message.error ? 'danger' : 'success'} urgent={message.error} title={message.text} />
+      ) : null}
+
+      <Section title="Display style" hint={MODES.find((m) => m.key === prefs.mode)!.hint}>
         <RadioGroup
           label="Display style"
           options={MODES.map((m) => ({ value: m.key, label: m.label }))}
           value={prefs.mode}
           onChange={(mode) => void run({ ...prefs, mode })}
         />
-        <Text style={styles.hint}>{MODES.find((m) => m.key === prefs.mode)!.hint}</Text>
-      </View>
+      </Section>
 
-      <View style={styles.group}>
-        <Text accessibilityRole="header" style={styles.heading}>Usual way of getting around</Text>
+      <Section title="Usual way of getting around" hint="Used as the starting choice for directions.">
         <RadioGroup
           label="Usual way of getting around"
           options={TRANSPORT_MODES.map((t) => ({ value: t, label: TRANSPORT_LABEL[t] }))}
           value={prefs.transport}
           onChange={(transport) => void run({ ...prefs, transport })}
         />
-        <Text style={styles.hint}>Used as the starting choice for directions.</Text>
-      </View>
+      </Section>
 
       {signedIn ? (
-        <View style={styles.group}>
-          <Text accessibilityRole="header" style={styles.heading}>Display name</Text>
-          <TextField label="Display name (optional)" value={name} onChangeText={setName} autoCapitalize="words" maxLength={30}
+        <Section title="Display name">
+          <TextField label="Display name (optional)" value={name} onChangeText={(v) => { setName(v); setNameError(null); }} autoCapitalize="words" maxLength={30}
+            error={nameError}
             hint="May be shown publicly later (for example on leaderboards). Don’t use your real name or email." />
           <PrimaryButton label={saving ? 'Saving…' : 'Save display name'} disabled={saving} onPress={() => void saveName()} />
-        </View>
+        </Section>
       ) : (
-        <Text style={styles.hint}>These settings are saved on this device. Sign in to keep them across devices and set a display name.</Text>
+        <StatusBanner tone="info" title="Saved on this device" message="Sign in to keep these settings across devices and to set a display name." />
       )}
-      {message ? <Text style={message.error ? styles.error : styles.ok} accessibilityRole={message.error ? 'alert' : undefined} accessibilityLiveRegion="polite">{message.text}</Text> : null}
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  group: { gap: spacing.sm },
-  heading: { ...typography.heading, color: colors.text },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  hint: { ...typography.label, fontWeight: '400', color: colors.textMuted },
-  error: { ...typography.body, color: colors.status.danger.fg },
-  ok: { ...typography.body, color: colors.text },
-});

@@ -1,7 +1,7 @@
 import { ATTESTATION_TEXT, EMPTY_DRAFT, buildProposal, fixProblem, type LocationDraft, type LocationFix } from '@open-stall/domain';
-import { colors, radii, spacing, typography } from '@open-stall/ui';
-import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { colors, spacing, typography } from '@open-stall/ui';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { submitEdit, submitNewLocation } from '../account/api';
 import { useAuth } from '../auth/AuthProvider';
@@ -10,7 +10,9 @@ import { Chip } from '../components/Chip';
 import { RadioGroup } from '../components/RadioGroup';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Screen } from '../components/Screen';
+import { Section } from '../components/Section';
 import { SecondaryButton } from '../components/SecondaryButton';
+import { StatusBanner } from '../components/StatusBanner';
 import { TextField } from '../components/TextField';
 import { getCurrentFix } from '../location/currentFix';
 
@@ -32,6 +34,8 @@ function TriField({ label, value, onChange }: { label: string; value: Tri; onCha
 
 function Form({ editId, editName }: { editId: string | null; editName: string | null }) {
   const { rpc } = useAuth();
+  const router = useRouter();
+  const sending = useRef(false); // synchronous lock: a double tap must never send two proposals
   const [d, setD] = useState<LocationDraft>(EMPTY_DRAFT);
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -42,11 +46,14 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
 
   if (done) {
     return (
-      <View style={styles.stack} accessibilityLiveRegion="polite">
-        <Text style={styles.body}>
-          {`Thank you. Your ${isEdit ? 'suggestion' : 'restroom'} was sent for review. It won’t appear to others until a person has checked it.`}
-        </Text>
-      </View>
+      <StatusBanner
+        tone="success"
+        title="Thank you."
+        message={`Your ${isEdit ? 'suggestion' : 'restroom'} was sent for review. It won’t appear to others until a person has checked it.`}
+      >
+        {isEdit ? <SecondaryButton label="Back to the restroom" onPress={() => router.replace({ pathname: '/location/[id]', params: { id: editId } })} /> : null}
+        <SecondaryButton label="Back to nearby restrooms" onPress={() => router.replace('/')} />
+      </StatusBanner>
     );
   }
 
@@ -64,32 +71,34 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
   };
 
   const submit = async () => {
-    if (!rpc) return;
-    // New restrooms must use a FRESH fix taken now, so a stale reading from somewhere else can't be sent.
-    let draft = d;
-    if (!isEdit && fixProblem(d.fix) !== null) {
-      setBusy(true);
-      const fresh = await refreshFix();
-      setBusy(false);
-      if (!fresh) return;
-      draft = { ...d, fix: fresh };
-    }
-    const built = buildProposal(draft, isEdit ? 'edit' : 'new');
-    if (!built.ok) return setErrors(built.errors);
-    setErrors([]);
+    if (!rpc || sending.current) return;
+    sending.current = true;
     setBusy(true);
-    if (isEdit) {
-      const r = await submitEdit(rpc, editId, built.proposed, built.note);
+    try {
+      // New restrooms must use a FRESH fix taken now, so a stale reading from somewhere else can't be sent.
+      let draft = d;
+      if (!isEdit && fixProblem(d.fix) !== null) {
+        const fresh = await refreshFix();
+        if (!fresh) return;
+        draft = { ...d, fix: fresh };
+      }
+      const built = buildProposal(draft, isEdit ? 'edit' : 'new');
+      if (!built.ok) return setErrors(built.errors);
+      setErrors([]);
+      const r = isEdit
+        ? await submitEdit(rpc, editId, built.proposed, built.note)
+        : await submitNewLocation(rpc, built.proposed, built.position!, built.note);
+      if (r.ok) setDone(true);
+      else setErrors([r.message]);
+    } catch {
+      setErrors(['Something went wrong. Nothing was sent. Your answers are still here, so you can try again.']);
+    } finally {
+      sending.current = false;
       setBusy(false);
-      return r.ok ? setDone(true) : setErrors([r.message]);
     }
-    const r = await submitNewLocation(rpc, built.proposed, built.position!, built.note);
-    setBusy(false);
-    if (r.ok) setDone(true);
-    else setErrors([r.message]);
   };
 
-  const fixStatus = d.fix ? fixProblem(d.fix) ?? `Location ready (about ${Math.round(d.fix.accuracyM)} m accuracy).` : null;
+  const fixMessage = d.fix ? fixProblem(d.fix) : null;
 
   return (
     <View style={styles.stack}>
@@ -98,48 +107,61 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
           ? `Only fill in what should change for ${editName ?? 'this restroom'}. Leave the rest blank.`
           : 'Stand at the restroom to add it. We use your device location once to place it on the map, and we don’t keep a history of where you’ve been. Every submission is reviewed before it is shown.'}
       </Text>
-      <TextField label={isEdit ? 'Name (if wrong)' : 'Name of the place'} value={d.name} onChangeText={(v) => set('name', v)} autoCapitalize="words" maxLength={120} />
-      <TextField label="Street address (optional)" value={d.addressLine} onChangeText={(v) => set('addressLine', v)} autoCapitalize="words" maxLength={300} />
-      <TextField label="City (optional)" value={d.city} onChangeText={(v) => set('city', v)} autoCapitalize="words" maxLength={120} />
-      <TextField label="State (optional)" value={d.region} onChangeText={(v) => set('region', v)} autoCapitalize="characters" maxLength={120} />
-      <TextField label="ZIP code (optional)" value={d.postalCode} onChangeText={(v) => set('postalCode', v)} maxLength={20} />
-      <TextField label="Where inside is it? (optional)" value={d.accessLocation} onChangeText={(v) => set('accessLocation', v)} autoCapitalize="sentences" maxLength={300} />
-      <TextField label="Hours (optional)" value={d.openingHours} onChangeText={(v) => set('openingHours', v)} maxLength={300} hint="For example: Mo-Su 06:00-22:00" />
-      <TriField label="Free to use?" value={d.fee === null ? null : !d.fee} onChange={(v) => set('fee', v === null ? null : !v)} />
-      <TriField label="Need a key or code?" value={d.key} onChange={(v) => set('key', v)} />
-      <TriField label="Must you buy something?" value={d.purchase} onChange={(v) => set('purchase', v)} />
-      <TriField label="Wheelchair accessible?" value={d.wheelchair} onChange={(v) => set('wheelchair', v)} />
-      <TriField label="Gender neutral?" value={d.genderNeutral} onChange={(v) => set('genderNeutral', v)} />
-      <TriField label="Baby changing table?" value={d.babyChanging} onChange={(v) => set('babyChanging', v)} />
 
-      <View style={styles.locationCard}>
-        <Text style={styles.label} accessibilityRole="header">{isEdit ? 'Wrong pin? (optional)' : 'Location'}</Text>
-        {isEdit ? (
-          <Text style={styles.hint}>Only use this if you are standing at the restroom and its pin on the map is wrong.</Text>
-        ) : (
-          <Text style={styles.hint}>The restroom is placed at your current position. You can’t pick a different spot.</Text>
-        )}
+      <Section title="About the place">
+        <TextField label={isEdit ? 'Name (if wrong)' : 'Name of the place'} value={d.name} onChangeText={(v) => set('name', v)} autoCapitalize="words" maxLength={120} />
+        <TextField label="Street address (optional)" value={d.addressLine} onChangeText={(v) => set('addressLine', v)} autoCapitalize="words" maxLength={300} />
+        <TextField label="City (optional)" value={d.city} onChangeText={(v) => set('city', v)} autoCapitalize="words" maxLength={120} />
+        <TextField label="State (optional)" value={d.region} onChangeText={(v) => set('region', v)} autoCapitalize="characters" maxLength={120} />
+        <TextField label="ZIP code (optional)" value={d.postalCode} onChangeText={(v) => set('postalCode', v)} maxLength={20} />
+        <TextField label="Where inside is it? (optional)" value={d.accessLocation} onChangeText={(v) => set('accessLocation', v)} autoCapitalize="sentences" maxLength={300} />
+        <TextField label="Hours (optional)" value={d.openingHours} onChangeText={(v) => set('openingHours', v)} maxLength={300} hint="For example: Mo-Su 06:00-22:00" />
+      </Section>
+
+      <Section title="Access and facilities" hint="“Not sure” is a fine answer. It is saved as unknown, not as “No”.">
+        <TriField label="Free to use?" value={d.fee === null ? null : !d.fee} onChange={(v) => set('fee', v === null ? null : !v)} />
+        <TriField label="Need a key or code?" value={d.key} onChange={(v) => set('key', v)} />
+        <TriField label="Must you buy something?" value={d.purchase} onChange={(v) => set('purchase', v)} />
+        <TriField label="Wheelchair accessible?" value={d.wheelchair} onChange={(v) => set('wheelchair', v)} />
+        <TriField label="Gender neutral?" value={d.genderNeutral} onChange={(v) => set('genderNeutral', v)} />
+        <TriField label="Baby changing table?" value={d.babyChanging} onChange={(v) => set('babyChanging', v)} />
+      </Section>
+
+      <Section
+        title={isEdit ? 'Wrong pin? (optional)' : 'Location'}
+        hint={isEdit
+          ? 'Only use this if you are standing at the restroom and its pin on the map is wrong.'
+          : 'The restroom is placed at your current position. You can’t pick a different spot.'}
+      >
         <SecondaryButton
           label={locating ? 'Getting your location…' : d.fix ? 'Refresh my location' : isEdit ? 'Use my current position for the pin' : 'Use my current location'}
           disabled={locating || busy}
           onPress={() => void refreshFix()}
           accessibilityHint="Uses your device location once. Nothing else is shared."
         />
-        {fixStatus ? <Text style={styles.hint} accessibilityLiveRegion="polite">{fixStatus}</Text> : null}
-      </View>
+        {d.fix ? (
+          fixMessage ? (
+            <StatusBanner tone="warning" title={fixMessage} />
+          ) : (
+            <StatusBanner tone="success" title={`Location ready (about ${Math.round(d.fix.accuracyM)} m accuracy).`} />
+          )
+        ) : null}
+      </Section>
 
-      <TextField label="Note for the reviewer (optional)" value={d.note} onChangeText={(v) => set('note', v)} autoCapitalize="sentences" multiline maxLength={300}
-        hint="No links, emails or phone numbers." />
-
-      <View style={styles.attest} accessibilityRole="alert">
+      <Section title="Before you send">
+        <TextField label="Note for the reviewer (optional)" value={d.note} onChangeText={(v) => set('note', v)} autoCapitalize="sentences" multiline maxLength={300}
+          hint="No links, emails or phone numbers." />
         <Chip label={ATTESTATION_TEXT} selected={d.attestedPublic} onPress={() => set('attestedPublic', !d.attestedPublic)} />
-      </View>
-      {errors.length ? (
-        <View accessibilityRole="alert">
+      </Section>
+
+      {errors.length === 1 ? (
+        <StatusBanner tone="danger" urgent title={errors[0]!} />
+      ) : errors.length > 1 ? (
+        <StatusBanner tone="danger" urgent title="Please check these before sending">
           {errors.map((e) => (
             <Text key={e} style={styles.error}>{e}</Text>
           ))}
-        </View>
+        </StatusBanner>
       ) : null}
       <PrimaryButton label={busy ? 'Sending…' : isEdit ? 'Send suggestion' : 'Add restroom at my current location'} disabled={busy || locating} onPress={() => void submit()} />
     </View>
@@ -151,7 +173,7 @@ export default function ContributeScreen() {
   const editId = typeof p.id === 'string' && /^[0-9a-f-]{36}$/i.test(p.id) ? p.id : null;
   const editName = typeof p.name === 'string' ? p.name.slice(0, 120) : null;
   return (
-    <Screen title={editId ? 'Suggest a correction' : 'Add restroom at my current location'}>
+    <Screen title={editId ? 'Suggest a correction' : 'Add restroom at my current location'} form>
       <RequireAuth reason="Sign in to add or correct restrooms. This helps us keep the map trustworthy." next={editId ? `/contribute?id=${editId}` : '/contribute'}>
         <Form key={editId ?? 'new'} editId={editId} editName={editName} />
       </RequireAuth>
@@ -162,11 +184,7 @@ export default function ContributeScreen() {
 const styles = StyleSheet.create({
   stack: { gap: spacing.md },
   tri: { gap: spacing.xs },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   label: { ...typography.label, color: colors.text },
   body: { ...typography.body, color: colors.text },
-  hint: { ...typography.label, fontWeight: '400', color: colors.textMuted },
   error: { ...typography.body, color: colors.status.danger.fg },
-  locationCard: { gap: spacing.sm, padding: spacing.md, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  attest: { padding: spacing.sm, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
 });

@@ -65,7 +65,7 @@ export const touchTarget = { min: 48, primary: 56 } as const;
  * side by side. `maxContentWidth` keeps line lengths readable on large screens.
  */
 export const breakpoints = { wide: 900 } as const;
-export const layout = { maxContentWidth: 1120, mapMinHeight: 280, mapWideHeight: 560 } as const;
+export const layout = { maxContentWidth: 1120, formMaxWidth: 640, mapMinHeight: 280, mapWideHeight: 560 } as const;
 export type LayoutMode = 'narrow' | 'wide';
 export function layoutFor(width: number): LayoutMode {
   return width >= breakpoints.wide ? 'wide' : 'narrow';

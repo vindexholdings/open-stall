@@ -47,7 +47,7 @@ export function verificationBadge(l: Pick<PublicLocation, 'verification' | 'last
 
 /** Plain-language explanation for Unverified listings, encouraging confirmation. */
 export const UNVERIFIED_EXPLANATION =
-  'Open Stall hasn’t confirmed this restroom yet. It comes from public sources, so access and condition may differ. Been here? Confirming or correcting it will help others once community verification opens.';
+  'Open Stall hasn’t confirmed this restroom yet. Access and condition may differ from what is listed. Been here? Confirming or correcting it will help others once community verification opens.';
 
 export function ratingLabel(average: number | null, count: number): string {
   if (average === null || count === 0) return 'No ratings yet';
@@ -105,7 +105,7 @@ export function provenanceNotes(l: Pick<PublicLocation, 'verification' | 'lastVe
       ? `${badge.label}: Open Stall confirmed this restroom exists. Other details can still change.`
       : 'Unverified: Open Stall has not confirmed this restroom yet.',
     'Facts marked “Not reported” are unknown. They are not the same as “No”.',
-    'Hours and other details come from public sources and may be out of date.',
+    'Details can change. If something here is out of date, tell us.',
   ];
   if (l.attribution) out.push(l.attribution);
   return out;

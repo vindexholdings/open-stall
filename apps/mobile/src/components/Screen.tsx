@@ -3,14 +3,14 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type Props = { title: string; subtitle?: string; children?: ReactNode };
+type Props = { title: string; subtitle?: string; children?: ReactNode; /** Forms and account pages: a narrower, easier-to-read column on large screens. */ form?: boolean };
 
 /** Page frame: scrolls, respects safe areas, and keeps content to a readable width on large screens. */
-export function Screen({ title, subtitle, children }: Props) {
+export function Screen({ title, subtitle, children, form = false }: Props) {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.content}>
+        <View style={[styles.content, form && styles.form]}>
           <View style={styles.header}>
             <Text accessibilityRole="header" aria-level={1} style={styles.title}>
               {title}
@@ -28,6 +28,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { alignItems: 'center' },
   content: { width: '100%', maxWidth: layout.maxContentWidth, padding: spacing.md, gap: spacing.md },
+  form: { maxWidth: layout.formMaxWidth },
   header: { gap: spacing.xs },
   title: { ...typography.title, color: colors.text },
   subtitle: { ...typography.body, color: colors.textMuted },
