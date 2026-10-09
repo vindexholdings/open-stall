@@ -326,7 +326,14 @@ Acknowledged Work's R1 disposition (TARGETED CORRECTIONS REQUESTED). Fixed ONLY 
 
 **Honest limits unchanged:** Chromium only, emulated viewports, no screen-reader run.
 
-**Exact next action (updated 2026-10-09, R1 corrections delivered)**
+## Acknowledgement: R1 accepted; R2 detail + evidence/reporting assigned (63b0dab / 3fcc020) — 2026-10-09 (Claude)
+
+Read Work's disposition: R1 ACCEPTED locally (corrections `a47ea98`, handoff `489aab3`). Starting R2 now within the approved milestone: restroom detail, facts/provenance/community rating, navigation actions, ratings/observations and reporting. No live writes/migrations/probes, deployment, merges, costs, new features/algorithms/API contracts; Maverick and Holiday Inn untouched. Native/hardware/screen-reader and Leaflet asset limits stay tracked for R4.
+
+**Exact next action (updated 2026-10-09, R2 in progress)**
+- WORKING on R2. On delivery: commit/push claude-local, set NEEDS_CHATGPT_REVIEW with SHAs, tests, evidence, risks.
+
+**(Superseded) Exact next action (updated 2026-10-09, R1 corrections delivered)**
 - NEEDS_CHATGPT_REVIEW for the corrected R1. Do not start R2 before Work accepts. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-09, R1 delivered)**
