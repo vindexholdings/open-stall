@@ -215,6 +215,24 @@ export function buildProposal(d: LocationDraft, kind: 'new' | 'edit', now: numbe
 type ErrLike = { message?: string; code?: string; status?: number } | null | undefined;
 
 /** Friendly message for a failed account RPC. Never echoes raw backend text. */
+/**
+ * Whether a failed write may nevertheless have taken effect. A structured server rejection carries a database or
+ * API error `code` and proves the function raised (nothing was stored). A transport failure (no response, dropped
+ * connection, unparseable gateway error) carries no code: the request may have committed before the response was
+ * lost, so the UI must not claim that nothing happened and must never resend automatically.
+ */
+export function isUncertainOutcome(err: ErrLike): boolean {
+  return !(typeof err?.code === 'string' && err.code.length > 0);
+}
+
+/** Truthful copy for a write whose outcome is unknown (see isUncertainOutcome). Never says nothing happened. */
+export function uncertainWriteMessage(what: string): string {
+  return `We couldn’t confirm whether ${what}. We never resend automatically, so check first and then try again if needed.`;
+}
+
+export const UNCERTAIN_DELETE_MESSAGE =
+  'We couldn’t confirm whether your account was deleted. Sign out and try signing in again to check: if you can sign in, it still exists and you can retry; if not, it was deleted.';
+
 export function accountErrorMessage(err: ErrLike): string {
   const code = err?.code ?? '';
   const msg = (err?.message ?? '').toLowerCase();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  EMPTY_DRAFT, accountErrorMessage, buildProposal, fixProblem, sanitizePreferences, toggleObservation, validateDisplayName,
+  EMPTY_DRAFT, accountErrorMessage, buildProposal, isUncertainOutcome, uncertainWriteMessage, UNCERTAIN_DELETE_MESSAGE, fixProblem, sanitizePreferences, toggleObservation, validateDisplayName,
   validateFreeText, validateRating, validateReport, looksResidential, ratingChoiceLabel, type LocationDraft, type LocationFix,
 } from './account';
 
@@ -126,5 +126,25 @@ describe('preferences and errors', () => {
     expect(accountErrorMessage({ code: '22023', message: 'current location required' })).toMatch(/current location/);
     expect(accountErrorMessage({ code: '54000', message: 'submissions paused' })).toMatch(/paused/);
     expect(accountErrorMessage({ message: 'SELECT secret_table violates' })).toBe('Something went wrong. Please try again.');
+  });
+});
+
+describe('uncertain write outcomes (R3 correction)', () => {
+  it('treats a structured server error code as a confirmed rejection', () => {
+    for (const code of ['53400', '54000', '22023', '28000', 'PGRST301', '42501']) expect(isUncertainOutcome({ code, message: 'x' })).toBe(false);
+  });
+  it('never claims that nothing happened when the outcome is unknown', () => {
+    for (const m of [uncertainWriteMessage('your report was sent'), UNCERTAIN_DELETE_MESSAGE]) {
+      expect(m).toMatch(/couldn’t confirm/);
+      expect(m).not.toMatch(/nothing (was|is)|wasn’t (sent|saved|deleted)|not (sent|saved|deleted)/i);
+    }
+    expect(uncertainWriteMessage('your report was sent')).toMatch(/never resend automatically/);
+  });
+  it('treats errors without a server code (transport failures, gateway errors) as uncertain', () => {
+    expect(isUncertainOutcome({ message: 'TypeError: Failed to fetch' })).toBe(true);
+    expect(isUncertainOutcome({ code: '', message: 'Failed to fetch' })).toBe(true);
+    expect(isUncertainOutcome({ message: 'boom', status: 502 })).toBe(true);
+    expect(isUncertainOutcome(null)).toBe(true);
+    expect(isUncertainOutcome(undefined)).toBe(true);
   });
 });

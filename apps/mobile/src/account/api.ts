@@ -1,5 +1,6 @@
 import {
   accountErrorMessage,
+  isUncertainOutcome,
   sanitizePreferences,
   toPublicLocation,
   type ObservationKey,
@@ -15,15 +16,16 @@ export interface RpcClientLike {
   rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: ErrLike }>;
 }
 
-export type Outcome<T = object> = ({ ok: true } & T) | { ok: false; message: string };
+/** `uncertain`: a transport failure, so the write may have succeeded. Never claim that nothing happened, never retry automatically. */
+export type Outcome<T = object> = ({ ok: true } & T) | { ok: false; message: string; uncertain?: boolean };
 
 async function call(c: RpcClientLike, fn: string, args?: Record<string, unknown>): Promise<Outcome<{ data: unknown }>> {
   try {
     const { data, error } = await c.rpc(fn, args);
-    if (error) return { ok: false, message: accountErrorMessage(error) };
+    if (error) return { ok: false, message: accountErrorMessage(error), uncertain: isUncertainOutcome(error) };
     return { ok: true, data };
   } catch (e) {
-    return { ok: false, message: accountErrorMessage({ message: e instanceof Error ? e.message : String(e) }) };
+    return { ok: false, message: accountErrorMessage({ message: e instanceof Error ? e.message : String(e) }), uncertain: true };
   }
 }
 

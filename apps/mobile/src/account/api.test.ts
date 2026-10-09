@@ -61,6 +61,18 @@ describe('account api', () => {
     const boom: RpcClientLike = { rpc: () => Promise.reject(new Error('Network request failed')) };
     expect(await checkIn(boom, ID, { latitude: 0, longitude: 0 })).toMatchObject({ ok: false, message: expect.stringMatching(/reach the server/) });
     const leak = await submitReport(err({ code: 'XX000', message: 'relation "public.reports" internal detail' }), ID, 'other', '');
-    expect(leak).toEqual({ ok: false, message: 'Something went wrong. Please try again.' });
+    expect(leak).toEqual({ ok: false, message: 'Something went wrong. Please try again.', uncertain: false });
+  });
+});
+
+describe('uncertain outcomes (R3 correction)', () => {
+  it('marks a lost response as uncertain and a coded server rejection as certain', async () => {
+    const lost = await submitReport({ rpc: vi.fn(async () => ({ data: null, error: { message: 'TypeError: Failed to fetch' } })) }, ID, 'closed', '');
+    expect(lost).toMatchObject({ ok: false, uncertain: true });
+    const thrown = await submitReport({ rpc: vi.fn(async () => { throw new Error('socket hang up'); }) }, ID, 'closed', '');
+    expect(thrown).toMatchObject({ ok: false, uncertain: true });
+    const rejected = await submitReport(err({ code: '54000', message: 'rate limit' }), ID, 'closed', '');
+    expect(rejected).toMatchObject({ ok: false, uncertain: false });
+    expect(await submitReport(ok(null), ID, 'closed', '')).toEqual({ ok: true });
   });
 });

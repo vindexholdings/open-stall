@@ -1,4 +1,4 @@
-import { DELETE_CONFIRMATION } from '@open-stall/domain';
+import { DELETE_CONFIRMATION, UNCERTAIN_DELETE_MESSAGE } from '@open-stall/domain';
 import { colors, spacing, typography } from '@open-stall/ui';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -17,26 +17,46 @@ export default function AccountScreen() {
   const { status, email, client, rpc } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [deletedNotice, setDeletedNotice] = useState(false);
+  const [uncertainDelete, setUncertainDelete] = useState(false);
+  const [deletedNotice, setDeletedNotice] = useState(false); // the server CONFIRMED the deletion
+  const [cleanupProblem, setCleanupProblem] = useState(false); // ...but clearing this device's session failed
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [typed, setTyped] = useState('');
   const [deleting, setDeleting] = useState(false);
   const inFlight = useRef(false); // synchronous lock: one deletion request at a time
+
+  const clearSession = async () => {
+    if (!client) return;
+    let ok = false;
+    try {
+      ok = (await signOut(client)).ok; // the session is already invalid server-side; this clears it locally
+    } catch {
+      ok = false;
+    }
+    setCleanupProblem(!ok);
+  };
 
   const doDelete = async () => {
     if (!rpc || !client || inFlight.current) return;
     inFlight.current = true;
     setDeleting(true);
     setError(null);
+    setUncertainDelete(false);
     try {
       const r = await deleteAccount(rpc);
-      if (!r.ok) return setError(r.message);
+      if (!r.ok) {
+        // A coded server rejection proves nothing was deleted; a transport failure proves nothing either way.
+        if (r.uncertain) setUncertainDelete(true);
+        else setError(r.message);
+        return;
+      }
+      // Confirmed. From here on the deletion stays confirmed even if local clean-up trouble follows.
       setDeletedNotice(true);
-      await signOut(client); // the session is already invalid server-side; this clears it locally
       setConfirmingDelete(false);
       setTyped('');
+      await clearSession();
     } catch {
-      setError('Something went wrong. Nothing was deleted. Please try again.');
+      setUncertainDelete(true);
     } finally {
       inFlight.current = false;
       setDeleting(false);
@@ -50,8 +70,13 @@ export default function AccountScreen() {
         <StatusBanner tone="info" title="Accounts aren’t available in this build." message="Finding restrooms works without one." />
       ) : null}
 
-      {deletedNotice && status !== 'signed-in' ? (
+      {deletedNotice ? (
         <StatusBanner tone="success" title="Your account was deleted." message="Restrooms stay on the map. You can still find restrooms without an account." />
+      ) : null}
+      {deletedNotice && cleanupProblem && status === 'signed-in' ? (
+        <StatusBanner tone="warning" urgent title="This device is still signed in" message="Your account is gone, but we couldn’t clear the session on this device. Try signing out again, or close and reopen the app.">
+          <SecondaryButton label="Sign out of this device" onPress={() => void clearSession()} />
+        </StatusBanner>
       ) : null}
 
       {status === 'signed-out' ? (
@@ -60,9 +85,10 @@ export default function AccountScreen() {
         </StatusBanner>
       ) : null}
 
-      {status === 'signed-in' ? (
+      {status === 'signed-in' && !deletedNotice ? (
         <>
           {error ? <StatusBanner tone="danger" urgent title={error} /> : null}
+          {uncertainDelete ? <StatusBanner tone="warning" urgent title="Not confirmed" message={UNCERTAIN_DELETE_MESSAGE} /> : null}
           <Section title="Your account">
             <Text style={styles.body} accessibilityLabel={`Signed in as ${email ?? 'your account'}`}>Signed in as {email ?? 'your account'}</Text>
             <Text style={styles.hint}>Your email is private. It is never shown to other people.</Text>

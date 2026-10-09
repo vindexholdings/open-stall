@@ -38,7 +38,7 @@ export default function ResetPassword() {
       clearRecovery();
       router.replace('/account');
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError('We couldn’t confirm that your new password was saved. Try signing in with it; if that doesn’t work, request a new reset link.');
     } finally {
       saving.current = false;
       setBusy(false);

@@ -50,10 +50,11 @@ const ROWS = {
 const acct = { reviews: 0, reports: [], favoritesAdds: 0, favorite: false, review: null, checkins: 0 };
 let fail = 'none'; // none | server | auth  (applies to write functions)
 let delay = 0;
+let lose = null; // { fn, times }: the mutation IS recorded, but the response is lost (socket destroyed)
 const requests = [];
 const mock = createServer(async (req, res) => {
   const u = new URL(req.url, `http://127.0.0.1:${MOCK_PORT}`);
-  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+  const cors = { connection: 'close', 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
   if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
   let body = ''; for await (const c of req) body += c;
   const data = body ? JSON.parse(body) : {};
@@ -75,14 +76,16 @@ const mock = createServer(async (req, res) => {
     const write = ['add_favorite', 'remove_favorite', 'submit_review', 'delete_my_review', 'submit_report', 'check_in'].includes(fn);
     if (write && fail === 'server') return json(500, { message: 'internal error' });
     if (write && fail === 'auth') return json(401, { code: 'PGRST301', message: 'JWT expired' });
-    if (fn === 'list_my_favorites') return json(200, acct.favorite ? [ROWS[RICH]] : []);
-    if (fn === 'add_favorite') { acct.favoritesAdds++; acct.favorite = true; return json(200, { added: true, count: 1, limit: 5 }); }
-    if (fn === 'remove_favorite') { acct.favorite = false; return json(200, null); }
-    if (fn === 'get_my_review') return json(200, acct.review);
-    if (fn === 'submit_review') { acct.reviews++; acct.review = { rating: data.p_rating, mode: data.p_mode, observations: data.p_observations }; return json(200, { rating: data.p_rating }); }
-    if (fn === 'delete_my_review') { acct.review = null; return json(200, null); }
-    if (fn === 'submit_report') { acct.reports.push(data); return json(200, null); }
-    if (fn === 'check_in') { acct.checkins++; return json(200, { checkin_id: 'c1' }); }
+    const lost = lose && lose.fn === fn && lose.times > 0 && (lose.times--, true);
+    const reply = lost ? () => req.socket.destroy() : json;
+    if (fn === 'list_my_favorites') return reply(200, acct.favorite ? [ROWS[RICH]] : []);
+    if (fn === 'add_favorite') { acct.favoritesAdds++; acct.favorite = true; return reply(200, { added: true, count: 1, limit: 5 }); }
+    if (fn === 'remove_favorite') { acct.favorite = false; return reply(200, null); }
+    if (fn === 'get_my_review') return reply(200, acct.review);
+    if (fn === 'submit_review') { acct.reviews++; acct.review = { rating: data.p_rating, mode: data.p_mode, observations: data.p_observations }; return reply(200, { rating: data.p_rating }); }
+    if (fn === 'delete_my_review') { acct.review = null; return reply(200, null); }
+    if (fn === 'submit_report') { acct.reports.push(data); return reply(200, null); }
+    if (fn === 'check_in') { acct.checkins++; return reply(200, { checkin_id: 'c1' }); }
     if (fn === 'get_my_profile') return json(200, [{ display_name: null, preferred_mode: 'plain', default_transport: 'walk', points_balance: 0 }]);
   }
   return json(404, { msg: 'not mocked' });
@@ -129,7 +132,6 @@ const newPage = async ({ width = 390, height = 844 } = {}) => {
   return { ctx, page };
 };
 const text = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
-const gone = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'hidden', timeout: 3000 }).then(() => true, () => false);
 const button = (page, name) => page.getByRole('button', { name, exact: true });
 const headings = (page) => page.locator('[role="heading"]').allInnerTexts();
 /** Activates a button twice within one JS task, before React can re-render it as disabled. */
@@ -272,7 +274,7 @@ try {
     await button(page, 'Save rating').click();
     check((await page.getByRole('alert').filter({ hasText: /./ }).first().waitFor({ state: 'visible' }).then(() => true, () => false)), 'a server failure on rating is announced');
     check(acct.reviews === 0 && (await button(page, 'Save rating').isEnabled()), 'a failed save writes nothing and can be retried');
-    check((await page.getByText('Your rating was saved.').count()) === 0, 'no success message after a failure');
+    check((await page.getByText('Thanks. Your rating was saved.').count()) === 0, 'no success message after a failure');
     fail = 'auth';
     await button(page, 'Save rating').click();
     check((await page.getByRole('alert').first().waitFor({ state: 'visible' }).then(() => true, () => false)) && acct.reviews === 0, 'an expired session is reported and nothing is written');
@@ -281,7 +283,7 @@ try {
     delay = 500;
     await page.getByRole('checkbox', { name: 'Clean', exact: true }).click();
     await doubleActivate(page, 'Save rating');
-    check(await text(page, 'Your rating was saved.'), 'the rating saves once the server recovers');
+    check(await text(page, 'Thanks. Your rating was saved.'), 'the rating saves once the server recovers');
     check(acct.reviews === 1, 'a same-tick double activation sends exactly one rating', `${acct.reviews}`);
     check(acct.review?.rating === 4 && acct.review.observations.join() === 'clean', 'the rating and observation are what the user picked');
 
@@ -293,6 +295,33 @@ try {
     await button(page, 'I’m here: check in').click();
     check(await text(page, 'Checked in. Thanks!') && acct.checkins === 1, 'check-in works with location granted');
     await page.screenshot({ path: join(SHOTS, 'narrow-3-detail-signed-in.png'), fullPage: true });
+    await ctx.close();
+  }
+
+  // 6b. Lost responses: the server RECORDED the write but the answer never arrived
+  {
+    acct.favorite = false; acct.review = null;
+    const { ctx, page } = await newPage();
+    await signIn(page, `/location/${RICH}`);
+    await text(page, 'Save to favorites');
+    // rating
+    await page.getByRole('radio', { name: '2 stars', exact: true }).click();
+    const rev0 = acct.reviews; const rq0 = count('/submit_review');
+    lose = { fn: 'submit_review', times: 1 };
+    await page.getByRole('button', { name: /^(Save rating|Update my rating)$/ }).click();
+    check(await page.getByRole('alert').filter({ hasText: /couldn’t confirm whether your rating was saved/ }).first().waitFor({ state: 'visible' }).then(() => true, () => false), 'a lost rating response is reported as unconfirmed');
+    check(acct.reviews === rev0 + 1, 'the mock really did record the rating');
+    await page.waitForTimeout(1200);
+    check(count('/submit_review') === rq0 + 1, 'no automatic retry of the rating', `${count('/submit_review') - rq0}`);
+    check((await page.getByText('Thanks. Your rating was saved.').count()) === 0 && !/nothing was saved/i.test(await page.locator('body').innerText()), 'no success claim and no "nothing was saved" claim');
+    check((await page.getByRole('radio', { name: '2 stars', exact: true }).getAttribute('aria-checked')) === 'true', 'the chosen rating stays selected');
+    // favorite
+    const fq0 = count('/add_favorite');
+    lose = { fn: 'add_favorite', times: 1 };
+    await button(page, 'Save to favorites').click();
+    check(await page.getByRole('alert').filter({ hasText: /couldn’t confirm whether your favorite was saved/ }).first().waitFor({ state: 'visible' }).then(() => true, () => false), 'a lost favorite response is reported as unconfirmed');
+    await page.waitForTimeout(1200);
+    check(count('/add_favorite') === fq0 + 1, 'no automatic retry of the favorite');
     await ctx.close();
   }
 
@@ -316,6 +345,16 @@ try {
     await button(page, 'Send report').click();
     check((await page.getByRole('alert').first().waitFor({ state: 'visible' }).then(() => true, () => false)) && acct.reports.length === 0, 'a server failure keeps the form and sends nothing');
     check((await page.getByLabel('Add a note (optional)', { exact: true }).inputValue()).includes('wrong side'), 'the typed note survives a failed send');
+    fail = 'none';
+    const rep0 = acct.reports.length; const rpq0 = count('/submit_report');
+    lose = { fn: 'submit_report', times: 1 };
+    await button(page, 'Send report').click();
+    check(await page.getByRole('alert').filter({ hasText: /couldn’t confirm whether your report was sent/ }).first().waitFor({ state: 'visible' }).then(() => true, () => false), 'a lost report response is reported as unconfirmed');
+    check(acct.reports.length === rep0 + 1, 'the mock really did record the report');
+    await page.waitForTimeout(1200);
+    check(count('/submit_report') === rpq0 + 1 && !/nothing was sent|wasn’t sent/i.test(await page.locator('body').innerText()), 'no automatic retry and no false "nothing was sent" claim');
+    check((await page.getByLabel('Add a note (optional)', { exact: true }).inputValue()).includes('wrong side'), 'the typed note survives an unconfirmed send');
+    acct.reports.length = 0;
     fail = 'none'; delay = 400;
     await doubleActivate(page, 'Send report');
     check(await text(page, 'Thanks. A person will take a look.'), 'report succeeds after the failure');

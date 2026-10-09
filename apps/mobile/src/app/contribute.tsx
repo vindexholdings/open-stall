@@ -1,4 +1,4 @@
-import { ATTESTATION_TEXT, EMPTY_DRAFT, buildProposal, fixProblem, type LocationDraft, type LocationFix } from '@open-stall/domain';
+import { ATTESTATION_TEXT, EMPTY_DRAFT, buildProposal, fixProblem, uncertainWriteMessage, type LocationDraft, type LocationFix } from '@open-stall/domain';
 import { colors, spacing, typography } from '@open-stall/ui';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -38,11 +38,13 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
   const sending = useRef(false); // synchronous lock: a double tap must never send two proposals
   const [d, setD] = useState<LocationDraft>(EMPTY_DRAFT);
   const [errors, setErrors] = useState<string[]>([]);
+  const [uncertain, setUncertain] = useState(false);
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [done, setDone] = useState(false);
   const set = <K extends keyof LocationDraft>(k: K, v: LocationDraft[K]) => setD((x) => ({ ...x, [k]: v }));
   const isEdit = editId !== null;
+  const sentWhat = isEdit ? 'your suggestion was sent for review' : 'your restroom was sent for review';
 
   if (done) {
     return (
@@ -58,6 +60,7 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
   }
 
   const refreshFix = async (): Promise<LocationFix | null> => {
+    setUncertain(false);
     setLocating(true);
     const r = await getCurrentFix();
     setLocating(false);
@@ -74,6 +77,7 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
     if (!rpc || sending.current) return;
     sending.current = true;
     setBusy(true);
+    setUncertain(false);
     try {
       // New restrooms must use a FRESH fix taken now, so a stale reading from somewhere else can't be sent.
       let draft = d;
@@ -89,9 +93,13 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
         ? await submitEdit(rpc, editId, built.proposed, built.note)
         : await submitNewLocation(rpc, built.proposed, built.position!, built.note);
       if (r.ok) setDone(true);
-      else setErrors([r.message]);
+      else if (r.uncertain) {
+        setUncertain(true);
+        setErrors([uncertainWriteMessage(sentWhat)]);
+      } else setErrors([r.message]);
     } catch {
-      setErrors(['Something went wrong. Nothing was sent. Your answers are still here, so you can try again.']);
+      setUncertain(true);
+      setErrors([uncertainWriteMessage(sentWhat)]);
     } finally {
       sending.current = false;
       setBusy(false);
@@ -155,7 +163,7 @@ function Form({ editId, editName }: { editId: string | null; editName: string | 
       </Section>
 
       {errors.length === 1 ? (
-        <StatusBanner tone="danger" urgent title={errors[0]!} />
+        uncertain ? <StatusBanner tone="warning" urgent title="Not confirmed" message={errors[0]!} /> : <StatusBanner tone="danger" urgent title={errors[0]!} />
       ) : errors.length > 1 ? (
         <StatusBanner tone="danger" urgent title="Please check these before sending">
           {errors.map((e) => (

@@ -1,4 +1,4 @@
-import { REPORT_ISSUES, validateReport, type ReportIssue } from '@open-stall/domain';
+import { REPORT_ISSUES, uncertainWriteMessage, validateReport, type ReportIssue } from '@open-stall/domain';
 import { colors, spacing, typography } from '@open-stall/ui';
 import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -17,6 +17,7 @@ function Form({ id, name }: { id: string; name: string | null }) {
   const [issue, setIssue] = useState<ReportIssue | null>(null);
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [uncertain, setUncertain] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const sending = useRef(false); // synchronous lock: a fast double tap must not send two reports
@@ -29,13 +30,18 @@ function Form({ id, name }: { id: string; name: string | null }) {
     if (!rpc || !issue || sending.current) return;
     sending.current = true;
     setError(null);
+    setUncertain(false);
     setBusy(true);
     try {
       const r = await submitReport(rpc, id, issue, comment);
       if (r.ok) setDone(true);
-      else setError(r.message);
+      else if (r.uncertain) {
+        setUncertain(true);
+        setError(uncertainWriteMessage('your report was sent'));
+      } else setError(r.message);
     } catch {
-      setError('Something went wrong. Please try again.');
+      setUncertain(true);
+      setError(uncertainWriteMessage('your report was sent'));
     } finally {
       sending.current = false;
       setBusy(false);
@@ -51,7 +57,9 @@ function Form({ id, name }: { id: string; name: string | null }) {
       <RadioGroup label="What’s wrong" options={REPORT_ISSUES.map((i) => ({ value: i.key, label: i.label }))} value={issue} onChange={setIssue} />
       <TextField label="Add a note (optional)" value={comment} onChangeText={setComment} autoCapitalize="sentences" multiline maxLength={300}
         hint="No links, emails or phone numbers." />
-      {error ? <StatusBanner tone="danger" urgent title={error} /> : null}
+      {error ? (
+        uncertain ? <StatusBanner tone="warning" urgent title="Not confirmed" message={error} /> : <StatusBanner tone="danger" urgent title={error} />
+      ) : null}
       <PrimaryButton label={busy ? 'Sending…' : 'Send report'} disabled={busy} onPress={() => void send()} />
     </View>
   );

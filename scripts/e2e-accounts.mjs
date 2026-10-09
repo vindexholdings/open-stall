@@ -43,11 +43,13 @@ const acct = { favorites: [], submissions: [], edits: [], mode: 'plain', transpo
 let inject = null; // { status, body, times } consumed by write functions and favorites listing
 let netFail = false; // destroys the socket on sign-in token requests
 let delay = 0;
+let lose = null; // { fn, times }: the mutation IS recorded, but the response is lost (socket destroyed)
+let logoutFail = false;
 const requests = [];
 const WRITES = ['add_favorite', 'remove_favorite', 'submit_location', 'submit_location_edit', 'update_my_profile', 'delete_my_account', 'list_my_favorites'];
 const mock = createServer(async (req, res) => {
   const u = new URL(req.url, `http://127.0.0.1:${MOCK_PORT}`);
-  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+  const cors = { connection: 'close', 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
   if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
   let body = ''; for await (const c of req) body += c;
   const data = body ? JSON.parse(body) : {};
@@ -63,7 +65,7 @@ const mock = createServer(async (req, res) => {
   if (u.pathname === '/auth/v1/signup') { acct.signups++; return json(200, { ...USER, id: '99999999-2222-4333-8444-555555555555', email: data.email, confirmation_sent_at: new Date().toISOString() }); }
   if (u.pathname === '/auth/v1/recover') { acct.resets++; return json(200, {}); }
   if (u.pathname === '/auth/v1/user') return json(200, USER);
-  if (u.pathname === '/auth/v1/logout') { res.writeHead(204, cors); return res.end(); }
+  if (u.pathname === '/auth/v1/logout') { if (logoutFail) return json(500, { msg: 'logout failed' }); res.writeHead(204, cors); return res.end(); }
   if (u.pathname === '/rest/v1/rpc/nearby_locations' || u.pathname === '/rest/v1/rpc/nearest_verified_location') return json(200, []);
   if (u.pathname.startsWith('/rest/v1/rpc/')) {
     const fn = u.pathname.slice('/rest/v1/rpc/'.length);
@@ -71,18 +73,20 @@ const mock = createServer(async (req, res) => {
     if (req.headers.authorization !== `Bearer ${JWT}`) return json(401, { code: '28000', message: 'not authenticated' });
     if (delay) await new Promise((r) => setTimeout(r, delay));
     if (WRITES.includes(fn) && inject && inject.times > 0) { inject.times--; return json(inject.status, inject.body); }
-    if (fn === 'list_my_favorites') return json(200, acct.favorites);
-    if (fn === 'add_favorite') { acct.favorites.push(LOC_ROW); return json(200, { added: true, count: acct.favorites.length, limit: 5 }); }
-    if (fn === 'remove_favorite') { acct.favorites = []; return json(200, null); }
-    if (fn === 'get_my_review') return json(200, null);
-    if (fn === 'submit_location') { acct.submissions.push(data); return json(200, { submission_id: `sub-${acct.submissions.length}` }); }
-    if (fn === 'submit_location_edit') { acct.edits.push(data); return json(200, 'sub-edit'); }
-    if (fn === 'get_my_profile') return json(200, [{ display_name: acct.name, preferred_mode: acct.mode, default_transport: acct.transport, points_balance: 0 }]);
+    const lost = lose && lose.fn === fn && lose.times > 0 && (lose.times--, true);
+    const reply = lost ? () => req.socket.destroy() : json;
+    if (fn === 'list_my_favorites') return reply(200, acct.favorites);
+    if (fn === 'add_favorite') { acct.favorites.push(LOC_ROW); return reply(200, { added: true, count: acct.favorites.length, limit: 5 }); }
+    if (fn === 'remove_favorite') { acct.favorites = []; return reply(200, null); }
+    if (fn === 'get_my_review') return reply(200, null);
+    if (fn === 'submit_location') { acct.submissions.push(data); return reply(200, { submission_id: `sub-${acct.submissions.length}` }); }
+    if (fn === 'submit_location_edit') { acct.edits.push(data); return reply(200, 'sub-edit'); }
+    if (fn === 'get_my_profile') return reply(200, [{ display_name: acct.name, preferred_mode: acct.mode, default_transport: acct.transport, points_balance: 0 }]);
     if (fn === 'update_my_profile') {
-      if (/admin/i.test(data.p_display_name ?? '')) return json(400, { code: '22023', message: 'reserved name' });
-      acct.profileWrites++; Object.assign(acct, { name: data.p_display_name, mode: data.p_mode, transport: data.p_transport }); return json(200, []);
+      if (/admin/i.test(data.p_display_name ?? '')) return reply(400, { code: '22023', message: 'reserved name' });
+      acct.profileWrites++; Object.assign(acct, { name: data.p_display_name, mode: data.p_mode, transport: data.p_transport }); return reply(200, []);
     }
-    if (fn === 'delete_my_account') { acct.deleteCalls++; acct.deleted = true; return json(200, null); }
+    if (fn === 'delete_my_account') { acct.deleteCalls++; acct.deleted = true; return reply(200, null); }
   }
   return json(404, { msg: 'not mocked' });
 });
@@ -139,6 +143,7 @@ const doubleActivate = (page, name) => page.evaluate((n) => {
   b.click(); b.click();
 }, name);
 /** Level-1 headings a screen reader can reach: not inside an aria-hidden screen (the tab navigator keeps visited screens mounted). */
+const count = (path) => requests.filter((r) => r.path.endsWith(path)).length;
 const h1texts = async (page) => {
   await page.locator('h1').first().waitFor({ state: 'attached' }).catch(() => {});
   return page.evaluate(() => [...document.querySelectorAll('h1, [role="heading"][aria-level="1"]')].filter((h) => !h.closest('[aria-hidden="true"]')).map((h) => h.textContent));
@@ -234,9 +239,18 @@ try {
     await page.getByRole('link', { name: /Mock Park Restroom/ }).first().click();
     check(await text(page, 'Remove from favorites') && page.url().includes('/location/'), 'a favorite opens its detail with a remove action');
     acct.favorites = [];
+    // if saved-state cannot be checked, saving is paused and explained (not silently disabled), with a way to retry
+    inject = { status: 500, body: { message: 'boom' }, times: 999 }; // sticky: the screen may fetch more than once while the session settles
+    await page.goto(`${base}/location/${LOC}`);
+    check(await text(page, 'We couldn’t check your favorites'), 'a failed saved-state check is explained');
+    check(await button(page, 'Save to favorites').isDisabled(), 'saving is paused while the saved state is unknown');
+    inject = null;
+    await button(page, 'Check again').click();
+    await button(page, 'Save to favorites').waitFor({ state: 'visible' });
+    check(await page.waitForFunction(() => { const b = [...document.querySelectorAll('[role="button"]')].find((e) => (e.getAttribute('aria-label') || e.textContent || '').trim() === 'Save to favorites'); return b && b.getAttribute('aria-disabled') !== 'true'; }).then(() => true, () => false), 'Check again re-enables saving');
     // adding at the cap shows the server-side cap message, not a generic failure
     await page.goto(`${base}/location/${LOC}`);
-    await text(page, 'Save to favorites');
+    await page.waitForFunction(() => { const b = [...document.querySelectorAll('[role="button"]')].find((e) => (e.getAttribute('aria-label') || e.textContent || '').trim() === 'Save to favorites'); return b && b.getAttribute('aria-disabled') !== 'true'; }); // wait for the saved-state check before injecting a write error
     inject = { status: 400, body: { code: '53400', message: 'too many favorites' }, times: 1 };
     await button(page, 'Save to favorites').click();
     check(await alerted(page, /up to 5 favorites/), 'the favorites cap shows its own message');
@@ -323,6 +337,42 @@ try {
     await ctx.close();
   }
 
+  // 6c. Lost responses: the server RECORDED the write but the answer never arrived. The UI must not claim otherwise.
+  {
+    const { ctx, page } = await newPage();
+    await signIn(page, '/contribute');
+    await fill(page, 'Name of the place', 'Lost-response restroom');
+    await acceptAttestation(page);
+    const n0 = acct.submissions.length;
+    const req0 = count('/submit_location');
+    lose = { fn: 'submit_location', times: 1 };
+    await button(page, 'Add restroom at my current location').click();
+    check(await alerted(page, /couldn’t confirm whether your restroom was sent for review/), 'a lost response says the outcome is unconfirmed', JSON.stringify(await alerts(page)));
+    check(acct.submissions.length === n0 + 1, 'the mock really did record the submission (so "nothing was sent" would have been false)');
+    const body = await page.locator('body').innerText();
+    check(!/nothing was sent|wasn’t sent|not sent/i.test(body), 'the page never claims that nothing was sent');
+    check(/Not confirmed/.test(body) && /never resend automatically/.test(body), 'the notice is labeled "Not confirmed" and says nothing is resent automatically');
+    await page.waitForTimeout(1500);
+    check(count('/submit_location') === req0 + 1, 'exactly one request was made: no automatic retry', `${count('/submit_location') - req0}`);
+    check((await page.getByLabel('Name of the place', { exact: true }).inputValue()) === 'Lost-response restroom' && (await page.getByRole('checkbox', { name: /not inside a private home/ }).getAttribute('aria-checked')) === 'true', 'the typed answers and attestation are kept');
+    check(await button(page, 'Add restroom at my current location').isEnabled(), 'the user can decide to try again');
+    await page.screenshot({ path: join(SHOTS, 'narrow-5-uncertain-outcome.png'), fullPage: true });
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await newPage({ geolocation: null });
+    await signIn(page, `/contribute?id=${LOC}&name=Mock%20Park%20Restroom`);
+    await page.getByRole('radiogroup', { name: 'Need a key or code?' }).getByRole('radio', { name: 'No', exact: true }).click();
+    await acceptAttestation(page);
+    const e0 = acct.edits.length; const req0 = count('/submit_location_edit');
+    lose = { fn: 'submit_location_edit', times: 1 };
+    await button(page, 'Send suggestion').click();
+    check(await alerted(page, /couldn’t confirm whether your suggestion was sent for review/) && acct.edits.length === e0 + 1, 'a lost correction response is reported as unconfirmed (it was in fact recorded)');
+    await page.waitForTimeout(1200);
+    check(count('/submit_location_edit') === req0 + 1 && !/nothing was sent/i.test(await page.locator('body').innerText()), 'no automatic retry and no false "nothing was sent" for corrections');
+    await ctx.close();
+  }
+
   // 7. Contribution: correction needs no location, failure preserved
   {
     const { ctx, page } = await newPage({ geolocation: null });
@@ -330,16 +380,17 @@ try {
     check(await text(page, 'Only fill in what should change for Mock Park Restroom'), 'the correction form names the restroom');
     await page.getByRole('radiogroup', { name: 'Need a key or code?' }).getByRole('radio', { name: 'Yes', exact: true }).click();
     await acceptAttestation(page);
-    inject = { status: 400, body: { message: 'pending correction exists' }, times: 1 };
+    const base7 = acct.edits.length;
+    inject = { status: 400, body: { code: 'P0001', message: 'pending correction exists' }, times: 1 };
     await button(page, 'Send suggestion').click();
-    check(await alerted(page, /already have a correction waiting/) && acct.edits.length === 0, 'an existing pending correction is explained');
+    check(await alerted(page, /already have a correction waiting/) && acct.edits.length === base7, 'an existing pending correction is explained');
     check((await page.getByRole('radiogroup', { name: 'Need a key or code?' }).getByRole('radio', { name: 'Yes', exact: true }).getAttribute('aria-checked')) === 'true', 'the chosen answers survive the refusal');
     delay = 400;
     await doubleActivate(page, 'Send suggestion');
     check(await text(page, 'sent for review'), 'a correction is sent without any location access');
-    check(acct.edits.length === 1, 'a same-tick double activation sends exactly one correction', `${acct.edits.length}`);
+    check(acct.edits.length === base7 + 1, 'a same-tick double activation sends exactly one correction', `${acct.edits.length - base7}`);
     delay = 0;
-    check(!('p_lat' in acct.edits[0]) && !('p_lng' in acct.edits[0]), 'a correction carries no position by default');
+    check(acct.edits.every((e) => !('p_lat' in e) && !('p_lng' in e)), 'a correction carries no position by default');
     check((await button(page, 'Back to the restroom').count()) === 1, 'the correction success state links back to the restroom');
     await ctx.close();
   }
@@ -362,6 +413,44 @@ try {
     check(acct.deleteCalls === 1, 'a same-tick double activation deletes once', `${acct.deleteCalls}`);
     delay = 0;
     check(await text(page, 'Sign in or create account'), 'the user is signed out afterwards');
+    await ctx.close();
+  }
+
+  // 8b. Account deletion with an unknown outcome, and a confirmed deletion followed by a local sign-out failure
+  {
+    const { ctx, page } = await newPage();
+    await signIn(page, '/account');
+    await button(page, 'Delete my account…').click();
+    await fill(page, 'Type DELETE to confirm', 'DELETE');
+    const d0 = acct.deleteCalls;
+    lose = { fn: 'delete_my_account', times: 1 };
+    await button(page, 'Permanently delete my account').click();
+    check(await alerted(page, /couldn’t confirm whether your account was deleted/), 'a lost deletion response is reported as unconfirmed');
+    check(acct.deleted && acct.deleteCalls === d0 + 1, 'the mock really did delete the account');
+    await page.waitForTimeout(1200);
+    const bodyText = await page.locator('body').innerText();
+    check(acct.deleteCalls === d0 + 1 && !/nothing was deleted|wasn’t deleted/i.test(bodyText), 'no automatic retry and no claim that nothing was deleted');
+    check(/Signed in as user@test\.dev/.test(bodyText) && (await button(page, 'Sign out').count()) === 1, 'the user keeps a way to sign out and check');
+    await ctx.close();
+  }
+  {
+    acct.deleted = false; acct.deleteCalls = 0;
+    const { ctx, page } = await newPage();
+    await signIn(page, '/account');
+    await button(page, 'Delete my account…').click();
+    await fill(page, 'Type DELETE to confirm', 'DELETE');
+    // make clearing the local session fail (storage refuses removals), as a device-level problem would
+    await page.evaluate(() => { window.__failRemove = true; const orig = Storage.prototype.removeItem; Storage.prototype.removeItem = function (k) { if (window.__failRemove) throw new Error('storage unavailable'); return orig.call(this, k); }; });
+    await button(page, 'Permanently delete my account').click();
+    check(await text(page, 'Your account was deleted.') && acct.deleteCalls === 1, 'a confirmed deletion stays confirmed even if clearing the local session fails');
+    check(await text(page, 'This device is still signed in'), 'the local clean-up problem is explained separately');
+    const t = await page.locator('body').innerText();
+    check(!/nothing was deleted|couldn’t confirm whether your account/i.test(t), 'no false "nothing was deleted" or "unconfirmed" message after a confirmed deletion');
+    check((await button(page, 'Delete my account…').count()) === 0, 'the delete action is gone once the deletion is confirmed');
+    await page.screenshot({ path: join(SHOTS, 'narrow-6-deleted-cleanup.png'), fullPage: true });
+    await page.evaluate(() => { window.__failRemove = false; });
+    await button(page, 'Sign out of this device').click();
+    check(await text(page, 'Sign in or create account') && acct.deleteCalls === 1, 'retrying the local sign-out finishes the job without another deletion request');
     await ctx.close();
   }
 
