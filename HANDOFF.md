@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: WORKING**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -282,7 +282,40 @@ Acknowledged exactly: Jake's approval of the COMPLETE bounded local redesign mil
 **Routine reconciliation:** I reviewed the saved :30 routine prompt against this protocol and see no conflict that requires an edit (it already acts on new Work instructions, forbids live migrations/admin inserts/deploys/merges/spend, and is cadence-neutral). I have NOT edited it, so there is no read-back to report. The only authorization to edit it appears in a repo note; if Jake wants the wording refreshed he can tell me directly in this session and I will do it through the supported routine interface and report the read-back. This is not holding R1.
 
 
-**Exact next action (updated 2026-10-09, after f6fd50b)**
+## Delivery: R1 public discovery vertical slice + shared design foundation — 2026-10-09 (Claude)
+
+**Implementation commit:** `0b3aa1281c836339fa60c3c7bd5d77062917a3c5` (local only; nothing deployed, no live DB/migration/mutation, no costs, no new provider/geography/feature; backend contracts, ranking, queries, caching and security untouched). Maverick correction and Holiday Inn report untouched. R2 NOT started (awaits Work acceptance of R1).
+
+**Design direction (recorded in DESIGN_SYSTEM.md):** calm high-contrast utility; answer first (nearest usable restroom, distance, walk time, can I use it); one column on phones, list + map side by side from 900 px (max content width 1120); every state is a plain-language banner with one next step; discovery never asks for an account.
+
+**What changed**
+- **Shared foundation (`packages/ui`)**: `breakpoints`/`layout`/`layoutFor`, `focusRing` (3 dp outline, strong blue, offset 2), `tones` (info/success/warning/danger text+bg + symbol). Extra AA contrast pairs now enforced (muted-on-muted, status on plain surface, every tone, focus ring >= 3:1).
+- **Shared components (`apps/mobile/src/components`)**: `StatusBanner`, `SegmentedControl`, redesigned result cards in `LocationList` (name heading, prominent distance + walk time, badge, only-known facts, community rating, "Nearest" label; list/listitem + link semantics), `FilterPanel` (disclosure with expanded state, always-visible removable active-filter chips, Clear all), `Screen` (max width, h1 + subtitle), `focus.ts` (`useFocusStyle` visible keyboard focus; `spaceActivates` Space on radios/checkboxes). Chip/PrimaryButton/SecondaryButton gained visible focus.
+- **Discovery home (`app/index.tsx`, `LocationNotice`)**: one location prompt (the old home showed two near-duplicate buttons in the first state), then results header (live-region summary), nearest-verified hint, filters, banners (locating, denied with browser/OS steps, unavailable, offline saved results, service error + Try again, loading, no-match with Clear all filters, nothing nearby with Check again), List | Map switch on phones (List default) and side-by-side list + sticky map from 900 px. Same `useNearbyLocations` ranking/refresh and map abstraction/provider; no tile service change.
+- **Domain helpers (tested)**: `describeActiveFilters`, `clearFilter`, `resultsSummary`, `quickFacts`, `communityRatingText`.
+- **Defect found and fixed (affects the whole app, incl. R2/R3 screens):** react-native-web does not translate `accessibilityState`, so Chip/toggle/button state (checked, selected, expanded, disabled) was NOT exposed on the web. Shared components now use `aria-checked`/`aria-selected`/`aria-expanded`/`aria-disabled`. Radios/checkboxes also now activate with Space (previously Enter only on web).
+
+**Tests and results (all run locally in this container, sequentially)**
+- `npm run check` (eslint, typecheck all workspaces, unit tests admin 12 / mobile 32 / domain 111 / importer 65 / ui 27, secret scan 228 files): exit 0.
+- New `scripts/e2e-discovery.mjs` (`npm run test:e2e:discovery`, CI step added): builds the real Expo web export and drives headless Chromium against a local mock REST backend; fresh run **59 passed, 0 failed**. Coverage: single location prompt and one h1, keyboard-only start (Tab/Enter) with visible focus outline, results ranked nearest first, Verified/Unverified text badges, community-labeled ratings, only-known facts, one meaningful spoken name per card, List/Map switch by keyboard with a labeled map region, navigation to detail with no coordinates in the URL, filters (disclosure state, Verified only, accessibility filter, removable chips while collapsed, filtered-empty + Clear all), wide layout (map beside list, no switch), 320 px reflow without horizontal scroll, control audit (every control named, >= 48 px tall, exactly one h1), location denied + recovery, service error + recovery, empty area, offline saved results, privacy (only the public anon key, no user token; only map tile/font hosts attempted, all aborted).
+- Existing browser suites re-run after the changes: `npm run test:e2e` (smoke) passed; `node scripts/e2e-auth.mjs` passed after one expected-copy update (the empty-state wording now lives in a banner title: "No restrooms found nearby yet", no trailing period).
+- Evidence screenshots (Chromium, emulated 390x844 phone and 1280x800 desktop, mock data): `docs/evidence/r1/` — narrow start, list, map, filters open, denied, empty; wide discovery. Map tiles are not rendered in tests (network blocked), only markers.
+
+**Honest limits**
+- Chromium only (no Safari/Firefox); emulated viewports, not physical devices; no screen-reader run (semantics verified by DOM/role/name/state checks, not by VoiceOver/TalkBack/NVDA); native iOS/Android UI was type-checked and shares components but NOT run on a simulator or device (only the web export was exercised).
+- No touch-target or contrast test of the map's own Leaflet controls or tiles (third-party UI); map markers still differ by color plus the label text.
+- Detail, contribution, report, account, favorites and settings screens only inherit the improved shared components (focus, state exposure, Screen width); their own redesign is R2/R3. `LocationList` is shared with Favorites, which now also shows the card layout.
+- Text scaling beyond browser zoom was approximated by the 320 px reflow check; OS-level font scaling was not tested.
+
+**Remaining exact work for the milestone:** R2 (detail + evidence/reporting), R3 (accounts, favorites, submission/correction), R4 (integrated release-readiness validation). Not started.
+
+**Next action:** Work reviews R1 and, on acceptance, issues R2 (or requests targeted corrections). Claude idle at :30 checks until then.
+
+
+**Exact next action (updated 2026-10-09, R1 delivered)**
+- NEEDS_CHATGPT_REVIEW for R1. Do not start R2 before Work accepts. No production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (2026-10-09, after f6fd50b)**
 - WORKING on R1. On delivery: commit/push claude-local, set NEEDS_CHATGPT_REVIEW with SHAs, tests, screenshots/evidence, risks, remaining work. Do not start R2 before Work accepts R1.
 
 **(Superseded) Exact next action (2026-10-09, after cb2f636)**
