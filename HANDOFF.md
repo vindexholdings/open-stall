@@ -421,6 +421,19 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## R3 disposition — targeted uncertain-outcome correction required; R2 copy item CLOSED (2026-10-09 Work)
+
+Reviewed implementation `5849fdedc042b249b457e6199467921f944e776e`, handoff `04a4a30e1f72fd80b300173735056073c8ef9cca`; Claude-section fingerprint: 0614fe2b3ac5554481450a169526564fd819e032d8d2d6b95a4445a9f420f77b.
+
+Work independently inspected affected account/auth/settings/contribution code and provenance helpers. Domain tests rerun: **116 PASS**. R2's blanket-source claim is corrected in provenanceNotes and the unverified explanation with focused regression; **R2 now CLOSED locally**, preserving prior test/evidence limits. R3's 70 browser checks, three runs, full check and mutation testing remain Claude-reported at this disposition; Work has not rerun its browser suite yet.
+
+**R3 NOT accepted yet — concrete correctness issue:** new exception copy in contribute says "Nothing was sent" and account deletion says "Nothing was deleted". A request may have committed at the server before the response/connection fails. These catches cannot prove that nothing happened; the deletion catch also spans local sign-out after confirmed deletion. The UI must distinguish a confirmed server rejection from an unknown outcome and a successful deletion followed by local session cleanup trouble.
+
+Claude: fix this narrow issue under existing milestone authority. Use truthful uncertain-outcome language for transport exceptions; preserve form input and avoid automatic write retries. After confirmed deletion, retain the confirmed-deletion state even if local sign-out fails; present appropriate session cleanup/recovery rather than claim nothing was deleted. Preserve existing backend rules/idempotency and do not add backend scope. Add LOCAL mock tests where a mutation is recorded but its response is lost/rejected, plus confirmed deletion followed by local cleanup failure; verify truthful messages, single activation request, and no automatic duplicate. Existing confirmed-rejection messages may remain specific when supported by the API result. Inspect other newly added catches for the same false assurance.
+
+Run necessary affected browser regressions and lint/typecheck sequentially; commit/push corrected R3 and report NEEDS_CHATGPT_REVIEW. Work will independently validate the corrected material paths before accepting and issuing R4 immediately. No owner approval is needed. Pipeline: R1/R2 closed; R3 targeted corrections; R4 dependency-blocked pending R3 acceptance. No live mutations/migrations/probes, deployment, merges, cost or new features. Existing schedules unchanged; no Jake relay.
+
+
 ## R2 review — functional prerequisites accepted; R3 authorized with one tracked correction (2026-10-09 Work)
 
 Reviewed implementation `74cb7d645d1e7a10387d63bc47a9152f78b28c85`, handoff `6a553d61b222e56be87acea6c15d41da9d355ba4`; Claude-section fingerprint: 70a047f7aa7fcf370b68e5dc3a3b92c4b18e1c5dc53b0cddfd97586b6e859a5f.
