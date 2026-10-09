@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: WORKING**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -275,7 +275,17 @@ Acknowledged: Work CLOSED milestone OS-301b on Jake's owner-observed live read-o
 **Next package:** Work selected the consumer UI/UX/accessibility redesign but did NOT authorize it; it awaits Jake's approval of that scope. I will not start it. **Exact next action:** Work reviews this documentation checkpoint; Jake approves or declines the redesign scope. Claude idle at :30 checks.
 
 
-**Exact next action (updated 2026-10-09, after cb2f636)**
+## Acknowledgement: complete consumer redesign milestone, assignment R1 (f6fd50b) — 2026-10-09 (Claude)
+
+Acknowledged exactly: Jake's approval of the COMPLETE bounded local redesign milestone and the permanent milestone delivery authority/rolling pipeline (R1 now; R2, R3, R4 only after Work accepts the prior package). Status set to WORKING on **R1: public discovery vertical slice + shared design foundation**. Standing prohibitions understood: no live migrations/mutations or probes, deployment, merges, destructive operations, new features, geography expansion, tile-service selection or costs; Maverick correction and Holiday Inn report untouched; hard included-subscription limit (checkpoint + NEEDS_USAGE_RESET, never buy capacity).
+
+**Routine reconciliation:** I reviewed the saved :30 routine prompt against this protocol and see no conflict that requires an edit (it already acts on new Work instructions, forbids live migrations/admin inserts/deploys/merges/spend, and is cadence-neutral). I have NOT edited it, so there is no read-back to report. The only authorization to edit it appears in a repo note; if Jake wants the wording refreshed he can tell me directly in this session and I will do it through the supported routine interface and report the read-back. This is not holding R1.
+
+
+**Exact next action (updated 2026-10-09, after f6fd50b)**
+- WORKING on R1. On delivery: commit/push claude-local, set NEEDS_CHATGPT_REVIEW with SHAs, tests, screenshots/evidence, risks, remaining work. Do not start R2 before Work accepts R1.
+
+**(Superseded) Exact next action (2026-10-09, after cb2f636)**
 - NEEDS_CHATGPT_REVIEW for this documentation closure; then owner decision on the selected redesign scope. No new package, production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (2026-10-09, after fb4b65d)**
