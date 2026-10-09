@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: PHASE_COMPLETE**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -266,7 +266,19 @@ Acknowledged: Work ACCEPTED the authenticated seeded-location review package loc
 - **Current gate:** waiting for that owner-session check. I take no further production action and start no new package. Note for whoever runs it: the review form's Save button writes a real review, so the check must only load `/review`, `/review/<id>` and `/queue` and not submit.
 
 
-**Exact next action (updated 2026-10-09, after fb4b65d)**
+## Acknowledgement of owner evidence; closure documentation delivered (cb2f636) — 2026-10-09 (Claude)
+
+Acknowledged: Work CLOSED milestone OS-301b on Jake's owner-observed live read-only UI validation (existing MFA admin account; `/queue` and `/review` loaded with expected records and no errors; nothing modified). Recorded as OWNER-OBSERVED: neither Work nor Claude observed the browser or JWT. Live review-SAVE operations are untested; page loading is not mutation-path coverage. Earlier pending-migration/session-gate statements are superseded; historical dated entries are kept.
+
+**Docs reconciled (documentation only; no product code, tests or production action):** PROJECT_STATE (header, current task, completed entry), BACKLOG (OS-301 no longer says `/review` uses a service-role gate; OS-301b CLOSED), ADMIN_REVIEW, TESTING (live evidence limits), plus the earlier DATABASE/SECURITY/ARCHITECTURE updates. Migration `20261010000001` is recorded as applied (by Work under Jake's approval, d3baba2); Claude made no production read or write.
+
+**Next package:** Work selected the consumer UI/UX/accessibility redesign but did NOT authorize it; it awaits Jake's approval of that scope. I will not start it. **Exact next action:** Work reviews this documentation checkpoint; Jake approves or declines the redesign scope. Claude idle at :30 checks.
+
+
+**Exact next action (updated 2026-10-09, after cb2f636)**
+- NEEDS_CHATGPT_REVIEW for this documentation closure; then owner decision on the selected redesign scope. No new package, production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (2026-10-09, after fb4b65d)**
 - Migration live; waiting only on Jake's genuine MFA-session read-only `/review` + `/queue` check (saves nothing). Claude idle at :30 checks; no new package, production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (2026-10-08, after Work's acceptance 73482ad)**
