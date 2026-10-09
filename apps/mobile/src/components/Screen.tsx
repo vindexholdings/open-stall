@@ -1,18 +1,24 @@
-import { colors, spacing, typography } from '@open-stall/ui';
+import { colors, layout, spacing, typography } from '@open-stall/ui';
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type Props = { title: string; children?: ReactNode };
+type Props = { title: string; subtitle?: string; children?: ReactNode };
 
-export function Screen({ title, children }: Props) {
+/** Page frame: scrolls, respects safe areas, and keeps content to a readable width on large screens. */
+export function Screen({ title, subtitle, children }: Props) {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={styles.title}>
-          {title}
-        </Text>
-        {children}
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text accessibilityRole="header" aria-level={1} style={styles.title}>
+              {title}
+            </Text>
+            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          </View>
+          {children}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -20,6 +26,9 @@ export function Screen({ title, children }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, gap: spacing.md },
+  scroll: { alignItems: 'center' },
+  content: { width: '100%', maxWidth: layout.maxContentWidth, padding: spacing.md, gap: spacing.md },
+  header: { gap: spacing.xs },
   title: { ...typography.title, color: colors.text },
+  subtitle: { ...typography.body, color: colors.textMuted },
 });

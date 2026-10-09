@@ -59,3 +59,25 @@ export function hoursLabel(openingHours: string | null): { text: string; reporte
   const t = openingHours?.trim();
   return t ? { text: `${t} (from public sources, may be inaccurate)`, reported: true } : { text: 'Not reported', reported: false };
 }
+
+/**
+ * Short, honest highlights for a result card: only facts that are known (true or false) and matter
+ * for "can I use it right now" (key, purchase, fee, wheelchair access). Unknown facts are omitted
+ * rather than shown as "No", so a missing fact never reads as a negative.
+ */
+export function quickFacts(l: Pick<PublicLocation, 'keyRequired' | 'purchaseRequired' | 'feeRequired' | 'wheelchairAccessible'>): string[] {
+  const out: string[] = [];
+  if (l.keyRequired === true) out.push('Key required');
+  else if (l.keyRequired === false) out.push('No key needed');
+  if (l.purchaseRequired === true) out.push('Purchase required');
+  else if (l.purchaseRequired === false) out.push('No purchase needed');
+  if (l.feeRequired === true) out.push('Fee to use');
+  if (l.wheelchairAccessible === true) out.push('Wheelchair accessible');
+  return out;
+}
+
+/** Community rating text for cards ("Community rating 4.2 / 5 (12 ratings)"), or null when there are none. */
+export function communityRatingText(average: number | null, count: number): string | null {
+  if (average === null || count === 0) return null;
+  return `Community rating ${ratingLabel(average, count)}`;
+}

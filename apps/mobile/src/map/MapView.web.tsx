@@ -51,7 +51,7 @@ export function MapView({ center, userLocation, markers, onSelectMarker, height 
     <div
       ref={ref}
       role="region"
-      aria-label="Map of nearby restrooms. The list below has the same results."
+      aria-label="Map of nearby restrooms. The results list has the same restrooms."
       style={{ height, borderRadius: 16, overflow: 'hidden' }}
     />
   );

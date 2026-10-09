@@ -22,7 +22,8 @@
     "doctor": "node scripts/doctor-live.mjs",
     "live:account": "node scripts/live-account-check.mjs",
     "test:e2e:auth": "node scripts/e2e-auth.mjs",
-    "test:e2e:admin": "node scripts/e2e-admin.mjs"
+    "test:e2e:admin": "node scripts/e2e-admin.mjs",
+    "test:e2e:discovery": "node scripts/e2e-discovery.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -22,7 +22,7 @@ export function MapView({ center, userLocation, markers, onSelectMarker, height 
     <View
       style={[styles.container, { height }]}
       accessible
-      accessibilityLabel="Map of nearby restrooms. The list below has the same results."
+      accessibilityLabel="Map of nearby restrooms. The results list has the same restrooms."
       importantForAccessibility="no-hide-descendants"
     >
       <WebView

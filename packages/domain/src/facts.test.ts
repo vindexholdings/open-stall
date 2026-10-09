@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeFacts, hoursLabel, ratingLabel, verificationBadge } from './facts';
+import { communityRatingText, describeFacts, hoursLabel, quickFacts, ratingLabel, verificationBadge } from './facts';
 import type { PublicLocation } from './publicLocation';
 
 const loc = { keyRequired: true, purchaseRequired: false, wheelchairAccessible: null, feeRequired: true } as PublicLocation;
@@ -34,5 +34,23 @@ describe('hoursLabel', () => {
     expect(hoursLabel('Mo-Su 08:00-20:00')).toEqual({ text: 'Mo-Su 08:00-20:00 (from public sources, may be inaccurate)', reported: true });
     expect(hoursLabel(null)).toEqual({ text: 'Not reported', reported: false });
     expect(hoursLabel('  ').reported).toBe(false);
+  });
+});
+
+describe('result card highlights (R1)', () => {
+  it('shows only known facts and never turns unknown into a negative', () => {
+    expect(quickFacts({ keyRequired: null, purchaseRequired: null, feeRequired: null, wheelchairAccessible: null })).toEqual([]);
+    expect(quickFacts({ keyRequired: false, purchaseRequired: true, feeRequired: true, wheelchairAccessible: true })).toEqual([
+      'No key needed', 'Purchase required', 'Fee to use', 'Wheelchair accessible',
+    ]);
+    expect(quickFacts({ keyRequired: true, purchaseRequired: false, feeRequired: false, wheelchairAccessible: false })).toEqual([
+      'Key required', 'No purchase needed',
+    ]);
+  });
+  it('labels ratings as community ratings and omits them when there are none', () => {
+    expect(communityRatingText(null, 0)).toBeNull();
+    expect(communityRatingText(4.25, 0)).toBeNull();
+    expect(communityRatingText(4.2, 12)).toBe('Community rating 4.2 / 5 (12 ratings)');
+    expect(communityRatingText(5, 1)).toBe('Community rating 5.0 / 5 (1 rating)');
   });
 });

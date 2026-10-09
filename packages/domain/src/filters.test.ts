@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilters, countActiveFilters, DEFAULT_FILTERS } from './filters';
+import { applyFilters, clearFilter, countActiveFilters, DEFAULT_FILTERS, describeActiveFilters, resultsSummary, type LocationFilters } from './filters';
 import type { NearbyLocation } from './nearby';
 
 // Synthetic, in-memory fixtures only.
@@ -71,5 +71,35 @@ describe('countActiveFilters', () => {
   it('counts non-default filters', () => {
     expect(countActiveFilters(DEFAULT_FILTERS)).toBe(0);
     expect(countActiveFilters({ ...DEFAULT_FILTERS, minRating: 3, key: 'required', hotWater: true })).toBe(3);
+  });
+});
+
+describe('active filter summary (R1)', () => {
+  const all: LocationFilters = {
+    radiusMeters: 5 * 1609.344, verifiedOnly: true, minRating: 4, wheelchairAccessible: true, genderNeutral: true,
+    babyChanging: true, hotWater: true, coldWaterOnly: true, key: 'not_required', purchase: 'free',
+  };
+  it('lists nothing for the defaults and agrees with countActiveFilters', () => {
+    expect(describeActiveFilters(DEFAULT_FILTERS)).toEqual([]);
+    expect(describeActiveFilters(all)).toHaveLength(countActiveFilters(all));
+  });
+  it('describes each active filter in plain language', () => {
+    expect(describeActiveFilters(all).map((a) => a.label)).toEqual([
+      'Within 5 mi', 'Verified only', 'Rating 4+', 'Wheelchair accessible', 'Gender-neutral', 'Baby changing',
+      'Hot water', 'Cold water only', 'No key needed', 'Free to use',
+    ]);
+    expect(describeActiveFilters({ ...DEFAULT_FILTERS, key: 'required', purchase: 'required' }).map((a) => a.label)).toEqual(['Key required', 'Purchase required']);
+  });
+  it('clearing every listed filter one by one returns to the defaults', () => {
+    let f = all;
+    for (const a of describeActiveFilters(all)) f = clearFilter(f, a.key);
+    expect(f).toEqual(DEFAULT_FILTERS);
+    expect(clearFilter(all, 'nope')).toBe(all);
+  });
+  it('summarizes results without implying more than is shown', () => {
+    expect(resultsSummary(0, 0)).toBe('No restrooms found nearby');
+    expect(resultsSummary(0, 2)).toBe('No restrooms match your filters');
+    expect(resultsSummary(1, 0)).toBe('1 restroom nearby, nearest first');
+    expect(resultsSummary(3, 1)).toBe('3 restrooms nearby, filtered');
   });
 });

@@ -1,14 +1,30 @@
-import { countActiveFilters, DEFAULT_FILTERS, type LocationFilters } from '@open-stall/domain';
-import { colors, radii, spacing, typography } from '@open-stall/ui';
+import { clearFilter, DEFAULT_FILTERS, describeActiveFilters, type LocationFilters } from '@open-stall/domain';
+import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Chip } from './Chip';
+import { useFocusStyle } from './focus';
 
 const METERS_PER_MILE = 1609.344;
 const RADIUS_MILES = [1, 2, 5, 10, 25];
 const RATINGS: (number | null)[] = [null, 3, 4];
 
 type Props = { filters: LocationFilters; onChange: (next: LocationFilters) => void };
+
+function RemovableChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  const focus = useFocusStyle();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Remove filter: ${label}`}
+      onPress={onRemove}
+      {...focus.handlers}
+      style={[styles.removable, focus.style]}
+    >
+      <Text style={styles.removableText}>{`${label}  ✕`}</Text>
+    </Pressable>
+  );
+}
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -21,7 +37,8 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 
 export function FilterPanel({ filters, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const active = countActiveFilters(filters);
+  const activeList = describeActiveFilters(filters);
+  const active = activeList.length;
   const set = (patch: Partial<LocationFilters>) => onChange({ ...filters, ...patch });
 
   return (
@@ -29,11 +46,22 @@ export function FilterPanel({ filters, onChange }: Props) {
       <View style={styles.row}>
         <Chip
           label={open ? 'Hide filters' : active ? `Filters (${active})` : 'Filters'}
+          accessibilityLabel={open ? 'Hide filters' : active ? `Show filters, ${active} active` : 'Show filters'}
+          expanded={open}
           selected={open}
           onPress={() => setOpen((v) => !v)}
         />
-        {active > 0 ? <Chip label="Clear" selected={false} onPress={() => onChange(DEFAULT_FILTERS)} /> : null}
+        {active > 0 ? <Chip label="Clear all" accessibilityLabel="Clear all filters" selected={false} onPress={() => onChange(DEFAULT_FILTERS)} /> : null}
       </View>
+      {active > 0 ? (
+        <View role="list" aria-label="Active filters" style={styles.row}>
+          {activeList.map((a) => (
+            <View key={a.key} role="listitem">
+              <RemovableChip label={a.label} onRemove={() => onChange(clearFilter(filters, a.key))} />
+            </View>
+          ))}
+        </View>
+      ) : null}
       {open ? (
         <>
           <Group title="Distance">
@@ -58,7 +86,7 @@ export function FilterPanel({ filters, onChange }: Props) {
               />
             ))}
           </Group>
-          <View style={styles.group}>
+          <View style={styles.group} role="group" aria-label="Features">
             <Text style={styles.groupTitle}>Features</Text>
             <View style={styles.row}>
               <Chip label="Verified only" selected={filters.verifiedOnly} onPress={() => set({ verifiedOnly: !filters.verifiedOnly })} />
@@ -95,4 +123,12 @@ const styles = StyleSheet.create({
   group: { gap: spacing.sm },
   groupTitle: { ...typography.label, color: colors.textMuted },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  removable: {
+    minHeight: touchTarget.min,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primaryStrong,
+  },
+  removableText: { ...typography.label, color: colors.onPrimaryStrong },
 });

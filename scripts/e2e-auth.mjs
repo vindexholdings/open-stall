@@ -326,7 +326,7 @@ try {
     const { ctx, page } = await newPage();
     await page.goto(`${base}/`);
     await button(page, 'Find Nearest Restroom').click();
-    check(await text(page, 'No restrooms found nearby yet.') || await text(page, 'Looking for restrooms'), 'finding restrooms works signed out');
+    check(await text(page, 'No restrooms found nearby yet') || await text(page, 'Looking for restrooms'), 'finding restrooms works signed out');
     check(!(await page.getByText('Sign in to save favorite restrooms').count()), 'no sign-in wall on discovery');
     await ctx.close();
   }

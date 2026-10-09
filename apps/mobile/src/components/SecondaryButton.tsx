@@ -1,17 +1,20 @@
 import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import { Pressable, StyleSheet, Text } from 'react-native';
+import { useFocusStyle } from './focus';
 
 type Props = { label: string; onPress: () => void; disabled?: boolean; accessibilityHint?: string };
 
 export function SecondaryButton({ label, onPress, disabled = false, accessibilityHint }: Props) {
+  const focus = useFocusStyle();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      aria-disabled={disabled}
       accessibilityHint={accessibilityHint}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, (pressed || disabled) && styles.dimmed]}
+      {...focus.handlers}
+      style={({ pressed }) => [styles.button, (pressed || disabled) && styles.dimmed, focus.style]}
     >
       <Text style={styles.label}>{label}</Text>
     </Pressable>

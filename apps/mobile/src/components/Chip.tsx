@@ -1,21 +1,31 @@
 import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import { Pressable, StyleSheet, Text } from 'react-native';
+import { spaceActivates, useFocusStyle } from './focus';
 
 type Props = {
   label: string;
   selected: boolean;
   onPress: () => void;
   role?: 'checkbox' | 'radio';
+  /** Overrides the spoken name when the visible label alone is not enough. */
+  accessibilityLabel?: string;
+  /** Adds a state hint such as "expanded" for disclosure toggles. */
+  expanded?: boolean;
 };
 
-export function Chip({ label, selected, onPress, role = 'checkbox' }: Props) {
+export function Chip({ label, selected, onPress, role = 'checkbox', accessibilityLabel, expanded }: Props) {
+  const focus = useFocusStyle();
   return (
     <Pressable
       accessibilityRole={role}
-      accessibilityState={role === 'checkbox' ? { checked: selected } : { selected }}
-      accessibilityLabel={label}
+      aria-checked={selected}
+      aria-selected={role === 'radio' ? selected : undefined}
+      aria-expanded={expanded}
+      accessibilityLabel={accessibilityLabel ?? label}
       onPress={onPress}
-      style={[styles.chip, selected && styles.selected]}
+      {...focus.handlers}
+      {...spaceActivates(onPress)}
+      style={[styles.chip, selected && styles.selected, focus.style]}
     >
       <Text style={[styles.label, selected && styles.selectedLabel]}>{label}</Text>
     </Pressable>

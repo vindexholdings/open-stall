@@ -33,6 +33,8 @@ jobs:
         run: npm run test:e2e
       - name: Auth UI test (real browser, mock auth backend)
         run: npm run test:e2e:auth
+      - name: Discovery UI test (real browser, mock backend; list/map, filters, states, a11y audit)
+        run: npm run test:e2e:discovery
       - name: Admin sign-in/MFA/queue UI test (real browser, mock backend)
         run: npm run test:e2e:admin
         env:
