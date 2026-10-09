@@ -216,13 +216,22 @@ type ErrLike = { message?: string; code?: string; status?: number } | null | und
 
 /** Friendly message for a failed account RPC. Never echoes raw backend text. */
 /**
- * Whether a failed write may nevertheless have taken effect. A structured server rejection carries a database or
- * API error `code` and proves the function raised (nothing was stored). A transport failure (no response, dropped
- * connection, unparseable gateway error) carries no code: the request may have committed before the response was
- * lost, so the UI must not claim that nothing happened and must never resend automatically.
+ * Error codes the Open Stall database functions and the API gateway raise to REJECT a request before or instead of
+ * storing anything (see the migrations: 22023 invalid/duplicate, 28000 not authenticated, 42501 not permitted,
+ * 53400 caps, 54000 rate limit, 55000 object state; PGRST301/302 are PostgREST rejecting the token before running
+ * the function). Only these prove "nothing was stored".
+ */
+export const AUTHORITATIVE_REJECTION_CODES: readonly string[] = ['22023', '28000', '42501', '53400', '54000', '55000', 'PGRST301', 'PGRST302'];
+
+/**
+ * Whether a failed write may nevertheless have taken effect. Certainty is limited to the known structured
+ * rejections above. Everything else stays uncertain: no response, connection resets and timeouts (ECONNRESET,
+ * ETIMEDOUT, ...), gateway or proxy errors, unknown or unexpected codes, internal errors. For those the request may
+ * have committed before the response was lost, so the UI must not claim that nothing happened and must never
+ * resend automatically.
  */
 export function isUncertainOutcome(err: ErrLike): boolean {
-  return !(typeof err?.code === 'string' && err.code.length > 0);
+  return !(typeof err?.code === 'string' && AUTHORITATIVE_REJECTION_CODES.includes(err.code));
 }
 
 /** Truthful copy for a write whose outcome is unknown (see isUncertainOutcome). Never says nothing happened. */
@@ -231,7 +240,7 @@ export function uncertainWriteMessage(what: string): string {
 }
 
 export const UNCERTAIN_DELETE_MESSAGE =
-  'We couldn’t confirm whether your account was deleted. Sign out and try signing in again to check: if you can sign in, it still exists and you can retry; if not, it was deleted.';
+  'We couldn’t confirm whether your account was deleted, so please don’t assume either way. A sign-in that fails can’t tell us on its own, because it can fail for other reasons too. If you can sign in, the account still exists and you can try the deletion again. Otherwise check your connection and try again later.';
 
 export function accountErrorMessage(err: ErrLike): string {
   const code = err?.code ?? '';

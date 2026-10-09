@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  EMPTY_DRAFT, accountErrorMessage, buildProposal, isUncertainOutcome, uncertainWriteMessage, UNCERTAIN_DELETE_MESSAGE, fixProblem, sanitizePreferences, toggleObservation, validateDisplayName,
+  EMPTY_DRAFT, accountErrorMessage, buildProposal, AUTHORITATIVE_REJECTION_CODES, isUncertainOutcome, uncertainWriteMessage, UNCERTAIN_DELETE_MESSAGE, fixProblem, sanitizePreferences, toggleObservation, validateDisplayName,
   validateFreeText, validateRating, validateReport, looksResidential, ratingChoiceLabel, type LocationDraft, type LocationFix,
 } from './account';
 
@@ -130,8 +130,19 @@ describe('preferences and errors', () => {
 });
 
 describe('uncertain write outcomes (R3 correction)', () => {
-  it('treats a structured server error code as a confirmed rejection', () => {
-    for (const code of ['53400', '54000', '22023', '28000', 'PGRST301', '42501']) expect(isUncertainOutcome({ code, message: 'x' })).toBe(false);
+  it('treats only the known authoritative rejection codes as confirmed rejections', () => {
+    for (const code of ['22023', '28000', '42501', '53400', '54000', '55000', 'PGRST301', 'PGRST302']) expect(isUncertainOutcome({ code, message: 'x' })).toBe(false);
+    expect([...AUTHORITATIVE_REJECTION_CODES].sort()).toEqual(['22023', '28000', '42501', '53400', '54000', '55000', 'PGRST301', 'PGRST302']);
+  });
+  it('keeps transport, gateway, internal and unknown codes uncertain', () => {
+    for (const code of ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'UND_ERR_SOCKET', '57014', '40001', '40P01', '08006', '53300', 'XX000', 'PGRST000', 'PGRST003', '502', '504', 'P0001', 'SOMETHING_NEW', '']) {
+      expect(isUncertainOutcome({ code, message: 'x' })).toBe(true);
+    }
+    expect(isUncertainOutcome({ message: 'TypeError: Failed to fetch' })).toBe(true);
+    expect(isUncertainOutcome({ message: 'boom', status: 502 })).toBe(true);
+    expect(isUncertainOutcome({ message: 'denied', status: 401 })).toBe(true);
+    expect(isUncertainOutcome(null)).toBe(true);
+    expect(isUncertainOutcome(undefined)).toBe(true);
   });
   it('never claims that nothing happened when the outcome is unknown', () => {
     for (const m of [uncertainWriteMessage('your report was sent'), UNCERTAIN_DELETE_MESSAGE]) {
@@ -140,11 +151,11 @@ describe('uncertain write outcomes (R3 correction)', () => {
     }
     expect(uncertainWriteMessage('your report was sent')).toMatch(/never resend automatically/);
   });
-  it('treats errors without a server code (transport failures, gateway errors) as uncertain', () => {
-    expect(isUncertainOutcome({ message: 'TypeError: Failed to fetch' })).toBe(true);
-    expect(isUncertainOutcome({ code: '', message: 'Failed to fetch' })).toBe(true);
-    expect(isUncertainOutcome({ message: 'boom', status: 502 })).toBe(true);
-    expect(isUncertainOutcome(null)).toBe(true);
-    expect(isUncertainOutcome(undefined)).toBe(true);
+  it('does not conclude deletion (or its absence) from a failed sign-in', () => {
+    expect(UNCERTAIN_DELETE_MESSAGE).not.toMatch(/if not,? it was deleted|it was deleted\.|account is gone|has been deleted/i);
+    expect(UNCERTAIN_DELETE_MESSAGE).toMatch(/can’t tell us on its own/);
+    expect(UNCERTAIN_DELETE_MESSAGE).toMatch(/don’t assume either way/);
+    // the only conclusion drawn is the logically sound one: a SUCCESSFUL sign-in proves the account exists
+    expect(UNCERTAIN_DELETE_MESSAGE).toMatch(/If you can sign in, the account still exists/);
   });
 });

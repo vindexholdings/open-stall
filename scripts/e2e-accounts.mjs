@@ -373,6 +373,24 @@ try {
     await ctx.close();
   }
 
+  // 6d. Unknown and transport error codes are never treated as "nothing happened"; contract rejections still are
+  {
+    const { ctx, page } = await newPage();
+    await signIn(page, '/contribute');
+    await fill(page, 'Name of the place', 'Code-test restroom');
+    await acceptAttestation(page);
+    const n0 = acct.submissions.length;
+    for (const [code, status] of [['ECONNRESET', 502], ['XX000', 500], ['SOMETHING_NEW', 400]]) {
+      inject = { status, body: { code, message: 'x' }, times: 1 };
+      await button(page, 'Add restroom at my current location').click();
+      check(await alerted(page, /couldn’t confirm whether your restroom was sent for review/) && acct.submissions.length === n0, `error code ${code} is treated as an unconfirmed outcome`);
+    }
+    inject = { status: 400, body: { code: '53400', message: 'too many pending submissions' }, times: 1 };
+    await button(page, 'Add restroom at my current location').click();
+    check(await alerted(page, /too many pending submissions/) && !(await page.locator('body').innerText()).includes('couldn’t confirm whether your restroom'), 'a contract cap rejection (53400) is still a specific, confirmed refusal');
+    await ctx.close();
+  }
+
   // 7. Contribution: correction needs no location, failure preserved
   {
     const { ctx, page } = await newPage({ geolocation: null });
@@ -381,7 +399,7 @@ try {
     await page.getByRole('radiogroup', { name: 'Need a key or code?' }).getByRole('radio', { name: 'Yes', exact: true }).click();
     await acceptAttestation(page);
     const base7 = acct.edits.length;
-    inject = { status: 400, body: { code: 'P0001', message: 'pending correction exists' }, times: 1 };
+    inject = { status: 400, body: { code: '22023', message: 'you already have a pending correction for this restroom' }, times: 1 };
     await button(page, 'Send suggestion').click();
     check(await alerted(page, /already have a correction waiting/) && acct.edits.length === base7, 'an existing pending correction is explained');
     check((await page.getByRole('radiogroup', { name: 'Need a key or code?' }).getByRole('radio', { name: 'Yes', exact: true }).getAttribute('aria-checked')) === 'true', 'the chosen answers survive the refusal');
@@ -431,6 +449,17 @@ try {
     const bodyText = await page.locator('body').innerText();
     check(acct.deleteCalls === d0 + 1 && !/nothing was deleted|wasn’t deleted/i.test(bodyText), 'no automatic retry and no claim that nothing was deleted');
     check(/Signed in as user@test\.dev/.test(bodyText) && (await button(page, 'Sign out').count()) === 1, 'the user keeps a way to sign out and check');
+    check(/can’t tell us on its own/.test(bodyText) && !/if not,? it was deleted|account is gone|has been deleted/i.test(bodyText), 'the message does not conclude deletion from a failed sign-in');
+    // the user signs out and tries to sign back in, but the network is down: still no claim that the account was deleted
+    await button(page, 'Sign out').click();
+    await page.goto(`${base}/auth/sign-in?next=%2Faccount`);
+    await fill(page, 'Email', USER.email); await fill(page, 'Password', GOOD_PW);
+    netFail = true;
+    await button(page, 'Sign in').click();
+    check(await alerted(page, /reach|wrong|connection/i), 'a sign-in that fails because of the network says so');
+    const after = await page.locator('body').innerText();
+    check(!/was deleted|has been deleted|account is gone|no longer exists|doesn’t exist/i.test(after), 'a failed sign-in never asserts that the account was deleted', after.slice(0, 300));
+    netFail = false;
     await ctx.close();
   }
   {
