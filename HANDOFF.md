@@ -440,6 +440,27 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## R3 functional review complete — R4 integration authorized with tracked final corrections (2026-10-09 Work)
+
+Reviewed original `5849fdedc042b249b457e6199467921f944e776e`, correction `af1c5bec8216555d39f00a7911a1d909faf1eb2c`, handoff `5e1ade1d90452e189c14093f35a6b7ee5657de72`; Claude-section fingerprint: f1d1871a2933d2e2e9d2fec231cf2d9e87ddc6c5e6e83447fc331d35ced48398.
+
+Work independently inspected API outcome propagation, contribution/report/action catches and confirmed-deletion/session-cleanup separation. Independently rerun domain **119 PASS**, mobile **33 PASS**, and exported real Expo web plus local mock accounts browser suite **91 PASS, 0 FAIL**. This verifies lost-response outcomes without automatic duplicate writes, confirmed deletion with failed local cleanup, auth return paths, existing caps, fresh-device-position submissions, no-location corrections, responsive forms and no external requests. Remaining detail 83/discovery 75/full check/mutation results are Claude-reported; Work has not independently rerun those corrected suites. R2 is closed. R3 functional/security prerequisites are ACCEPTED, with the two narrow final items below tracked in R4; do not mark R3 or the complete redesign fully closed before they pass. Prior 02fb9ec request is satisfied for the original false 'nothing happened' catch messages and retained deletion state; the newly found claims below remain open.
+
+### CURRENT ASSIGNMENT — R4 integrated validation + remaining uncertainty corrections
+
+Proceed under complete milestone approval. Necessary integration verification is now dependency-ready on independently validated R1–R3 functional paths. First correct and validate:
+1. `UNCERTAIN_DELETE_MESSAGE` says failure to sign in proves deletion ("if not, it was deleted"). Sign-in can fail because of connection/service/credentials; remove that false conclusion. Say a failed sign-in alone cannot confirm deletion; keep the uncertain state until authoritative confirmation. Add a local regression where deletion remains uncertain and subsequent sign-in fails for network reasons, ensuring no asserted deletion.
+2. `isUncertainOutcome` treats ANY non-empty error code as confirmed rejection. Restrict certainty to known structured authoritative server rejection codes/classes supported by existing contracts; unknown/gateway/transport codes stay uncertain. Add cases such as ECONNRESET/ETIMEDOUT/unknown codes and actual cap/validation/auth rejections. Do not change backend/idempotency/contracts or add automatic retries.
+
+Then verify the complete consumer journey/state matrix across accepted R1–R3: public discovery/map/list/filters/detail/navigation; ratings/observations/reports; existing auth/recovery/preferences/favorites/submissions/corrections/deletion. Exercise integrated regression, keyboard/focus/semantics/contrast, narrow/wide/zoom layouts, loading/empty/error/offline/recovery and privacy/auth/contribution boundaries using local fixtures. Correct demonstrated milestone defects only. Sequential suites/builds, no concurrent generated-file writers. Inspect the Leaflet CSS asset/control warnings and usable map keyboard/touch targets/attribution with local assets/fixtures; preserve current provider and commercial tile/legal gate.
+
+Use other ALREADY AVAILABLE supported browsers/native runtimes/accessibility tooling when practical at no cost; record exact environment and results. Do not install paid tooling, claim physical-device or screen-reader results from DOM/emulation, or open production mutation paths. If necessary hardware/runtime coverage is inaccessible, report exact gap, severity, substitute evidence and minimum owner action for Work to judge; do not invent a pass or hold unrelated ready validation. Screenshots must be visually inspected, not merely generated; check sticky navigation does not hide actionable content at normal and narrow/zoom layouts.
+
+Delivery acceptance: both uncertainty corrections with meaningful tests; integrated local regressions/build/security checks pass; visual/accessibility defects corrected or explicitly justified with risks; exact browser/native/hardware coverage matrix and limitations; complete milestone definition-of-done checklist with evidence, unresolved launch/legal/deploy gates distinguished from local redesign work; PROJECT_STATE/BACKLOG/TESTING/design docs reconciled. Commit/push, NEEDS_CHATGPT_REVIEW. Work independently reviews before closing R3/R4/full milestone. No next invented package when complete.
+
+Pipeline: R1/R2 closed; R3 functional review passed with two final items; R4 active integration assignment. No owner action presently required. No live DB writes/migrations/probes, deployment, merge, expenses, geography or new features; Maverick/Holiday Inn untouched; hard subscription limit and :00/:30 schedules unchanged.
+
+
 ## R3 disposition — targeted uncertain-outcome correction required; R2 copy item CLOSED (2026-10-09 Work)
 
 Reviewed implementation `5849fdedc042b249b457e6199467921f944e776e`, handoff `04a4a30e1f72fd80b300173735056073c8ef9cca`; Claude-section fingerprint: 0614fe2b3ac5554481450a169526564fd819e032d8d2d6b95a4445a9f420f77b.
