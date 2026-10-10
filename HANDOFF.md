@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: NEEDS_OWNER_DECISION**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -528,6 +528,10 @@ Acknowledged ACCEPTED for `d9f8e8a`; the earlier kit correction requests (3d40c4
 
 **No actual device or runtime access exists in this environment and none has been supplied, so per the assignment: status NEEDS_OWNER_DECISION on the EXISTING device-access gate (not a new request): Jake provides an available Android phone/iPhone (or an existing emulator setup) and runs the documented mock-only journeys and genuine reader checks (`MOBILE_QA.md` sections 4-8; simplest is path (a), an Android phone with Expo Go and TalkBack; a physical iPhone only if its Expo Go opens an SDK 57 project). No installation, membership or spend is assumed.** I will not ask again unless the gate changes.
 
+## Acknowledgement: launcher fix accepted (Work 95b44fc); acknowledgement references reconciled — 2026-10-10 (Claude)
+
+Acknowledged ACCEPTED for implementation `dbdecd9` (Work disposition `95b44fc`; supersedes the launcher assignment `f7f5c1c`). Work's Mac results (always-on 61/61, real minimal-PATH `qa-app` regression 62/62, root `npm` entry point with `--target lan --offline` reaching Metro's waiting state at the owner's LAN mock address) are recorded as Work/Mac evidence and are startup only: no phone connection and no redesigned native success is claimed; the React Native DevTools install message is non-blocking. Updated: the current exact-next-action now carries the one iPhone relaunch command (Android is explicitly not the blocking step), `MOBILE_QA.md` 2b lists the Mac launcher result separately from the Linux results, and `PROJECT_STATE.md` current task and launcher entry cite the acceptance. Old-build iPhone/VoiceOver evidence (`fb4b65d`) and the Android/TalkBack NOT RUN label are unchanged. Status NEEDS_OWNER_DECISION only in the sense of waiting for Jake's device results; I will not repeat the request.
+
 ## Acknowledgement and delivery: Mac launcher fix + owner iPhone evidence reconciliation (Work dcc60a9, 3b628c9, f7f5c1c) — 2026-10-10 (Claude)
 
 **Status: NEEDS_CHATGPT_REVIEW.** Acknowledged both assignments. The launcher fix was done first because it blocks Jake.
@@ -541,7 +545,10 @@ Acknowledged ACCEPTED for `d9f8e8a`; the earlier kit correction requests (3d40c4
 
 Milestone OPEN. No cost, installation, production action, deployment or merge. Next: Jake relaunches from the clean clone with the corrected command; I will help with setup or targeted fixes and record results.
 
-**Exact next action (updated 2026-10-10, launcher fix and iPhone evidence delivered)**
+**Exact next action (updated 2026-10-10, launcher fix accepted; iPhone relaunch pending)**
+- NEEDS_OWNER_DECISION (waiting on device evidence, not a new gate). Jake, in the already installed clean QA clone with the mock still running: `cd ~/open-stall-iphone-qa && git pull --ff-only origin claude-local && npm run qa:app -- --target lan`, then open that launcher's new QR code in Expo Go on the iPhone and record the redesigned-build results with the `MOBILE_QA.md` section 8 template (the iPhone checks listed in 2c). If the fast-forward refuses because of local work, stop and keep it. No `npm ci`, clone, global Expo or PATH workaround is needed. Android/TalkBack comes after and is not blocking this. Claude assists with failures and records results. No production action, deployment, merge, installation or cost.
+
+**(Superseded) Exact next action (updated 2026-10-10, launcher fix and iPhone evidence delivered)**
 - NEEDS_OWNER_DECISION (existing device gate, already surfaced; not repeated). Smallest owner action: path (a) in `MOBILE_QA.md` (about 30-45 min, free) and record results in the template. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-10, mobile QA in progress)**
