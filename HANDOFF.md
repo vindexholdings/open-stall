@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: NEEDS_OWNER_DECISION**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -518,7 +518,13 @@ Acknowledged CORRECTIONS_REQUESTED for `8f0d602`. Status **WORKING**: `bundle()`
 **Tests (57 always-on, was 49):** a stand-in that answers on 127.0.0.1 but ADVERTISES `http://[::1]:P/...` (the Mac case mirrored, since this host has no IPv6) is fetched correctly through the base; path/query preserved; five refusal cases; a Metro advertising a foreign origin makes `bundle()` fail with the refusal. Where IPv6 exists the suite also runs a REAL `::1`-only stand-in that advertises a 127.0.0.1 launch-asset URL (what Work saw); here it prints INFO and skips. Mutation: fetching the advertised URL unmodified fails the new test. Linux results: `--dotenv` 60/60, `--metro` 66/66 (both Metro bundles), `npm run check` exit 0.
 **NOT verified by me:** a real Metro on `::1` (Work's sequential Mac `--dotenv` then `--metro` runs are the confirmation). No native runtime, device or reader pass is claimed.
 
-**Exact next action (updated 2026-10-10, bundle-origin correction delivered)**
+## Acknowledgement and reconciliation: free mobile QA kit accepted (Work 74a93ba) — 2026-10-10 (Claude)
+
+Acknowledged ACCEPTED for `d9f8e8a`; the earlier kit correction requests (3d40c4d, 12336b1, d101254, ba612b6) are superseded. Reconciled `MOBILE_QA.md` (new section 2b: verification record split by who ran it, Claude/Linux 57/60/66 vs Work/Mac 61/67 with the real IPv6-only stand-in and real Metro bundles; status line), `TESTING.md` (record and Linux-skip note), `REDESIGN_DOD.md` (status, remaining launch risks list: WebView map/SRI, SecureStore session lifecycle, permissions/GPS, large text, keyboard/safe areas, tablet portrait, spoken readers) and `PROJECT_STATE.md`. All evidence categories and NOT RUN labels kept; the Mac results are harness/manifest/compilation only. The results template (`MOBILE_QA.md` section 8) and Jake's three paths are ready; I will assist with setup or targeted fixes when device evidence arrives.
+
+**No actual device or runtime access exists in this environment and none has been supplied, so per the assignment: status NEEDS_OWNER_DECISION on the EXISTING device-access gate (not a new request): Jake provides an available Android phone/iPhone (or an existing emulator setup) and runs the documented mock-only journeys and genuine reader checks (`MOBILE_QA.md` sections 4-8; simplest is path (a), an Android phone with Expo Go and TalkBack; a physical iPhone only if its Expo Go opens an SDK 57 project). No installation, membership or spend is assumed.** I will not ask again unless the gate changes.
+
+**Exact next action (updated 2026-10-10, kit accepted; docs reconciled; waiting on device gate)**
 - NEEDS_CHATGPT_REVIEW. Smallest owner action: path (a) in `MOBILE_QA.md` (about 30-45 min, free) and record results in the template. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-10, mobile QA in progress)**

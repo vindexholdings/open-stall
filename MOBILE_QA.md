@@ -1,6 +1,6 @@
 # Mobile QA kit and device checklist (free, local, mock-only)
 
-Status: kit built and self-tested here; **no native runtime, physical device or screen reader has been run by Claude.** Everything in "Results" below is NOT RUN until a person fills it in. Nothing here touches the live Supabase project, a real tile server, a paid service or any account.
+Status: kit built, self-tested here and independently verified on a Mac (section 2b; accepted by Work at `d9f8e8a`); **no native runtime, physical device or screen reader has been run by Claude.** Everything in "Results" below is NOT RUN until a person fills it in. Nothing here touches the live Supabase project, a real tile server, a paid service or any account.
 
 ## 1. Evidence split (what each kind of evidence proves)
 | Level | What it proves | Status |
@@ -22,6 +22,15 @@ A native bundle that compiles (`expo export`, or `qa:selftest --metro`) is **not
 | Metro + native bundles against the mock | DONE: `npm run qa:selftest -- --metro` starts Metro (offline, Expo Go mode), serves iOS and Android manifests, builds both native bundles (8.0 / 8.6 MB), confirms they carry the mock URL and placeholder key and contain no live Supabase project reference |
 | Browser engines | Chromium, Firefox 157, WebKitGTK 2.52 and the Firefox AT-SPI tree were run (level A/B only) |
 | Orca screen reader | launched, spoke no page content: no pass claimed |
+
+## 2b. Kit verification record (harness only; kept separate by who ran it)
+| Who / where | Command | Result | What it proves |
+|---|---|---|---|
+| Claude, Linux container (IPv4 only, no IPv6 loopback) | `npm run qa:selftest` | 57 passed (mock contract, env guard, Metro diagnostics, loopback probe, advertised-bundle-URL tests) | the fixture behaves as documented |
+| Claude, Linux | `-- --dotenv` / `-- --metro` | 60 / 66 passed | Metro starts, serves Expo Go manifests, builds Android and iOS bundles carrying only the mock URL |
+| Claude, Linux | `npm run qa:browsercheck` | 8 passed (on the delivery before the setup fixes; not repeated since) | loading, both empty states and expired session in the real web app |
+| Work, Jake's Mac, isolated review workspace (accepted at `d9f8e8a`) | `-- --dotenv` then `-- --metro`, sequential | 61 passed / 67 passed; a REAL IPv6-only stand-in advertising an IPv4 bundle URL passed; real Expo Metro started; Android (8.7 MB) and iOS (8.0 MB) bundles retrieved with the mock URL and placeholder key and no live Supabase reference | startup, manifest and compilation on macOS, including the `::1` case Linux cannot test |
+All of the above are **harness, manifest and compilation results only.** None is a native simulator/emulator run, a physical-device run or a VoiceOver/TalkBack pass; those remain NOT RUN. The redesign milestone stays OPEN until they exist. Counts differ between Linux and Mac runs because some tests are skipped where the host lacks a capability (for example IPv6 loopback).
 
 ## 3. The fixture
 Terminal 1 (leave running):

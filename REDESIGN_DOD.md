@@ -1,6 +1,6 @@
 # Consumer redesign milestone: definition of done and coverage matrix (R1-R4, local only)
 
-Status: R4 engineering corrections accepted (Work ce298d4); no-cost mobile QA kit delivered for review (2026-10-10). The redesign milestone stays OPEN until native/device/screen-reader evidence exists. Nothing here is deployed. Work owns acceptance; this file records evidence and what is NOT claimed.
+Status: R4 engineering corrections accepted (Work ce298d4); free mobile QA kit accepted locally (Work, `d9f8e8a`, verified on a Mac as harness/manifest/compilation only) (2026-10-10). The redesign milestone stays OPEN until native/device/screen-reader evidence exists. Nothing here is deployed. Work owns acceptance; this file records evidence and what is NOT claimed.
 
 ## The five journeys (referenced throughout; full steps and expected results in `MOBILE_QA.md`)
 1. Signed-out discovery: locate, list, map, filter, detail.
@@ -64,3 +64,6 @@ Deployment, merge, live data/migrations, tile provider and ODbL/licensing decisi
 
 ## Native map WebView hardening (this QA package)
 The native map WebView loaded Leaflet from cdnjs with no integrity check. It now pins Subresource Integrity (sha256, verified equal to the npm `leaflet@1.9.4` files; a unit test locks the pins to `node_modules`) and accepts `EXPO_PUBLIC_LEAFLET_BASE_URL` so QA runs need no third-party host. Default behavior is otherwise unchanged. Not verified at runtime on a device (the cdnjs host is unreachable from this network, so the pins come from the npm package).
+
+## Remaining launch risks (kit accepted; none of these is closed by it)
+Native WebView map (and the Leaflet SRI path), SecureStore/session lifecycle, permission/GPS handling, OS large text, keyboard and safe areas, portrait behavior on tablets, and genuine spoken VoiceOver/TalkBack behavior stay NOT RUN at levels C, D and E. They close only with a recorded run (`MOBILE_QA.md` section 8) on an available phone or emulator. The milestone stays OPEN.
