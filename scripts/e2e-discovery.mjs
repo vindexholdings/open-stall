@@ -99,7 +99,7 @@ const newPage = async ({ width = 390, height = 844, geolocation = true } = {}) =
   page.setDefaultTimeout(15000);
   return { ctx, page };
 };
-const text = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
+const text = (page, t) => page.getByText(t, { exact: false }).filter({ visible: true }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
 const gone = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'hidden', timeout: 4000 }).then(() => true, () => false);
 const button = (page, name) => page.getByRole('button', { name, exact: true });
 const cardNames = (page) => page.locator('[role="listitem"] [role="heading"]').allInnerTexts();

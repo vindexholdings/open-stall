@@ -1,27 +1,21 @@
-import { colors, touchTarget, typography } from '@open-stall/ui';
 import { StatusBar } from 'expo-status-bar';
+import { Platform } from 'react-native';
+import { enableScreens } from 'react-native-screens';
 import { Tabs } from 'expo-router/js-tabs';
 import { AuthProvider } from '../auth/AuthProvider';
-import { useEffect } from 'react';
-import { installGlobalWebStyles, labelTabBarLandmark } from '../web/globalStyles';
+import { MainNav, type MainNavProps } from '../components/MainNav';
+import { installGlobalWebStyles } from '../web/globalStyles';
 
 installGlobalWebStyles();
+// Web: without this the navigator leaves visited screens in the page (aria-hidden but still focusable and tabbable, stacked
+// behind the active screen). Enabled, inactive screens are display:none yet stay mounted, so their state is kept.
+if (Platform.OS === 'web') enableScreens(true);
 
 export default function RootLayout() {
-  useEffect(() => labelTabBarLandmark(), []);
   return (
     <AuthProvider>
       <StatusBar style="dark" />
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: colors.primaryStrong,
-          tabBarInactiveTintColor: colors.textMuted,
-          tabBarStyle: { backgroundColor: colors.surface, minHeight: touchTarget.primary },
-          tabBarLabelStyle: { fontSize: 13, fontWeight: typography.label.fontWeight },
-          tabBarIconStyle: { display: 'none' },
-        }}
-      >
+      <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <MainNav {...(props as unknown as MainNavProps)} />}>
         <Tabs.Screen name="index" options={{ title: 'Nearby', tabBarAccessibilityLabel: 'Nearby restrooms' }} />
         <Tabs.Screen name="favorites" options={{ title: 'Favorites' }} />
         <Tabs.Screen name="location/[id]" options={{ href: null, title: 'Restroom' }} />

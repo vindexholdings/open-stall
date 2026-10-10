@@ -1,0 +1,97 @@
+# Cross-browser + accessibility-tree checks (scripts/xbrowser-check.mjs, scripts/xbrowser-atspi.sh) against the FINAL-source web export, 2026-10-10
+# Runtimes: Firefox 157.0.1 (conda-forge, x86_64 Linux) + geckodriver 0.37.1; WebKitGTK 2.52.6 (Ubuntu 24.04 webkit2gtk-driver / MiniBrowser) under xvfb (the WebKit ENGINE, not Safari); selenium-webdriver 4.51.0; Orca 46.1 + AT-SPI 2.52 for the accessibility tree (Orca itself was NOT used for any pass). Chromium results are in the Playwright suites.
+
+## firefox (headless/xvfb, WebDriver)
+INFO engine: firefox  UA: Mozilla/5.0 (X11; Linux x86_64; rv:157.0) Gecko/20100101 Firefox/157.0
+PASS home renders
+PASS the locate button is clickable
+PASS results appear after locating (4 restrooms)
+PASS verified badges show text and date
+PASS one reachable h1
+PASS no horizontal scroll at phone width
+PASS main navigation is a labeled landmark of four links with aria-current
+PASS Enter on a result card opens the restroom detail
+PASS focus moves to the page heading after opening
+PASS no focusable control is left inside an aria-hidden (inactive) screen
+PASS facts show symbol + word (✓ Yes, ✕ No, ? Not reported)
+INFO browser-provided scroll-container tab stop (not an app control): DIV|Cody Library Restroom1 Libra|0
+PASS Tab reaches the detail controls (10 stops)
+PASS every focus stop shows a visible focus indicator
+PASS ArrowRight moves radio selection and focus; one tab stop per group
+PASS sign-in renders
+PASS sign-in inputs are labeled
+PASS a focused text input shows a visible focus indicator
+INFO 200% (layout.css.devPixelsPerPx=2): viewport [1280,635,2]
+PASS 200% (layout.css.devPixelsPerPx=2): no horizontal scroll
+PASS 200% (layout.css.devPixelsPerPx=2): navigation labels whole and the bar stays on screen
+PASS 200% (layout.css.devPixelsPerPx=2): no control is covered (sticky navigation hides nothing)
+INFO 400% (layout.css.devPixelsPerPx=4): viewport [1280,635,4]
+PASS 400% (layout.css.devPixelsPerPx=4): no horizontal scroll
+PASS 400% (layout.css.devPixelsPerPx=4): navigation labels whole and the bar stays on screen
+PASS 400% (layout.css.devPixelsPerPx=4): no control is covered (sticky navigation hides nothing)
+INFO minimum font size 24px (font.minimum-size.x-western=24), 1280x720: viewport [1280,634,1]
+PASS minimum font size 24px (font.minimum-size.x-western=24), 1280x720: no horizontal scroll
+PASS minimum font size 24px (font.minimum-size.x-western=24), 1280x720: navigation labels whole and the bar stays on screen
+PASS minimum font size 24px (font.minimum-size.x-western=24), 1280x720: no control is covered (sticky navigation hides nothing)
+
+firefox: 26 passed, 0 failed.
+
+## webkit (headless/xvfb, WebDriver)
+INFO engine: webkit  UA: Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/60.5 Safari/605.1.15
+PASS home renders
+PASS the locate button is clickable
+PASS results appear after locating (4 restrooms)
+PASS verified badges show text and date
+PASS one reachable h1
+PASS no horizontal scroll at phone width
+PASS main navigation is a labeled landmark of four links with aria-current
+PASS Enter on a result card opens the restroom detail
+PASS focus moves to the page heading after opening
+PASS no focusable control is left inside an aria-hidden (inactive) screen
+PASS facts show symbol + word (✓ Yes, ✕ No, ? Not reported)
+PASS Tab reaches the detail controls (9 stops)
+PASS every focus stop shows a visible focus indicator
+PASS ArrowRight moves radio selection and focus; one tab stop per group
+PASS sign-in renders
+PASS sign-in inputs are labeled
+PASS a focused text input shows a visible focus indicator
+INFO 640x360 window (no zoom control in WebKitGTK driver: emulated): viewport [640,322,1]
+PASS 640x360 window (no zoom control in WebKitGTK driver: emulated): no horizontal scroll
+PASS 640x360 window (no zoom control in WebKitGTK driver: emulated): navigation labels whole and the bar stays on screen
+PASS 640x360 window (no zoom control in WebKitGTK driver: emulated): no control is covered (sticky navigation hides nothing)
+INFO 320x240 window (emulated): viewport [447,202,1]
+PASS 320x240 window (emulated): no horizontal scroll
+PASS 320x240 window (emulated): navigation labels whole and the bar stays on screen
+PASS 320x240 window (emulated): no control is covered (sticky navigation hides nothing)
+
+webkit: 23 passed, 0 failed.
+
+## firefox + AT-SPI platform accessibility tree (xvfb window)
+INFO engine: firefox  UA: Mozilla/5.0 (X11; Linux x86_64; rv:157.0) Gecko/20100101 Firefox/157.0
+PASS home renders
+PASS the locate button is clickable
+PASS results appear after locating (4 restrooms)
+PASS verified badges show text and date
+PASS one reachable h1
+PASS no horizontal scroll at phone width
+PASS main navigation is a labeled landmark of four links with aria-current
+PASS Enter on a result card opens the restroom detail
+PASS focus moves to the page heading after opening
+PASS no focusable control is left inside an aria-hidden (inactive) screen
+PASS facts show symbol + word (✓ Yes, ✕ No, ? Not reported)
+INFO browser-provided scroll-container tab stop (not an app control): DIV|Cody Library Restroom1 Libra|0
+PASS Tab reaches the detail controls (10 stops)
+PASS every focus stop shows a visible focus indicator
+PASS ArrowRight moves radio selection and focus; one tab stop per group
+INFO AT-SPI nodes exposed by Firefox: 150
+PASS AT-SPI: the page title is exposed as a level-1 heading
+PASS AT-SPI: section titles are level-2 headings
+PASS AT-SPI: exactly the selected travel mode (Bike) is exposed as a checked radio button
+PASS AT-SPI: a navigation landmark is exposed
+PASS AT-SPI: the four main navigation items are exposed as links
+PASS AT-SPI: no tab roles are exposed for the navigation
+PASS AT-SPI: an unknown fact is spoken as "Not reported", never as No
+PASS AT-SPI: the filter disclosure button is exposed as expanded
+PASS AT-SPI: the distance choices are radio buttons with exactly one checked
+PASS AT-SPI: the sign-in fields are exposed with their labels
+firefox (AT-SPI): 24 passed, 0 failed.

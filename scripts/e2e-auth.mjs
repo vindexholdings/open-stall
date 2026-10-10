@@ -121,7 +121,7 @@ const newPage = async () => {
   page.setDefaultTimeout(15000);
   return { ctx, page };
 };
-const text = async (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
+const text = async (page, t) => page.getByText(t, { exact: false }).filter({ visible: true }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
 const fill = async (page, label, value) => page.getByLabel(label, { exact: true }).fill(value);
 const button = (page, name) => page.getByRole('button', { name, exact: true });
 

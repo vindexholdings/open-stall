@@ -132,7 +132,7 @@ const newPage = async (view = 'phone', { geolocation = HERE } = {}) => {
   page.setDefaultTimeout(15000);
   return { ctx, page };
 };
-const text = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
+const text = (page, t) => page.getByText(t, { exact: false }).filter({ visible: true }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
 const button = (page, name) => page.getByRole('button', { name, exact: true });
 const fill = (page, label, value) => page.getByLabel(label, { exact: true }).fill(value);
 async function signIn(page, next = '/account') {
@@ -167,7 +167,7 @@ async function coverage(page) {
   for (const h of handles) {
     const info = await h.evaluate((el) => {
       const hidden = !!el.closest('[aria-hidden="true"]') || getComputedStyle(el).visibility === 'hidden' || el.offsetParent === null && getComputedStyle(el).position !== 'fixed';
-      const inTabBar = !!el.closest('[role="tablist"]');
+      const inTabBar = !!el.closest('nav[aria-label="Main"]');
       return { hidden, inTabBar, label: (el.getAttribute('aria-label') || el.textContent || el.tagName).trim().slice(0, 40), leaflet: !!el.closest('.leaflet-container') };
     });
     if (info.hidden || info.inTabBar || info.leaflet) continue;
@@ -207,16 +207,16 @@ try {
     await page.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
     check(await text(page, '2 restrooms nearby, filtered'), 'journey: the Verified-only filter narrows the list');
     await page.getByRole('link', { name: /Cody Library Restroom/ }).click();
-    check(await text(page, 'Community rating 4.5 / 5 (12 ratings)') && page.url().includes('/location/'), 'journey: a result opens its detail page');
+    check(await text(page, 'Community rating 4.5 / 5 (12 ratings)') && page.url().includes('/location/'), 'journey: a result opens its detail page', `${page.url()} ${(await page.locator('body').innerText()).slice(0, 300).replace(/\n/g, ' | ')}`);
     await page.goBack();
     check(await text(page, '2 restrooms nearby, filtered') && (await page.getByRole('button', { name: 'Remove filter: Verified only' }).count()) === 1, 'journey: going back keeps the results and the active filter');
-    await page.getByRole('tab', { name: 'Favorites' }).click();
+    await page.getByRole('link', { name: 'Favorites' }).click();
     check(await text(page, 'Sign in to save favorite restrooms'), 'journey: Favorites explains the sign-in requirement');
     await button(page, 'Sign in or create account').click();
     await fill(page, 'Email', USER.email); await fill(page, 'Password', GOOD_PW);
     await button(page, 'Sign in').click();
     check(await text(page, 'No favorites yet.') && new URL(page.url()).pathname === '/favorites', 'journey: signing in returns to Favorites, unlocked');
-    await page.getByRole('tab', { name: 'Nearby restrooms' }).click();
+    await page.getByRole('link', { name: 'Nearby restrooms' }).click();
     check(await text(page, '2 restrooms nearby, filtered'), 'journey: the Nearby tab still has its results and filter after the detour');
     await page.getByRole('link', { name: /Cody Library Restroom/ }).click();
     await button(page, 'Save to favorites').click();
@@ -225,17 +225,17 @@ try {
     await page.getByRole('checkbox', { name: 'Clean', exact: true }).click();
     await button(page, 'Save rating').click();
     check(await text(page, 'Thanks. Your rating was saved.') && acct.review?.rating === 4, 'journey: a rating with an observation is saved');
-    await page.getByRole('tab', { name: 'Favorites' }).click();
+    await page.getByRole('link', { name: 'Favorites' }).click();
     check(await text(page, '1 of 5 saved') && await text(page, 'Cody Library Restroom'), 'journey: the favorite appears in Favorites');
-    await page.getByRole('tab', { name: 'Settings' }).click();
+    await page.getByRole('link', { name: 'Settings' }).click();
     await page.getByRole('radio', { name: 'Risqué', exact: true }).click();
     check(await text(page, 'Saved.') && acct.mode === 'risque', 'journey: a preference change is saved');
     await page.goto(`${base}/location/${RICH}`);
     check(await text(page, 'Update my rating'), 'journey: after reload the saved rating is recognized (button says Update)');
-    await page.getByRole('tab', { name: 'Account' }).click();
+    await page.getByRole('link', { name: 'Account' }).click();
     await button(page, 'Sign out').click();
     check(await text(page, 'You’re not signed in'), 'journey: sign out returns to the signed-out account page');
-    await page.getByRole('tab', { name: 'Favorites' }).click();
+    await page.getByRole('link', { name: 'Favorites' }).click();
     check(await text(page, 'Sign in to save favorite restrooms'), 'journey: Favorites is gated again');
     await ctx.close();
   }
@@ -299,7 +299,7 @@ try {
     }
     check(trouble.length === 0, `${view} (${VIEWS[view].width}x${VIEWS[view].height}): no horizontal scroll and every control is reachable and clickable on all ${SCREENS.length + SIGNED_SCREENS.length} screens`, trouble.slice(0, 6).join(' | '));
     {
-      const cut = await page.evaluate(() => [...document.querySelectorAll('a[role="tab"]')].flatMap((tab) => [...tab.querySelectorAll('*')].filter((e) => e.children.length === 0 && e.textContent.trim() && e.textContent.trim() !== '⏷').filter((e) => { const st = getComputedStyle(e); const clipped = st.overflow === 'hidden' && e.scrollWidth > e.clientWidth + 1; const r = document.createRange(); r.selectNodeContents(e); const w = r.getBoundingClientRect().width; return clipped || w > tab.clientWidth; }).map((e) => e.textContent.trim())));
+      const cut = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Main"] a')].flatMap((tab) => [...tab.querySelectorAll('*')].filter((e) => e.children.length === 0 && e.textContent.trim() && e.textContent.trim() !== '⏷').filter((e) => { const st = getComputedStyle(e); const clipped = st.overflow === 'hidden' && e.scrollWidth > e.clientWidth + 1; const r = document.createRange(); r.selectNodeContents(e); const w = r.getBoundingClientRect().width; return clipped || w > tab.clientWidth; }).map((e) => e.textContent.trim())));
       check(cut.length === 0, `${view}: tab bar labels are shown whole (no truncation)`, cut.join(', '));
     }
     if (view === 'zoom400') { await page.goto(`${base}/location/${RICH}`); await text(page, 'Community rating'); await page.screenshot({ path: join(SHOTS, 'zoom400-detail.png') }); }
@@ -334,9 +334,42 @@ try {
     await page.waitForTimeout(400);
     const where = await page.evaluate(() => { const el = document.activeElement; return { body: !el || el === document.body, inMain: !!el && !el.closest('[aria-hidden="true"]'), tag: el?.tagName, label: el?.getAttribute('aria-label') || el?.textContent?.trim().slice(0, 30) }; });
     info(`focus after opening a result with Enter: ${JSON.stringify(where)}`);
+    const hiddenFocusable = await page.evaluate(() => [...document.querySelectorAll('a[href], button, input, textarea, select, [tabindex], [role="button"], [role="link"], [role="radio"], [role="checkbox"]')].filter((el) => el.closest('[aria-hidden="true"]') && el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.hasAttribute('inert')).map((el) => (el.getAttribute('aria-label') || el.textContent).trim().slice(0, 30)));
+    check(hiddenFocusable.length === 0, 'keyboard: after client-side navigation nothing stays focusable inside an inactive (aria-hidden) screen', JSON.stringify(hiddenFocusable.slice(0, 3)));
     const urlNow = new URL(page.url()).pathname;
     check(urlNow.startsWith('/location/'), 'keyboard: Enter on a result card opens its detail page', urlNow);
     check(where.inMain && where.tag === 'H1', 'keyboard: after opening a result, focus moves to the new page heading (not left in the hidden list)', JSON.stringify(where));
+    await ctx.close();
+  }
+
+  // ============================================================ 4b. main navigation semantics (a route nav, not an ARIA tablist)
+  {
+    const { ctx, page } = await newPage('phone');
+    await page.goto(`${base}/favorites`);
+    await text(page, 'Sign in to save favorite restrooms');
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    check((await nav.count()) === 1, 'navigation: the main navigation is one labeled navigation landmark');
+    check((await nav.getByRole('link').count()) === 4, 'navigation: it contains four ordinary links (Nearby, Favorites, Account, Settings)');
+    check((await page.locator('[role="tablist"], [role="tab"]').count()) === 0, 'navigation: no tablist/tab roles on web (they would promise arrow-key behavior this bar does not have)');
+    const current = await nav.locator('[aria-current="page"]').allInnerTexts();
+    check(current.length === 1 && current[0] === 'Favorites', 'navigation: the current page is exposed with aria-current="page"', JSON.stringify(current));
+    // keyboard: Tab to a link, Enter activates it, the current state moves and focus stays on the link
+    for (let i = 0; i < 60; i++) { await page.keyboard.press('Tab'); if (await page.evaluate(() => document.activeElement?.textContent?.trim() === 'Settings' && !!document.activeElement.closest('nav'))) break; }
+    check(await page.evaluate(() => document.activeElement?.textContent?.trim() === 'Settings'), 'navigation: the Settings link can be reached with the Tab key');
+    await page.keyboard.press('Enter');
+    await page.waitForURL(/\/settings/, { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => ({ path: location.pathname, active: document.activeElement?.textContent?.trim(), tag: document.activeElement?.tagName, current: [...document.querySelectorAll('nav[aria-label="Main"] [aria-current="page"]')].map((e) => e.textContent.trim()) }));
+    check(after.path === '/settings', 'navigation: Enter on a navigation link opens the page', JSON.stringify(after));
+    check(JSON.stringify(after.current) === '["Settings"]', 'navigation: aria-current moves to the opened page', JSON.stringify(after));
+    check(after.active === 'Settings' && after.tag === 'A', 'navigation: focus stays on the navigation link after activating it', JSON.stringify(after));
+    // arrow keys must not be needed (and must not be silently swallowed): Tab order continues through the links
+    await page.keyboard.press('Shift+Tab');
+    check(await page.evaluate(() => document.activeElement?.closest('nav[aria-label="Main"]') !== null), 'navigation: Shift+Tab moves between the links');
+    // hidden (pushed) routes have no current item and the bar is still there
+    await page.goto(`${base}/location/${RICH}`);
+    await text(page, 'Community rating');
+    check((await page.getByRole('navigation', { name: 'Main' }).locator('[aria-current="page"]').count()) === 0, 'navigation: on a pushed screen (restroom detail) no navigation item claims to be current');
     await ctx.close();
   }
 

@@ -131,7 +131,7 @@ const newPage = async ({ width = 390, height = 844 } = {}) => {
   page.setDefaultTimeout(15000);
   return { ctx, page };
 };
-const text = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
+const text = (page, t) => page.getByText(t, { exact: false }).filter({ visible: true }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
 const button = (page, name) => page.getByRole('button', { name, exact: true });
 const headings = (page) => page.locator('[role="heading"]').allInnerTexts();
 /** Activates a button twice within one JS task, before React can re-render it as disabled. */
