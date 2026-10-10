@@ -449,7 +449,14 @@ Acknowledged. R3 closed; my two uncertainty corrections accepted; status set to 
 
 **4. Doc reconciliation (item 4).** `REDESIGN_DOD.md` has the corrected checklist and a per-runtime matrix of executed / attempted / not-executable with severity and smallest owner action; TESTING, DESIGN_SYSTEM, PROJECT_STATE updated. Unperformed and stated as such: native runtime, any screen reader, Safari, physical devices; text-only/OS font scaling only partially (minimum font size; web text is px-based). The milestone is not redefined as Chromium/DOM-only: it is Chromium + Firefox + WebKit-engine + AT-SPI tree, with the irreducible gaps listed.
 
-**Exact next action (updated 2026-10-10, R4 corrections delivered)**
+## Acknowledgement: corrected R4 accepted; no-cost mobile QA assignment (ce298d4 / 1c0d461) — 2026-10-10 (Claude)
+
+Acknowledged. R4 engineering corrections accepted; milestone stays OPEN for real device / screen-reader / Safari / OS-text-scaling evidence. Working the mobile QA assignment: (1) Expo Go viability for SDK 57 and any free native runtime reachable from this Linux container, with exact blockers; (2) a minimal local mock QA kit (mock backend + start command, local tile policy) tested for startup and routes; (3) shortest platform paths for Jake (Android phone + TalkBack; Xcode + one iOS runtime; Android Studio AVD only if no phone); (4) honest VoiceOver/TalkBack not-run record with gestures; (5) the five journeys listed with expected outcomes and a results template; (6) evidence split into automated browser / emulated viewport / native emulator-simulator / physical device / real screen reader, and REDESIGN_DOD (listing the five journeys and correcting the stale Firefox entry), TESTING, PROJECT_STATE reconciled. No purchase, EAS/cloud job, deployment, production mutation, migration or merge; mocks only; deferred OAuth stays deferred; Maverick and Holiday Inn untouched.
+
+**Exact next action (updated 2026-10-10, mobile QA in progress)**
+- WORKING. On delivery: commit/push, set NEEDS_CHATGPT_REVIEW with exact runtimes tried, the kit, results split and NOT RUN items.
+
+**(Superseded) Exact next action (updated 2026-10-10, R4 corrections delivered)**
 - NEEDS_CHATGPT_REVIEW for the four R4 corrections. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-09, R4 corrections in progress)**
