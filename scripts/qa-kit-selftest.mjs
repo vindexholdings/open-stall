@@ -5,32 +5,17 @@
 // bundles, proving the native JavaScript bundles build with the mock's configuration baked in.
 // It does NOT run the app on a phone, simulator or emulator; native runtime remains a manual step (MOBILE_QA.md).
 import { Buffer } from 'node:buffer';
-import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { envFilesIn } from './qa-env-guard.mjs';
+import { environmentSummary, freePort, hintsFor, redactor, startMetro } from './qa-metro.mjs';
 import { startQaMock } from './qa-mock-server.mjs';
 
 let passed = 0; let failures = 0;
 const check = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${ok ? '' : `  ${detail}`}`); if (ok) passed++; else failures++; };
 
-// Starts Metro with the given env, returns the Android JavaScript bundle text (and stops Metro).
-const base0 = () => { const b = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: mockUrl, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${mockUrl}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${mockUrl}/leaflet` }; delete b.EXPO_PUBLIC_MAP_ATTRIBUTION; return b; };
-const retry = async (fn, n = 30) => { for (let i = 0; ; i++) { try { return await fn(); } catch (e) { if (i >= n) throw e; await new Promise((r) => setTimeout(r, 1000)); } } };
-async function androidBundle(port, env) {
-  // a private TMPDIR gives Metro an empty transform cache (the shared /tmp/metro-cache can hold values inlined by an earlier run)
-  env = { ...env, TMPDIR: mkdtempSync(join(tmpdir(), 'qa-metro-')) };
-  const metro = spawn('npx', ['expo', 'start', '--go', '--localhost', '--port', String(port), '--clear'], { cwd: new URL('../apps/mobile', import.meta.url).pathname, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-  try {
-    let up = false; for (let i = 0; i < 120 && !up; i++) { try { up = (await fetch(`http://127.0.0.1:${port}/status`)).ok; } catch { /* starting */ } if (!up) await new Promise((r) => setTimeout(r, 1000)); }
-    if (!up) throw new Error('Metro did not start');
-    const text = await retry(async () => { const t = await (await fetch(`http://127.0.0.1:${port}/`, { headers: { 'expo-platform': 'android', accept: 'multipart/mixed,application/expo+json,application/json' } })).text(); if (!t.includes('launchAsset') && !t.includes('.bundle')) throw new Error('manifest not ready'); return t; });
-    const m = text.match(/"launchAsset":\{[^}]*"url":"([^"]+)"/) ?? text.match(/"url":"(http[^"]+\.bundle[^"]*)"/);
-    if (!m) throw new Error('no bundle url in manifest');
-    return await retry(async () => (await fetch(m[1].replace(/\\u0026/g, '&'))).text(), 3);
-  } finally { try { process.kill(-metro.pid, 'SIGTERM'); } catch { /* already gone */ } await new Promise((r) => setTimeout(r, 1500)); }
-}
 let mockUrl = '';
 const mock = await startQaMock({ port: 0, host: '127.0.0.1' });
 const U = mock.url; mockUrl = U;
@@ -123,8 +108,43 @@ try {
   await fetch(`${U}/__qa/reset`, { method: 'POST' });
   check((await state()).favoritesCount === 0 && (await state()).reports.length === 0, 'reset forgets everything');
 
+  // ---- always-on, cheap: the env-file guard and the Metro diagnostics helper (no Metro needed)
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'qa-guard-'));
+    try {
+      check(envFilesIn(dir).length === 0, 'guard: an empty directory is accepted');
+      for (const name of ['.env', '.env.local', '.env.development.local', '.env.local.off']) {
+        writeFileSync(join(dir, name), 'X=1\n');
+        check(envFilesIn(dir).includes(name), `guard: ${name} is refused`);
+        rmSync(join(dir, name));
+      }
+      // the documented workaround: a name OUTSIDE the .env* namespace, moved without overwriting (mv -n)
+      writeFileSync(join(dir, '.env.local'), 'X=1\n');
+      const mv1 = spawnSync('mv', ['-n', join(dir, '.env.local'), join(dir, 'parked-env.local')]);
+      check(mv1.status === 0 && envFilesIn(dir).length === 0 && existsSync(join(dir, 'parked-env.local')), 'guard: the documented rename (parked-env.local) is accepted');
+      writeFileSync(join(dir, '.env.local'), 'NEW=1\n'); // a second file now sits at the original name
+      spawnSync('mv', ['-n', join(dir, 'parked-env.local'), join(dir, '.env.local')]); // restore must NOT overwrite it
+      check(existsSync(join(dir, 'parked-env.local')) && readFileSync(join(dir, '.env.local'), 'utf8') === 'NEW=1\n', 'guard: mv -n restore never overwrites an existing destination (parked file stays parked)');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+    const fake = redactor({ EXPO_PUBLIC_SUPABASE_ANON_KEY: 'super-secret-value-123', PATH: '/usr/bin' })('token super-secret-value-123 Bearer abcdefghijklmnop1234 eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0NTY3.abcdefgh');
+    check(!fake.includes('super-secret-value-123') && !fake.includes('abcdefghijklmnop1234') && !fake.includes('eyJhbGci') && fake.includes('[redacted]'), 'diagnostics: secret env values, bearer tokens and JWTs are redacted from child output');
+    // a stand-in child that dies at once must produce a diagnosable error, not a silent timeout
+    const t = Date.now();
+    let msg = '';
+    try { await startMetro({ env: { ...process.env, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'super-secret-value-123' }, command: ['node', '-e', "console.error('boom: port in use super-secret-value-123'); process.exit(3)"], startupMs: 20000 }); } catch (e) { msg = String(e.message); }
+    check(Date.now() - t < 10000 && msg.includes('exited early (code 3') && msg.includes('boom: port in use') && !msg.includes('super-secret-value-123') && msg.includes('node v'), 'diagnostics: an early-exiting child is reported at once with exit code, output tail (redacted) and versions', msg.slice(0, 300));
+    check(hintsFor('Error: EMFILE: too many open files, watch').some((h) => h.includes('watchman')) && hintsFor('listen EADDRINUSE :::8081').length === 1 && hintsFor('all good').length === 0, 'diagnostics: known startup failures (EMFILE, EADDRINUSE) get a likely-cause hint, clean output gets none');
+    let missing = '';
+    try { await startMetro({ env: process.env, command: ['definitely-not-a-real-binary-qa'], startupMs: 5000 }); } catch (e) { missing = String(e.message); }
+    check(missing.includes('could not be launched') && missing.includes('ENOENT'), 'diagnostics: a missing binary is reported as a launch failure (ENOENT)', missing.slice(0, 200));
+  }
+
+  const qaEnv = (extra = {}) => { const b = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: U, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${U}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${U}/leaflet`, ...extra }; delete b.EXPO_PUBLIC_MAP_ATTRIBUTION; return b; };
+  const withMetro = async (env, fn) => { const m = await startMetro({ env }); try { return await fn(m); } finally { await m.stop(); } };
+
   if (process.argv.includes('--dotenv')) {
-    // A throwaway .env.local holding a canary (fake value) is written only if the slot is empty, and always removed.
+    console.log(`INFO ${environmentSummary()}`);
+    // A throwaway .env.local holding a canary (fake value) is written only if the slot is empty, and ALWAYS removed.
     const dotenv = new URL('../apps/mobile/.env.local', import.meta.url).pathname;
     if (existsSync(dotenv)) check(false, 'dotenv test needs an empty slot: apps/mobile/.env.local already exists (not touched)');
     else {
@@ -132,44 +152,44 @@ try {
       writeFileSync(dotenv, `EXPO_PUBLIC_MAP_ATTRIBUTION=${CANARY}\n`);
       try {
         // 1. the launcher fails closed: exit 3, says why, starts no Metro, prints nothing from the file
-        const run = spawnSync('node', ['scripts/qa-app.mjs', '--target', 'web', '--metro-port', '8195'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8', timeout: 30000 });
+        const probePort = await freePort();
+        const run = spawnSync('node', ['scripts/qa-app.mjs', '--target', 'web', '--metro-port', String(probePort)], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8', timeout: 30000 });
         const said = `${run.stdout}${run.stderr}`;
-        let listening = true; try { await fetch('http://127.0.0.1:8195/status', { signal: AbortSignal.timeout(1500) }); } catch { listening = false; }
-        check(run.status === 3 && said.includes('.env.local') && !said.includes(CANARY) && !listening, 'qa-app refuses to start while apps/mobile/.env.local exists (exit 3, no Metro, file contents not printed)', `status ${run.status} ${said.slice(0, 200)}`);
+        let listening = true; try { await fetch(`http://127.0.0.1:${probePort}/status`, { signal: AbortSignal.timeout(1500) }); } catch { listening = false; }
+        check(run.status === 3 && said.includes('.env.local') && said.includes('mv -n') && !said.includes(CANARY) && !listening, 'qa-app refuses to start while apps/mobile/.env.local exists (exit 3, no Metro, safe rename advice, file contents not printed)', `status ${run.status} ${said.slice(0, 200)}`);
         // 2. why a refusal is needed: EXPO_NO_DOTENV=1 alone does not keep a dev bundle from reading the file (informational)
-        const base = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: U, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${U}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${U}/leaflet` };
-        delete base.EXPO_PUBLIC_MAP_ATTRIBUTION;
-        const withFlag = await androidBundle(8197, base);
-        console.log(`INFO with EXPO_NO_DOTENV=1 alone a Metro dev bundle ${withFlag.includes(CANARY) ? 'STILL CONTAINS' : 'does not contain'} the .env.local canary (${withFlag.includes(CANARY) ? 'this is why qa-app refuses to run' : 'Expo behavior changed; the refusal is now redundant but harmless'})`);
+        const withFlag = await withMetro(qaEnv(), (m) => m.bundle('android'));
+        console.log(`INFO with EXPO_NO_DOTENV=1 alone a Metro dev bundle ${withFlag.code.includes(CANARY) ? 'STILL CONTAINS' : 'does not contain'} the .env.local canary (${withFlag.code.includes(CANARY) ? 'this is why qa-app refuses to run' : 'Expo behavior changed; the refusal is now redundant but harmless'})`);
+      } catch (e) {
+        check(false, 'dotenv experiment could not complete', String(e.message ?? e));
       } finally { rmSync(dotenv, { force: true }); }
+      check(!existsSync(dotenv), 'the throwaway .env.local was removed');
       // 3. with the file gone, the same configuration carries no canary and does carry the mock values
-      const clean = await androidBundle(8196, base0());
-      check(!clean.includes('DOTENV-CANARY') && clean.includes(U) && clean.includes('qa-mock-anon-key'), 'with no .env file the QA configuration is exactly the mock values');
+      try {
+        const clean = await withMetro(qaEnv(), (m) => m.bundle('android'));
+        check(!clean.code.includes('DOTENV-CANARY') && clean.code.includes(U) && clean.code.includes('qa-mock-anon-key'), 'with no .env file the QA configuration is exactly the mock values');
+      } catch (e) { check(false, 'clean-configuration bundle could not be built', String(e.message ?? e)); }
     }
   }
   if (process.argv.includes('--metro')) {
-    if (envFilesIn(new URL('../apps/mobile', import.meta.url).pathname).length) throw new Error('apps/mobile has .env* files; move them aside before --metro (see scripts/qa-env-guard.mjs)');
-    const MP = 8199;
-    const env = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: U, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${U}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${U}/leaflet` };
-    const metro = spawn('npx', ['expo', 'start', '--go', '--localhost', '--port', String(MP), '--clear'], { cwd: new URL('../apps/mobile', import.meta.url).pathname, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-    let log = ''; metro.stdout.on('data', (d) => { log += d; }); metro.stderr.on('data', (d) => { log += d; });
-    const up = async () => { for (let i = 0; i < 120; i++) { try { const r = await fetch(`http://127.0.0.1:${MP}/status`); if (r.ok) return true; } catch { /* starting */ } await new Promise((r) => setTimeout(r, 1000)); } return false; };
-    check(await up(), 'Metro dev server starts (Expo Go flow, offline, localhost)', log.slice(-400));
-    for (const platform of ['android', 'ios']) {
-      const man = await fetch(`http://127.0.0.1:${MP}/`, { headers: { 'expo-platform': platform, accept: 'multipart/mixed,application/expo+json,application/json' } });
-      const text = await man.text();
-      const m = text.match(/"launchAsset":\{[^}]*"url":"([^"]+)"/) ?? text.match(/"url":"(http[^"]+\.bundle[^"]*)"/);
-      check(man.status === 200 && !!m, `${platform}: Metro serves an Expo Go manifest`, text.slice(0, 200));
-      if (m) {
-        const bundleUrl = m[1].replace(/\\u0026/g, '&');
-        const b = await fetch(bundleUrl);
-        const code = await b.text();
-        check(b.status === 200 && code.length > 500_000, `${platform}: the native JavaScript bundle builds (${(code.length / 1e6).toFixed(1)} MB)`, `status ${b.status} len ${code.length}`);
-        check(code.includes(U) && code.includes('qa-mock-anon-key'), `${platform}: the bundle carries the mock URL and placeholder key`);
-        check(!code.includes('xzzbcejgprilmolvdaes'), `${platform}: the bundle contains no live Supabase project reference`);
-      }
+    console.log(`INFO ${environmentSummary()}`);
+    if (envFilesIn(new URL('../apps/mobile', import.meta.url).pathname).length) throw new Error('apps/mobile has .env* files; park them first (see MOBILE_QA.md section 3 and scripts/qa-env-guard.mjs)');
+    let metro = null;
+    try { metro = await startMetro({ env: qaEnv() }); check(true, 'Metro dev server starts (Expo Go flow, offline, localhost)'); }
+    catch (e) { check(false, 'Metro dev server starts (Expo Go flow, offline, localhost)', `\n${e.message}`); }
+    if (metro) {
+      try {
+        for (const platform of ['android', 'ios']) {
+          try {
+            const { manifest, code } = await metro.bundle(platform);
+            check(manifest.length > 0, `${platform}: Metro serves an Expo Go manifest`);
+            check(code.length > 500_000, `${platform}: the native JavaScript bundle builds (${(code.length / 1e6).toFixed(1)} MB)`, `len ${code.length}`);
+            check(code.includes(U) && code.includes('qa-mock-anon-key'), `${platform}: the bundle carries the mock URL and placeholder key`);
+            check(!code.includes('xzzbcejgprilmolvdaes'), `${platform}: the bundle contains no live Supabase project reference`);
+          } catch (e) { check(false, `${platform}: native bundle`, `\n${e.message}`); }
+        }
+      } finally { await metro.stop(); }
     }
-    try { process.kill(-metro.pid, 'SIGTERM'); } catch { /* already gone */ }
   }
 } catch (e) {
   console.error('QA selftest error:', e);

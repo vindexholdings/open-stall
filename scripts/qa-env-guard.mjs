@@ -15,6 +15,9 @@ export function refuseIfEnvFiles(dir) {
   if (files.length === 0) return false;
   console.error(`QA launcher stopped: found ${files.join(', ')} in ${dir}.`);
   console.error('Expo dev bundles read these files and they would override the QA mock settings, which could point the app at a real project.');
-  console.error('Nothing was read or changed. Rename or move the file(s) aside (for example `mv apps/mobile/.env.local apps/mobile/.env.local.off`), run the QA session, then rename them back.');
+  console.error('Nothing was read or changed. Easiest: run the QA session from a fresh clone that has no .env* files.');
+  console.error('Or park the file under a name OUTSIDE the .env* family (do not use .env.local.off: it still starts with .env.). -n makes mv refuse to overwrite anything:');
+  for (const f of files) console.error(`  park:     mv -n apps/mobile/${f} apps/mobile/parked-${f.replace(/^\./, '')}`);
+  console.error('Restore afterwards with the reverse mv -n; if mv reports nothing moved because the destination exists, stop and compare by hand.');
   return true;
 }

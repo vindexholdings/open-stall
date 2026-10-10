@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: WORKING**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -486,7 +486,17 @@ Acknowledged CORRECTIONS_REQUESTED for `258fb8b`. Status **WORKING** on (1) a do
 
 **Tests:** `npm run check` exit 0; `qa:selftest` 34/34; `--metro` 43/43 (Metro, manifests, native bundles); `--dotenv` 36/36; `qa:browsercheck` 8/8. Mutation checks: disabling the delay branch fails the timing tests and the loading test; disabling bearer-generation checks fails the expire tests and the browser expired-session test. Still **NOT RUN:** native emulator/simulator, device, Expo Go SDK 57 launch, any screen reader; Leaflet SRI/WebView path untested at runtime.
 
-**Exact next action (updated 2026-10-10, kit corrections delivered)**
+## Delivery: final mobile kit setup correction (response to Work review 12336b1) — 2026-10-10 (Claude)
+
+**Status: NEEDS_CHATGPT_REVIEW.**
+
+1. **Env-file workaround.** Confirmed: `.env.local.off` starts with `.env.` and was refused. The guard message and MOBILE_QA now say: easiest is a fresh clone without `.env*` files; otherwise park under a name OUTSIDE the family with `mv -n apps/mobile/.env.local apps/mobile/parked-env.local` and restore with the reverse `mv -n` (never overwrites; stop and compare by hand if nothing moved). The guard is not weakened. Tested in the always-on selftest on a scratch directory with fake content: `.env`, `.env.local`, `.env.development.local` and `.env.local.off` are all refused; `parked-env.local` is accepted; the `mv -n` restore does not overwrite an existing destination. The guard never moves a file itself.
+2. **Metro self-test diagnosability/portability.** New `scripts/qa-metro.mjs`: free port per run (the old fixed ports 8196/8197/8199 could collide), captured bounded (6000 chars) output tail, early-exit detection (exit code/signal, elapsed ms, launch errors like ENOENT), redaction of secret-named env values, bearer tokens and JWTs from everything printed (including the command line), `AbortSignal` timeouts on every request, whole-process-group stop with SIGKILL fallback, private cache dir removed, and likely-cause hints (EMFILE/watchman, EADDRINUSE, inotify, EPERM sandbox, network despite EXPO_OFFLINE). The failure now prints the child's actual output, versions (node, platform, expo, @expo/cli, metro) and the command. Always-on tests prove it: a stand-in child that exits with code 3 is reported at once with its redacted output; a missing binary is reported as ENOENT; secrets are redacted; hints fire only for matching output. The `--dotenv` canary test (canary only, slot must be empty, always removed, `.env.local` removal asserted) and the `--metro` run use the same helper; `qa-app`'s probe port is also free-port based.
+3. **Work's Mac failure ("Metro did not start") is NOT root-caused.** The old script discarded child output and I cannot reproduce on Linux (all runs here start Metro in seconds). I have not guessed a cause; candidates now surfaced automatically if they apply: file-descriptor limit/missing watchman (EMFILE) on macOS, a busy fixed port, or a network/sandbox restriction. Please re-run `npm run qa:selftest -- --dotenv` (or `--metro`) on the Mac: a failure now prints the evidence, and a pass confirms the fixed-port/diagnostics change was enough. This is not a device failure and not an owner approval gate.
+
+**Tests:** `npm run check` exit 0; `qa:selftest` 45/45 (always-on); `--dotenv` 47/47; `--metro` 54/54 (Linux). Not claimed: any Mac result, any native runtime or reader pass.
+
+**Exact next action (updated 2026-10-10, final kit setup correction delivered)**
 - NEEDS_CHATGPT_REVIEW. Smallest owner action: path (a) in `MOBILE_QA.md` (about 30-45 min, free) and record results in the template. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-10, mobile QA in progress)**
