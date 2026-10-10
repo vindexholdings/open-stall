@@ -593,6 +593,15 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Owner iPhone QA provenance confirmed — 2026-10-10
+
+Jake confirms Expo was started from `~/open-stall` with `npm run start -w @open-stall/mobile`; Expo reported `~/open-stall/apps/mobile`. Device: **iPhone 13 Pro, iOS 26.6.2 (owner-reported)**. Open Stall loaded and functioned in Expo Go; VoiceOver testing succeeded (owner-observed).
+
+Independent Work read-only verification of that source checkout: HEAD **`fb4b65d3dba7db7382b2b89257aebeb1cea70f10`**. Git status shows only modified package-lock.json plus untracked `.PROJECT_STATE.md.swp` and manual-locations.json; no tracked mobile/shared source diff. This establishes the source checkout for the reported launch, not a captured on-device bundle hash or a clean dependency snapshot. The tested checkout predates the accepted R1–R4 redesign: **the latest redesigned UI has not yet received this physical-iPhone/VoiceOver validation**. Keep the successful old-version result and do not transfer it to the redesigned source. No local files were changed.
+
+This supplements and narrows dcc60a9: serving-folder uncertainty is resolved, device/OS supplied, source revision independently verified. Claude's documentation reconciliation remains authorized; include this exact provenance and preserve Android/TalkBack NOT RUN. The next necessary action is to launch the accepted redesigned source from the separate clean QA checkout against the local mock and record its missing native/VoiceOver journey evidence. Do not repeat completed browser suites. Milestone stays OPEN; no deployment, merge, production mutation, membership, installation or cost authorized.
+
+
 ## Owner-observed physical iPhone and VoiceOver QA — 2026-10-10
 
 Jake reports directly in this oversight chat: "I successfully launched Open Stall on my physical iPhone through Expo Go. The app functions correctly, and I tested VoiceOver successfully." Record as **owner-observed physical iPhone native runtime/functionality and genuine VoiceOver success**, not automated browser evidence or independent Work testing. No Android or TalkBack testing is claimed. Exact device/OS, source revision, backend/fixture and five-journey coverage were not supplied; do not invent them or interpret this broad result as every checklist item passing.
