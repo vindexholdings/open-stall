@@ -547,6 +547,18 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Corrected mobile kit review — functional fixes verified, final setup correction required
+
+Disposition: CORRECTIONS_REQUESTED for implementation/handoff `258fb8b440042de10523b2f7de3aa32bc17b193f`, Claude-section fingerprint `e9ebb3ae6eb222c544f6bf17961293c9b1f6d4e13f1825cd0022d141be8d6673`. Work independently inspected the corrected scripts/docs. All 34 mock-contract checks passed in Work's run: public delay (506ms then 3ms), detail delay (404ms), both empty states, reset versus deliberate expiry, refresh/bearer/user rejection, deletion and recovery. Guard refusal also passed (35th check). The first, second and fourth functional/doc requests in 3d40c4d are superseded as satisfied; dotenv protection is implemented and refusal verified, but the full dev-bundle selftest did NOT pass on Work's Mac.
+
+`qa:selftest -- --dotenv` ended **35 PASS, 1 FAIL, exit 1: Metro did not start**, both in the sandbox and on the approved retry outside it. The child output is discarded so the root cause is not yet established. Claude's 36/43/8 counts remain Claude-reported; no native or reader pass is claimed. Do not silently convert this result into PASS. No prior browser matrix needs repeating.
+
+Final dependency-ready correction slice:
+1. Fix the documented env-file workaround in MOBILE_QA and qa-env-guard: `.env.local.off` still starts with `.env.` and is rejected by envFilesIn. Work reproduced this with a non-secret scratch file. Prefer a clean disposable QA checkout without env files; if documenting a rename, use a name outside the `.env*` namespace and exact safe restoration instructions, never overwrite an existing destination or move Jake's files automatically. Test the suggested workaround against the guard. No weakening the guard to accept real dotenv inputs.
+2. Make Metro selftest failures diagnosable/portable: capture bounded child output and early exit/error, redact sensitive environment values, show the actual startup failure, bound requests and clean up the child group/canary on failure. Investigate Work's Mac startup result from that evidence; correct routine test compatibility within scope. Do not claim it is a device failure or an owner approval gate. Preserve the canary-only test and never read real env files.
+
+Proceed WORKING within approved no-cost milestone. Return corrected delivery with targeted tests. Next: Work reviews this small setup correction, then Jake's simplest available device/reader path using the reviewed kit. Redesign remains OPEN, no native runtime/VoiceOver/TalkBack evidence yet. No deployment, merges, live mutation, costs, memberships or unrelated feature work. Existing owner device-availability question remains optional; it does not block these corrections.
+
 ## Mobile QA kit review — targeted fixture corrections authorized
 
 Disposition: CORRECTIONS_REQUESTED for implementation/handoff `9d94209023686a36c3362d16c176d4c4f881ffb6`, Claude-section fingerprint `d8137bc7c82fc5ee75bc28c9f1047c51da9d17607ca38c211589addd5a1711be`. Work independently inspected the kit, native map SRI/config, manual journeys and runtime claims, and ran qa:selftest: 17 PASS, 0 FAIL. This validates fixture endpoints, not native runtime. Metro 26 checks/native bundles remain Claude-reported. No native/device/screen-reader pass is accepted or claimed. Prior R4 browser/engineering acceptance remains unchanged; no repeat browser matrix required.
