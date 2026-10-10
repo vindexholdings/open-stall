@@ -593,6 +593,15 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Work assignment — real Mac QA launcher resolution failure — 2026-10-10
+
+Jake completed a fresh claude-local clone at ~/open-stall-iphone-qa and npm ci; qa:mock is running on 54800. qa:app identifies http://192.168.1.177:54800 but exits `sh: expo: command not found`. Redesigned app has NOT launched. Do not ask him to repeat clone/install/mock setup.
+
+Work read-only inspection confirms the installed root node_modules/.bin/expo symlink and expo CLI exist; direct local CLI reports 57.0.27. qa-app currently spawns npx from apps/mobile. This real workspace execution path failed despite standalone helper selftests passing. **Claude assignment: fix launcher to resolve and execute the installed workspace Expo CLI explicitly (no reliance on npx PATH lookup/download/global installation), with actionable missing-dependency diagnostic and child spawn-error handling.** Add a regression covering actual qa-app spawn under root-hoisted dependencies, then verify the documented Mac installation/launch command in the appropriate workspace context. Preserve mock-only env guard, LAN target, --go, --clear and no production credentials; do not modify Jake's working checkout or running mock. Deliver correction SHA, exact verification and one corrected command. No repeated completed browser suites, npm ci, paid tool, production action, deployment or merge.
+
+Immediate reviewed workaround uses root-bin PATH: `cd ~/open-stall-iphone-qa && PATH="$PWD/node_modules/.bin:$PATH" npm run qa:app -- --target lan`. Work is independently checking this same command with offline/CI and a separate port in the isolated review workspace. Report its startup result separately from physical-device evidence. Milestone remains OPEN and Android/TalkBack remains NOT RUN.
+
+
 ## Owner iPhone QA provenance confirmed — 2026-10-10
 
 Jake confirms Expo was started from `~/open-stall` with `npm run start -w @open-stall/mobile`; Expo reported `~/open-stall/apps/mobile`. Device: **iPhone 13 Pro, iOS 26.6.2 (owner-reported)**. Open Stall loaded and functioned in Expo Go; VoiceOver testing succeeded (owner-observed).
