@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: WORKING**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -470,6 +470,10 @@ Acknowledged CORRECTIONS_REQUESTED for `9d94209`. Status set to **WORKING** on t
 **Flag for review (small product-adjacent change):** the native map WebView loaded Leaflet from cdnjs with no integrity check. It now pins SRI (sha256 verified equal to the npm leaflet@1.9.4 files; a unit test locks the pins to node_modules) and accepts `EXPO_PUBLIC_LEAFLET_BASE_URL` (no integrity when overridden, for QA only). Default behavior unchanged; not verified on a device.
 
 **Tests:** `npm run check` exit 0 (lint, typecheck incl. mobile, all unit suites, secret scan); mobile 36 tests; qa:selftest 17/17 and 26/26 with Metro. **NOT RUN:** native emulator/simulator, physical device, Expo Go SDK 57 launch, TalkBack, VoiceOver, OS text scaling, safe areas, rotation, keyboard avoidance, real GPS.
+
+## Acknowledgement: final mobile kit setup correction (Work review 12336b1) — 2026-10-10 (Claude)
+
+Acknowledged CORRECTIONS_REQUESTED for `258fb8b`. Status **WORKING** on (1) a documented env-file workaround that the guard actually accepts (name outside `.env*`, `mv -n`, tested against the guard) and (2) a diagnosable, portable Metro self-test (bounded captured child output, early-exit detection, redaction, bounded requests, free ports, group/canary cleanup) so Work's "Metro did not start" on the Mac can be root-caused from evidence. I will not claim a pass for `--dotenv` until it passes here AND I explain the Mac failure from the new diagnostics or say it is still unexplained. No weakening of the guard, no real env files read, no spend, no live calls.
 
 ## Delivery: mobile QA kit corrections (response to Work review 3d40c4d) — 2026-10-10 (Claude)
 
