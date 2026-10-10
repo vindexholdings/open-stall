@@ -10,12 +10,25 @@
 // QA account (any phone number or real address is never needed):  qa.user@open-stall.test  /  correct horse battery
 //
 // Control API (JSON, no auth):  GET /__qa/state    counters and records the mock has received (verify what was written)
-//                               POST /__qa/reset   forget accounts' data and failure settings
-//                               POST /__qa/mode    {"fail":"none|server|auth|lose","fn":"submit_report","times":1,"delayMs":0}
+//                               POST /__qa/reset   forget the records the mock holds, the failure/delay/empty settings and the
+//                                                  deleted-account flag. It does NOT sign anyone out: a bearer token issued earlier
+//                                                  keeps working (use /__qa/expire for an expired session).
+//                               POST /__qa/expire  invalidate every token issued so far: the next RPC with an old bearer returns
+//                                                  401 PGRST301 (JWT expired), /auth/v1/user returns 401, and a refresh-token
+//                                                  request is refused (400 refresh_token_not_found), so the app must fall back
+//                                                  to its signed-out state. Signing in again issues a fresh working token.
+//                               POST /__qa/mode    replaces the WHOLE mode (omit a field to clear it):
+//                                 {"fail":"none|server|reject|auth|lose","fn":"submit_report","times":1,
+//                                  "delayMs":0,"delayFn":null,"delayTimes":null,"empty":false}
 //     fail=server  the next `times` calls to `fn` (default: any write) return HTTP 500 without a database error code (an UNCONFIRMED outcome)
 //     fail=reject  ... return HTTP 400 with code 53400 (a confirmed cap rejection)
-//     fail=auth    ... return 401 PGRST301 (expired session)
+//     fail=auth    ... return 401 PGRST301 (expired session) for that call only; the token stays valid for later calls
 //     fail=lose    ... the write IS recorded, then the connection is cut (the response is lost)
+//     delayMs      wait this long (bounded to 30000) before answering ANY RPC, public reads included (nearby_locations,
+//                  get_public_location, nearest_verified_location); `delayFn` limits it to one function, `delayTimes` to N calls
+//     empty        nearby_locations returns no restrooms at all (the UNFILTERED empty state; "no restrooms nearby yet")
+// The deleted-account flag (set by delete_my_account) is enforced consistently: until /__qa/reset, the old bearer is refused
+// (401 28000), password sign-in is refused and refresh is refused. The mock enforces nothing else about accounts.
 import { Buffer } from 'node:buffer';
 import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -25,8 +38,9 @@ const root = new URL('..', import.meta.url).pathname;
 const USER = { id: '11111111-2222-4333-8444-555555555555', email: 'qa.user@open-stall.test', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' };
 const PASSWORD = 'correct horse battery';
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-const JWT = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: USER.id, role: 'authenticated', exp: 4102444800 })}.qa-mock`;
-const session = () => ({ access_token: JWT, token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'qa-refresh-token', user: USER });
+const MAX_DELAY_MS = 30000;
+const makeJwt = (gen) => `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: USER.id, role: 'authenticated', exp: 4102444800, gen })}.qa-mock`;
+const session = (gen) => ({ access_token: makeJwt(gen), token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: `qa-refresh-token-${gen}`, user: USER });
 const WRITES = ['add_favorite', 'remove_favorite', 'submit_review', 'delete_my_review', 'submit_report', 'check_in', 'submit_location', 'submit_location_edit', 'update_my_profile', 'delete_my_account'];
 
 const id = (n) => `3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d${String(n).padStart(2, '0')}`;
@@ -53,9 +67,12 @@ function png(w, h, rgb) { // a flat-colour PNG, built with zlib only
 const TILE = png(256, 256, [221, 224, 229]);
 
 export function startQaMock({ port = 54800, host = '0.0.0.0' } = {}) {
+  let gen = 0; // token generation; /__qa/expire bumps it and every older token stops working
+  const bearerGen = (req) => { const m = /^Bearer (.+)$/.exec(req.headers.authorization ?? ''); if (!m) return null; try { return JSON.parse(Buffer.from(m[1].split('.')[1], 'base64url').toString()).gen ?? null; } catch { return null; } };
   const fresh = () => ({ center: { latitude: 44.5263, longitude: -109.0565 }, favorites: [], review: null, reports: [], submissions: [], edits: [], checkins: 0, deleted: false, profile: { name: null, mode: 'plain', transport: 'walk' }, signups: 0, logins: 0, calls: {} });
   let st = fresh();
-  let mode = { fail: 'none', fn: null, times: 0, delayMs: 0 };
+  const NO_MODE = { fail: 'none', fn: null, times: 0, delayMs: 0, delayFn: null, delayTimes: null, empty: false };
+  let mode = { ...NO_MODE };
   const rowsFor = () => FIXTURES.map((f) => row(f, st.center));
   const server = createServer(async (req, res) => {
     const u = new URL(req.url, 'http://x');
@@ -67,8 +84,13 @@ export function startQaMock({ port = 54800, host = '0.0.0.0' } = {}) {
     const p = u.pathname;
     if (p === '/health') return json(200, { ok: true, mock: 'open-stall-qa' });
     if (p === '/__qa/state') return json(200, { ...st, favoritesCount: st.favorites.length, mode });
-    if (p === '/__qa/reset') { st = fresh(); mode = { fail: 'none', fn: null, times: 0, delayMs: 0 }; return json(200, { ok: true }); }
-    if (p === '/__qa/mode') { mode = { fail: data.fail ?? 'none', fn: data.fn ?? null, times: data.times ?? 1, delayMs: data.delayMs ?? 0 }; return json(200, mode); }
+    if (p === '/__qa/reset') { st = fresh(); mode = { ...NO_MODE }; return json(200, { ok: true, note: 'records, modes and the deleted flag cleared; existing sessions still work (use /__qa/expire)' }); }
+    if (p === '/__qa/expire') { gen++; return json(200, { ok: true, generation: gen }); }
+    if (p === '/__qa/mode') {
+      const delayMs = Math.min(MAX_DELAY_MS, Math.max(0, Number(data.delayMs) || 0));
+      mode = { fail: data.fail ?? 'none', fn: data.fn ?? null, times: data.times ?? 1, delayMs, delayFn: data.delayFn ?? null, delayTimes: delayMs && Number.isInteger(data.delayTimes) ? data.delayTimes : null, empty: data.empty === true };
+      return json(200, mode);
+    }
     const m = p.match(/^\/tiles\/\d+\/\d+\/\d+\.png$/);
     if (m) { res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=3600', ...cors }); return res.end(TILE); }
     if (p === '/leaflet/leaflet.js' || p === '/leaflet/leaflet.css') {
@@ -76,20 +98,29 @@ export function startQaMock({ port = 54800, host = '0.0.0.0' } = {}) {
       if (!existsSync(f)) return json(404, { msg: 'leaflet not installed (run npm install)' });
       res.writeHead(200, { 'content-type': p.endsWith('.js') ? 'text/javascript' : 'text/css', ...cors }); return res.end(readFileSync(f));
     }
-    if (p === '/auth/v1/token' && u.searchParams.get('grant_type') === 'password') { st.logins++; return data.email === USER.email && data.password === PASSWORD ? json(200, session()) : json(400, { error_code: 'invalid_credentials', msg: 'Invalid login credentials' }); }
-    if (p === '/auth/v1/token') return json(200, session());
+    if (p === '/auth/v1/token' && u.searchParams.get('grant_type') === 'password') { st.logins++; return !st.deleted && data.email === USER.email && data.password === PASSWORD ? json(200, session(gen)) : json(400, { error_code: 'invalid_credentials', msg: 'Invalid login credentials' }); }
+    if (p === '/auth/v1/token') { // refresh: only a refresh token of the current generation works
+      const ok = !st.deleted && data.refresh_token === `qa-refresh-token-${gen}`;
+      return ok ? json(200, session(gen)) : json(400, { error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token: Refresh Token Not Found' });
+    }
     if (p === '/auth/v1/signup') { st.signups++; return json(200, { ...USER, id: '99999999-2222-4333-8444-555555555555', email: data.email, confirmation_sent_at: new Date().toISOString() }); }
     if (p === '/auth/v1/recover') return json(200, {});
-    if (p === '/auth/v1/user') return json(200, USER);
+    if (p === '/auth/v1/user') return bearerGen(req) === gen && !st.deleted ? json(200, USER) : json(401, { error_code: 'bad_jwt', msg: 'invalid or expired JWT' });
     if (p === '/auth/v1/logout') { res.writeHead(204, cors); return res.end(); }
     if (p.startsWith('/rest/v1/rpc/')) {
       const fn = p.slice('/rest/v1/rpc/'.length);
       st.calls[fn] = (st.calls[fn] ?? 0) + 1;
-      if (fn === 'nearby_locations') { if (typeof data.p_lat === 'number' && typeof data.p_lng === 'number') st.center = { latitude: data.p_lat, longitude: data.p_lng }; return json(200, rowsFor()); }
+      if (mode.delayMs && (!mode.delayFn || mode.delayFn === fn) && (mode.delayTimes === null || mode.delayTimes > 0)) {
+        if (mode.delayTimes !== null) mode.delayTimes--;
+        await new Promise((r) => setTimeout(r, mode.delayMs));
+      }
+      if (fn === 'nearby_locations') { if (typeof data.p_lat === 'number' && typeof data.p_lng === 'number') st.center = { latitude: data.p_lat, longitude: data.p_lng }; return json(200, mode.empty ? [] : rowsFor().filter((r) => !data.p_verified_only || r.verification === 'verified')); }
       if (fn === 'nearest_verified_location') return json(200, []);
       if (fn === 'get_public_location') return json(200, rowsFor().filter((r) => r.id === data.p_id));
-      if (req.headers.authorization !== `Bearer ${JWT}`) return json(401, { code: '28000', message: 'not authenticated' });
-      if (mode.delayMs) await new Promise((r) => setTimeout(r, mode.delayMs));
+      const g = bearerGen(req);
+      if (g === null) return json(401, { code: '28000', message: 'not authenticated' });
+      if (g !== gen) return json(401, { code: 'PGRST301', message: 'JWT expired' });
+      if (st.deleted) return json(401, { code: '28000', message: 'not authenticated (account deleted)' });
       const isWrite = WRITES.includes(fn);
       let lose = false;
       if (isWrite && mode.fail !== 'none' && mode.times > 0 && (!mode.fn || mode.fn === fn)) {

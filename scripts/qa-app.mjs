@@ -9,7 +9,9 @@
 //   EXPO_PUBLIC_LEAFLET_BASE_URL    http://<host>:<port>/leaflet                   (Leaflet served by the mock, no CDN)
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
+import { refuseIfEnvFiles } from './qa-env-guard.mjs';
 
+if (refuseIfEnvFiles(new URL('../apps/mobile', import.meta.url).pathname)) process.exit(3);
 const arg = (name, dflt) => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : dflt; };
 const target = arg('target', 'lan');
 const port = Number(arg('port', process.env.QA_PORT ?? 54800));
@@ -30,6 +32,7 @@ const env = {
   EXPO_PUBLIC_MAP_ATTRIBUTION: 'QA mock tiles',
   EXPO_PUBLIC_LEAFLET_BASE_URL: `${base}/leaflet`,
   EXPO_NO_TELEMETRY: '1',
+  EXPO_NO_DOTENV: '1', // defence in depth for the CLI; dev bundles still read .env files themselves, hence the refusal above
 };
 console.log(`QA app -> mock at ${base} (target: ${target})`);
 console.log('Make sure `npm run qa:mock` is running. On a phone, the phone and this computer must be on the same Wi-Fi.');

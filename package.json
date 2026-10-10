@@ -29,7 +29,8 @@
     "test:e2e:integrated": "node scripts/e2e-integrated.mjs",
     "qa:mock": "node scripts/qa-mock-server.mjs",
     "qa:app": "node scripts/qa-app.mjs",
-    "qa:selftest": "node scripts/qa-kit-selftest.mjs"
+    "qa:selftest": "node scripts/qa-kit-selftest.mjs",
+    "qa:browsercheck": "node scripts/qa-kit-browser-check.mjs"
   },
   "engines": {
     "node": ">=20"

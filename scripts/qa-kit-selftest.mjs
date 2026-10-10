@@ -5,13 +5,35 @@
 // bundles, proving the native JavaScript bundles build with the mock's configuration baked in.
 // It does NOT run the app on a phone, simulator or emulator; native runtime remains a manual step (MOBILE_QA.md).
 import { Buffer } from 'node:buffer';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { envFilesIn } from './qa-env-guard.mjs';
 import { startQaMock } from './qa-mock-server.mjs';
 
 let passed = 0; let failures = 0;
 const check = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${ok ? '' : `  ${detail}`}`); if (ok) passed++; else failures++; };
+
+// Starts Metro with the given env, returns the Android JavaScript bundle text (and stops Metro).
+const base0 = () => { const b = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: mockUrl, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${mockUrl}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${mockUrl}/leaflet` }; delete b.EXPO_PUBLIC_MAP_ATTRIBUTION; return b; };
+const retry = async (fn, n = 30) => { for (let i = 0; ; i++) { try { return await fn(); } catch (e) { if (i >= n) throw e; await new Promise((r) => setTimeout(r, 1000)); } } };
+async function androidBundle(port, env) {
+  // a private TMPDIR gives Metro an empty transform cache (the shared /tmp/metro-cache can hold values inlined by an earlier run)
+  env = { ...env, TMPDIR: mkdtempSync(join(tmpdir(), 'qa-metro-')) };
+  const metro = spawn('npx', ['expo', 'start', '--go', '--localhost', '--port', String(port), '--clear'], { cwd: new URL('../apps/mobile', import.meta.url).pathname, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+  try {
+    let up = false; for (let i = 0; i < 120 && !up; i++) { try { up = (await fetch(`http://127.0.0.1:${port}/status`)).ok; } catch { /* starting */ } if (!up) await new Promise((r) => setTimeout(r, 1000)); }
+    if (!up) throw new Error('Metro did not start');
+    const text = await retry(async () => { const t = await (await fetch(`http://127.0.0.1:${port}/`, { headers: { 'expo-platform': 'android', accept: 'multipart/mixed,application/expo+json,application/json' } })).text(); if (!t.includes('launchAsset') && !t.includes('.bundle')) throw new Error('manifest not ready'); return t; });
+    const m = text.match(/"launchAsset":\{[^}]*"url":"([^"]+)"/) ?? text.match(/"url":"(http[^"]+\.bundle[^"]*)"/);
+    if (!m) throw new Error('no bundle url in manifest');
+    return await retry(async () => (await fetch(m[1].replace(/\\u0026/g, '&'))).text(), 3);
+  } finally { try { process.kill(-metro.pid, 'SIGTERM'); } catch { /* already gone */ } await new Promise((r) => setTimeout(r, 1500)); }
+}
+let mockUrl = '';
 const mock = await startQaMock({ port: 0, host: '127.0.0.1' });
-const U = mock.url;
+const U = mock.url; mockUrl = U;
 const rpc = (fn, body, token) => fetch(`${U}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body ?? {}) });
 const state = async () => (await fetch(`${U}/__qa/state`)).json();
 const mode = (m) => fetch(`${U}/__qa/mode`, { method: 'POST', body: JSON.stringify(m) });
@@ -53,13 +75,83 @@ try {
   const js = await fetch(`${U}/leaflet/leaflet.js`);
   check(js.status === 200 && (await js.text()).includes('Leaflet 1.9.4'), 'Leaflet JS is served locally');
   check((await fetch(`${U}/leaflet/leaflet.css`)).status === 200, 'Leaflet CSS is served locally');
+  // ---- delay applies to PUBLIC reads (Work reproduced a 22 ms answer with delayMs 500), bounded and countable
+  const timed = async (fn, body, token) => { const t = Date.now(); const r = await rpc(fn, body, token); await r.text(); return Date.now() - t; };
+  await mode({ delayMs: 500, delayFn: 'nearby_locations', delayTimes: 1 });
+  const slow = await timed('nearby_locations', { p_lat: 1, p_lng: 1 });
+  const fast = await timed('nearby_locations', { p_lat: 1, p_lng: 1 });
+  check(slow >= 480 && fast < 300, `delayMs delays a public read once (${slow} ms, then ${fast} ms)`);
+  await mode({ delayMs: 400 });
+  const slowDetail = await timed('get_public_location', { p_id: rows[0].id });
+  check(slowDetail >= 380, `delayMs also delays public detail reads (${slowDetail} ms)`);
+  await mode({ delayMs: 999999 });
+  check((await (await fetch(`${U}/__qa/state`)).json()).mode.delayMs === 30000, 'delay is bounded to 30000 ms');
+  await mode({});
+  // ---- the two empty states are separate
+  await mode({ empty: true });
+  check((await (await rpc('nearby_locations', { p_lat: 1, p_lng: 1 })).json()).length === 0, 'empty=true: no restrooms at all (the UNFILTERED empty state)');
+  await mode({});
+  const verifiedOnly = await (await rpc('nearby_locations', { p_lat: 1, p_lng: 1, p_verified_only: true })).json();
+  check(verifiedOnly.length === 2 && verifiedOnly.every((r) => r.verification === 'verified'), 'p_verified_only is honored (2 verified rows)');
+  const everything = await (await rpc('nearby_locations', { p_lat: 1, p_lng: 1 })).json();
+  check(everything.length === 4 && everything.every((r) => r.baby_changing !== true), 'with filters off 4 rows return and none has baby changing, so the Baby changing filter gives the FILTERED empty state');
+  // ---- sessions: reset does not sign out; expire does, deliberately
+  await fetch(`${U}/__qa/reset`, { method: 'POST' });
+  check((await rpc('list_my_favorites', {}, T)).status === 200, 'reset clears data but the existing token still works (documented)');
+  const refreshTok = ok.refresh_token;
+  await fetch(`${U}/__qa/expire`, { method: 'POST' });
+  const expired = await rpc('list_my_favorites', {}, T);
+  check(expired.status === 401 && (await expired.json()).code === 'PGRST301', 'expire: the old bearer is refused with 401 PGRST301');
+  check((await fetch(`${U}/auth/v1/user`, { headers: { authorization: `Bearer ${T}` } })).status === 401, 'expire: /auth/v1/user refuses the old bearer');
+  const refused = await fetch(`${U}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', body: JSON.stringify({ refresh_token: refreshTok }) });
+  check(refused.status === 400 && (await refused.json()).error_code === 'refresh_token_not_found', 'expire: the old refresh token is refused (the app must fall back to signed out)');
+  check((await rpc('nearby_locations', { p_lat: 1, p_lng: 1 })).status === 200, 'expire: public discovery still works signed out');
+  const again = await (await fetch(`${U}/auth/v1/token?grant_type=password`, { method: 'POST', body: JSON.stringify({ email: 'qa.user@open-stall.test', password: 'correct horse battery' }) })).json();
+  check((await rpc('list_my_favorites', {}, again.access_token)).status === 200, 'expire: signing in again issues a working token');
+  const refreshed = await fetch(`${U}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', body: JSON.stringify({ refresh_token: again.refresh_token }) });
+  check(refreshed.status === 200, 'the current refresh token works');
+  // ---- deleted-account flag is enforced consistently
+  await rpc('delete_my_account', {}, again.access_token);
+  check((await state()).deleted === true, 'delete_my_account sets the deleted flag');
+  check((await rpc('list_my_favorites', {}, again.access_token)).status === 401, 'deleted: the old bearer is refused');
+  const noLogin = await fetch(`${U}/auth/v1/token?grant_type=password`, { method: 'POST', body: JSON.stringify({ email: 'qa.user@open-stall.test', password: 'correct horse battery' }) });
+  check(noLogin.status === 400, 'deleted: password sign-in is refused until reset');
+  await fetch(`${U}/__qa/reset`, { method: 'POST' });
+  const back = await fetch(`${U}/auth/v1/token?grant_type=password`, { method: 'POST', body: JSON.stringify({ email: 'qa.user@open-stall.test', password: 'correct horse battery' }) });
+  check(back.status === 200, 'reset clears the deleted flag');
+
   await fetch(`${U}/__qa/reset`, { method: 'POST' });
   check((await state()).favoritesCount === 0 && (await state()).reports.length === 0, 'reset forgets everything');
 
+  if (process.argv.includes('--dotenv')) {
+    // A throwaway .env.local holding a canary (fake value) is written only if the slot is empty, and always removed.
+    const dotenv = new URL('../apps/mobile/.env.local', import.meta.url).pathname;
+    if (existsSync(dotenv)) check(false, 'dotenv test needs an empty slot: apps/mobile/.env.local already exists (not touched)');
+    else {
+      const CANARY = `DOTENV-CANARY-${Date.now()}`;
+      writeFileSync(dotenv, `EXPO_PUBLIC_MAP_ATTRIBUTION=${CANARY}\n`);
+      try {
+        // 1. the launcher fails closed: exit 3, says why, starts no Metro, prints nothing from the file
+        const run = spawnSync('node', ['scripts/qa-app.mjs', '--target', 'web', '--metro-port', '8195'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8', timeout: 30000 });
+        const said = `${run.stdout}${run.stderr}`;
+        let listening = true; try { await fetch('http://127.0.0.1:8195/status', { signal: AbortSignal.timeout(1500) }); } catch { listening = false; }
+        check(run.status === 3 && said.includes('.env.local') && !said.includes(CANARY) && !listening, 'qa-app refuses to start while apps/mobile/.env.local exists (exit 3, no Metro, file contents not printed)', `status ${run.status} ${said.slice(0, 200)}`);
+        // 2. why a refusal is needed: EXPO_NO_DOTENV=1 alone does not keep a dev bundle from reading the file (informational)
+        const base = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: U, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${U}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${U}/leaflet` };
+        delete base.EXPO_PUBLIC_MAP_ATTRIBUTION;
+        const withFlag = await androidBundle(8197, base);
+        console.log(`INFO with EXPO_NO_DOTENV=1 alone a Metro dev bundle ${withFlag.includes(CANARY) ? 'STILL CONTAINS' : 'does not contain'} the .env.local canary (${withFlag.includes(CANARY) ? 'this is why qa-app refuses to run' : 'Expo behavior changed; the refusal is now redundant but harmless'})`);
+      } finally { rmSync(dotenv, { force: true }); }
+      // 3. with the file gone, the same configuration carries no canary and does carry the mock values
+      const clean = await androidBundle(8196, base0());
+      check(!clean.includes('DOTENV-CANARY') && clean.includes(U) && clean.includes('qa-mock-anon-key'), 'with no .env file the QA configuration is exactly the mock values');
+    }
+  }
   if (process.argv.includes('--metro')) {
+    if (envFilesIn(new URL('../apps/mobile', import.meta.url).pathname).length) throw new Error('apps/mobile has .env* files; move them aside before --metro (see scripts/qa-env-guard.mjs)');
     const MP = 8199;
-    const env = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_PUBLIC_SUPABASE_URL: U, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${U}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${U}/leaflet` };
-    const metro = spawn('npx', ['expo', 'start', '--go', '--localhost', '--port', String(MP), '--clear'], { cwd: new URL('../apps/mobile', import.meta.url).pathname, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const env = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: U, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${U}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${U}/leaflet` };
+    const metro = spawn('npx', ['expo', 'start', '--go', '--localhost', '--port', String(MP), '--clear'], { cwd: new URL('../apps/mobile', import.meta.url).pathname, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     let log = ''; metro.stdout.on('data', (d) => { log += d; }); metro.stderr.on('data', (d) => { log += d; });
     const up = async () => { for (let i = 0; i < 120; i++) { try { const r = await fetch(`http://127.0.0.1:${MP}/status`); if (r.ok) return true; } catch { /* starting */ } await new Promise((r) => setTimeout(r, 1000)); } return false; };
     check(await up(), 'Metro dev server starts (Expo Go flow, offline, localhost)', log.slice(-400));
@@ -77,7 +169,7 @@ try {
         check(!code.includes('xzzbcejgprilmolvdaes'), `${platform}: the bundle contains no live Supabase project reference`);
       }
     }
-    metro.kill('SIGTERM');
+    try { process.kill(-metro.pid, 'SIGTERM'); } catch { /* already gone */ }
   }
 } catch (e) {
   console.error('QA selftest error:', e);

@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: WORKING**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -471,7 +471,18 @@ Acknowledged CORRECTIONS_REQUESTED for `9d94209`. Status set to **WORKING** on t
 
 **Tests:** `npm run check` exit 0 (lint, typecheck incl. mobile, all unit suites, secret scan); mobile 36 tests; qa:selftest 17/17 and 26/26 with Metro. **NOT RUN:** native emulator/simulator, physical device, Expo Go SDK 57 launch, TalkBack, VoiceOver, OS text scaling, safe areas, rotation, keyboard avoidance, real GPS.
 
-**Exact next action (updated 2026-10-10, mobile QA delivered)**
+## Delivery: mobile QA kit corrections (response to Work review 3d40c4d) — 2026-10-10 (Claude)
+
+**Status: NEEDS_CHATGPT_REVIEW.** Scope kept: local, mock-only, no feature, spend, live call or deployment.
+
+1. **Delay and empty states.** Cause confirmed: the delay branch sat after the public RPCs. `delayMs` now applies to every RPC including `nearby_locations`, `get_public_location`, `nearest_verified_location` (bounded to 30000 ms; optional `delayFn`, `delayTimes`). `{"empty":true}` returns no restrooms (UNFILTERED empty); `p_verified_only` is now honored; the FILTERED empty state is the Baby changing filter (no fixture has it). Tested separately in `qa:selftest` (timing 504 ms then 3 ms; 403 ms for detail; bound; both empties) and in the real app via new `npm run qa:browsercheck` (Chromium on the Expo web export against the mock: the loading banner is still visible ~1.8 s into a 3 s delayed read; filtered-empty shows "No restrooms match your filters" and NOT the nothing-nearby message; unfiltered-empty shows the reverse).
+2. **Sessions.** `reset` no longer claims to expire anything (it clears records/modes/deleted flag; existing tokens keep working, tested). New `POST /__qa/expire` invalidates all tokens: RPC 401 PGRST301, `/auth/v1/user` 401, old refresh token 400 `refresh_token_not_found`; a new sign-in works (tested). In the real web app after expire, Favorites shows "We couldn't load your favorites. Please sign in again." and not an empty list. Deleted flag now consistent: old bearer refused, password sign-in and refresh refused until reset; documented as the only account behavior the mock enforces.
+3. **Dotenv.** `EXPO_NO_DOTENV=1` is set in qa-app and the Metro self-test, **but your concern was well founded and it is not sufficient**: with a throwaway `.env.local` canary, a Metro dev bundle STILL contained the canary even with `EXPO_NO_DOTENV=1` (Expo's virtual env module reads `.env*` itself and those values override process.env; the CLI loader does honor the flag). So `qa-app` (and the browser check, and `--metro`) now **refuse to start (exit 3) while any `apps/mobile/.env*` file exists**, without reading or printing it. `qa:selftest -- --dotenv` proves: refusal, exit 3, no Metro started, canary not printed; informational line records the dev-bundle leak with the flag alone; with no file, the bundle carries exactly the mock values. Only a throwaway file is written, only if the slot is empty, and always removed. Jake's real env files are never read.
+4. **Native expectations (MOBILE_QA.md).** `Screen moveFocus` is web-only: native heading focus is now an observe-and-record acceptance expectation. Orientation: portrait lock (`app.json`) tested as portrait-only, tablets recorded, no landscape promise. Keyboard avoidance stated as an observation, not a feature. Cleartext http and SDK compatibility are conditional and runtime-verified (with a `/health` check path for diagnosis). Tool inspection (Accessibility Inspector, Scanner, dumps) is separated from real reader use in the evidence table and the results template. Native tab behavior and session storage are labeled not established.
+
+**Tests:** `npm run check` exit 0; `qa:selftest` 34/34; `--metro` 43/43 (Metro, manifests, native bundles); `--dotenv` 36/36; `qa:browsercheck` 8/8. Mutation checks: disabling the delay branch fails the timing tests and the loading test; disabling bearer-generation checks fails the expire tests and the browser expired-session test. Still **NOT RUN:** native emulator/simulator, device, Expo Go SDK 57 launch, any screen reader; Leaflet SRI/WebView path untested at runtime.
+
+**Exact next action (updated 2026-10-10, kit corrections delivered)**
 - NEEDS_CHATGPT_REVIEW. Smallest owner action: path (a) in `MOBILE_QA.md` (about 30-45 min, free) and record results in the template. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-10, mobile QA in progress)**
