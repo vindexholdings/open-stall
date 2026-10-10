@@ -21,20 +21,22 @@ PASS ArrowRight moves radio selection and focus; one tab stop per group
 PASS sign-in renders
 PASS sign-in inputs are labeled
 PASS a focused text input shows a visible focus indicator
-INFO 200% (layout.css.devPixelsPerPx=2): viewport [1280,635,2]
-PASS 200% (layout.css.devPixelsPerPx=2): no horizontal scroll
-PASS 200% (layout.css.devPixelsPerPx=2): navigation labels whole and the bar stays on screen
-PASS 200% (layout.css.devPixelsPerPx=2): no control is covered (sticky navigation hides nothing)
-INFO 400% (layout.css.devPixelsPerPx=4): viewport [1280,635,4]
-PASS 400% (layout.css.devPixelsPerPx=4): no horizontal scroll
-PASS 400% (layout.css.devPixelsPerPx=4): navigation labels whole and the bar stays on screen
-PASS 400% (layout.css.devPixelsPerPx=4): no control is covered (sticky navigation hides nothing)
+INFO 200% (layout.css.devPixelsPerPx=2, window 640x360 CSS px = a 1280x720 window zoomed 200%): viewport [640,287,2]
+PASS 200% (layout.css.devPixelsPerPx=2, window 640x360 CSS px = a 1280x720 window zoomed 200%): the browser really applies the scale (devicePixelRatio 2) and the layout reflows to 640 CSS px (not the 1280 px of an unscaled window)
+PASS 200% (layout.css.devPixelsPerPx=2, window 640x360 CSS px = a 1280x720 window zoomed 200%): no horizontal scroll
+PASS 200% (layout.css.devPixelsPerPx=2, window 640x360 CSS px = a 1280x720 window zoomed 200%): navigation labels whole and the bar stays on screen
+PASS 200% (layout.css.devPixelsPerPx=2, window 640x360 CSS px = a 1280x720 window zoomed 200%): no control is covered (sticky navigation hides nothing)
+INFO 400% (layout.css.devPixelsPerPx=4; Firefox enforces a minimum window width, so the layout width is whatever it reports below, not 320): viewport [500,107,4]
+PASS 400% (layout.css.devPixelsPerPx=4; Firefox enforces a minimum window width, so the layout width is whatever it reports below, not 320): the browser really applies the scale (devicePixelRatio 4) and the layout reflows to 500 CSS px (not the 1280 px of an unscaled window)
+PASS 400% (layout.css.devPixelsPerPx=4; Firefox enforces a minimum window width, so the layout width is whatever it reports below, not 320): no horizontal scroll
+PASS 400% (layout.css.devPixelsPerPx=4; Firefox enforces a minimum window width, so the layout width is whatever it reports below, not 320): navigation labels whole and the bar stays on screen
+PASS 400% (layout.css.devPixelsPerPx=4; Firefox enforces a minimum window width, so the layout width is whatever it reports below, not 320): no control is covered (sticky navigation hides nothing)
 INFO minimum font size 24px (font.minimum-size.x-western=24), 1280x720: viewport [1280,634,1]
 PASS minimum font size 24px (font.minimum-size.x-western=24), 1280x720: no horizontal scroll
 PASS minimum font size 24px (font.minimum-size.x-western=24), 1280x720: navigation labels whole and the bar stays on screen
 PASS minimum font size 24px (font.minimum-size.x-western=24), 1280x720: no control is covered (sticky navigation hides nothing)
 
-firefox: 26 passed, 0 failed.
+firefox: 28 passed, 0 failed.
 
 ## webkit (headless/xvfb, WebDriver)
 INFO engine: webkit  UA: Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/60.5 Safari/605.1.15

@@ -197,7 +197,7 @@ try {
   await stop();
 
   // ---------------------------------------------------------- zoom reflow
-  const zooms = which === 'firefox' ? [[2, { width: 1280, height: 720 }, '200% (layout.css.devPixelsPerPx=2)'], [4, { width: 1280, height: 720 }, '400% (layout.css.devPixelsPerPx=4)'], [1, { width: 1280, height: 720 }, 'minimum font size 24px (font.minimum-size.x-western=24), 1280x720', 24]] : [[1, { width: 640, height: 360 }, '640x360 window (no zoom control in WebKitGTK driver: emulated)'], [1, { width: 320, height: 240 }, '320x240 window (emulated)']];
+  const zooms = which === 'firefox' ? [[2, { width: 640, height: 360 }, '200% (layout.css.devPixelsPerPx=2, window 640x360 CSS px = a 1280x720 window zoomed 200%)'], [4, { width: 320, height: 180 }, '400% (layout.css.devPixelsPerPx=4; Firefox enforces a minimum window width, so the layout width is whatever it reports below, not 320)'], [1, { width: 1280, height: 720 }, 'minimum font size 24px (font.minimum-size.x-western=24), 1280x720', 24]] : [[1, { width: 640, height: 360 }, '640x360 window (no zoom control in WebKitGTK driver: emulated)'], [1, { width: 320, height: 240 }, '320x240 window (emulated)']];
   for (const [z, size, label, minFont] of zooms) {
     await start(z, size, minFont ?? 0);
     await driver.get(`${base}/`);
@@ -208,6 +208,7 @@ try {
     const vw = await js('return [window.innerWidth, window.innerHeight, window.devicePixelRatio]');
     const probe = await js(`const nav = [...document.querySelectorAll('nav[aria-label="Main"] a')]; const cut = nav.filter((a) => { const r = document.createRange(); r.selectNodeContents(a); return r.getBoundingClientRect().width > a.clientWidth + 1; }).map((a) => a.textContent.trim()); return { overflow: document.documentElement.scrollWidth - window.innerWidth, cut, navVisible: nav.every((a) => a.getBoundingClientRect().bottom <= window.innerHeight + 1) }`);
     console.log(`INFO ${label}: viewport ${JSON.stringify(vw)}`);
+    if (z > 1) check(vw[2] === z && vw[0] <= 1280 / z + (z === 4 ? 250 : 1), `${label}: the browser really applies the scale (devicePixelRatio ${z}) and the layout reflows to ${vw[0]} CSS px (not the 1280 px of an unscaled window)`, JSON.stringify(vw));
     check(probe.overflow <= 1, `${label}: no horizontal scroll`, JSON.stringify(probe));
     check(probe.cut.length === 0 && probe.navVisible, `${label}: navigation labels whole and the bar stays on screen`, JSON.stringify(probe));
     // every control reachable: scroll each into view and check it is the topmost element at its center
