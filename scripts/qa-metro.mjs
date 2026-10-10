@@ -41,6 +41,20 @@ export async function freePort() {
   throw new Error('could not find a port that is free on 127.0.0.1 and ::1');
 }
 
+const LOOPBACK_NAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+// Metro advertises its own bundle URL using one loopback spelling (e.g. http://127.0.0.1:P/...) that may not be the spelling
+// that is reachable (it can be listening on ::1 only). Re-point the advertised URL at the base that answered /status, keeping
+// path and query. Anything that is not a loopback address on THIS Metro's port is refused, never fetched.
+export function reachableUrl(advertised, base, port) {
+  let u; let b;
+  try { u = new URL(advertised); b = new URL(base); } catch { throw new Error(`the advertised bundle URL is not a valid URL: ${String(advertised).slice(0, 120)}`); }
+  if (!['http:', 'https:'].includes(u.protocol) || !LOOPBACK_NAMES.has(u.hostname) || Number(u.port || (u.protocol === 'https:' ? 443 : 80)) !== Number(port)) {
+    throw new Error(`the advertised bundle URL (${u.protocol}//${u.host}) is not a loopback address on this Metro's port ${port}; refusing to fetch it`);
+  }
+  return `${b.origin}${u.pathname}${u.search}`;
+}
+
 // Returns the base URL (e.g. http://[::1]:8081) of the first loopback spelling whose /status answers 200, or null.
 export async function probeStatus(port, { fetchImpl = fetch, timeoutMs = 2000, hosts = LOOPBACK_HOSTS } = {}) {
   for (const h of hosts) {
@@ -115,7 +129,7 @@ export async function startMetro({ env, startupMs = 120_000, command, probeFetch
       }
       const m = manifest.match(/"launchAsset":\{[^}]*"url":"([^"]+)"/) ?? manifest.match(/"url":"(http[^"]+\.bundle[^"]*)"/);
       if (!m) throw new Error(`${platform}: no bundle URL in the manifest. Manifest head: ${redact(manifest).slice(0, 300)}\n${why('Metro state')}`);
-      const res = await get(m[1].replace(/\\u0026/g, '&'), undefined, 300_000);
+      const res = await get(reachableUrl(m[1].replace(/\\u0026/g, '&'), base, port), undefined, 300_000);
       const code = await res.text();
       if (res.status !== 200) throw new Error(`${platform}: bundle request returned HTTP ${res.status}: ${redact(code).slice(0, 600)}\n${why('Metro state')}`);
       return { manifest, code };

@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { envFilesIn } from './qa-env-guard.mjs';
-import { environmentSummary, freePort, hintsFor, probeStatus, redactor, startMetro } from './qa-metro.mjs';
+import { environmentSummary, freePort, hintsFor, probeStatus, reachableUrl, redactor, startMetro } from './qa-metro.mjs';
 import { startQaMock } from './qa-mock-server.mjs';
 
 let passed = 0; let failures = 0;
@@ -137,7 +137,8 @@ try {
     check(hintsFor('Error: EMFILE: too many open files, watch').some((h) => h.includes('watchman')) && hintsFor('listen EADDRINUSE :::8081').length === 1 && hintsFor('all good').length === 0, 'diagnostics: known startup failures (EMFILE, EADDRINUSE) get a likely-cause hint, clean output gets none');
 
     // ---- loopback compatibility: Expo --localhost can listen on ::1 only (some Macs); probes must not assume 127.0.0.1
-    const standIn = (host) => (port) => ['node', '-e', `const h=require('http');const big='x'.repeat(600000);h.createServer((q,r)=>{if(q.url==='/status')return r.end('packager-status:running');if(q.url==='/bundle.js')return r.end(big);r.setHeader('content-type','application/json');r.end(JSON.stringify({launchAsset:{url:'http://'+q.headers.host+'/bundle.js'}}))}).listen(${port},'${host}')`];
+    // `advertise` is the origin the stand-in PUTS INTO the manifest (real Expo advertises 127.0.0.1 even when only ::1 answers); null reflects the request host
+    const standIn = (host, advertise = null) => (port) => ['node', '-e', `const h=require('http');const big='x'.repeat(600000);h.createServer((q,r)=>{if(q.url==='/status')return r.end('packager-status:running');if(q.url.startsWith('/bundle.js'))return r.end(big);r.setHeader('content-type','application/json');r.end(JSON.stringify({launchAsset:{url:${advertise ? `'${advertise.replace('PORT', '')}'+${port}+'/bundle.js?platform=android&dev=true'` : "'http://'+q.headers.host+'/bundle.js'"}}}))}).listen(${port},'${host}')`];
     {
       const only4 = await freePort();
       const srv = await startMetro({ env: process.env, command: standIn('127.0.0.1'), startupMs: 20000 });
@@ -146,6 +147,26 @@ try {
         check(srv.base !== null && b.code.length >= 600000, `loopback: an IPv4-bound stand-in server is found (${srv.base}) and its manifest and bundle are fetched through the same address`);
       } finally { await srv.stop(); }
       check(only4 > 0 && (await probeStatus(await freePort(), { timeoutMs: 300 })) === null, 'loopback: nothing listening gives null (no false "running")');
+
+      // the Mac case, mirrored so it is testable on an IPv4-only host: the server answers on 127.0.0.1/localhost, but the manifest
+      // advertises [::1] (unreachable here). bundle() must re-point the advertised URL at the base that answered.
+      {
+        const m = await startMetro({ env: process.env, command: standIn('127.0.0.1', 'http://[::1]:PORT'), startupMs: 20000 });
+        try {
+          const b = await m.bundle('android');
+          check(b.code.length >= 600000, 'bundle: a manifest advertising an UNREACHABLE loopback spelling ([::1]) is fetched through the reachable base, path and query kept');
+        } finally { await m.stop(); }
+      }
+      check(reachableUrl('http://127.0.0.1:5000/a/b.bundle?x=1&y=2', 'http://[::1]:5000', 5000) === 'http://[::1]:5000/a/b.bundle?x=1&y=2', 'bundle: reachableUrl keeps path and query and swaps only the origin');
+      for (const [url, why] of [['http://evil.example:5000/a.bundle', 'a foreign host'], ['http://127.0.0.1:5001/a.bundle', 'another port'], ['http://localhost.evil.example:5000/x', 'a look-alike host'], ['file:///etc/passwd', 'a non-http scheme'], ['not a url', 'garbage']]) {
+        let err = ''; try { reachableUrl(url, 'http://localhost:5000', 5000); } catch (e) { err = e.message; }
+        check(err !== '', `bundle: an advertised URL with ${why} is refused, not fetched`, err);
+      }
+      {
+        const foreign = await startMetro({ env: process.env, command: standIn('127.0.0.1', 'http://evil.example:PORT'), startupMs: 20000 });
+        let err = ''; try { await foreign.bundle('android'); } catch (e) { err = e.message; } finally { await foreign.stop(); }
+        check(err.includes('refusing to fetch'), 'bundle: a Metro whose manifest advertises a foreign origin makes bundle() fail with a clear refusal');
+      }
       // the Mac case: only [::1] answers; 127.0.0.1 is refused. Simulated with a probe that fails for every other spelling.
       const onlyV6 = async (url, init) => { if (!String(url).startsWith('http://[::1]:')) throw new Error('ECONNREFUSED'); return { ok: true }; };
       check((await probeStatus(1234, { fetchImpl: onlyV6 })) === 'http://[::1]:1234', 'loopback: when only [::1] answers (the Mac result Work captured) the probe finds it after 127.0.0.1 is refused');
@@ -154,8 +175,8 @@ try {
       // a real IPv6 stand-in where the host supports it (this Linux sandbox does not)
       const v6 = await new Promise((resolve) => { const t = createServer(); t.on('error', (e) => resolve(e.code)); t.listen(0, '::1', () => t.close(() => resolve('ok'))); });
       if (v6 === 'ok') {
-        const s6 = await startMetro({ env: process.env, command: standIn('::1'), startupMs: 20000 });
-        try { const b6 = await s6.bundle('ios'); check(s6.base !== null && b6.code.length >= 600000, `loopback: a REAL ::1-only stand-in server is found (${s6.base}) and served through the same address`); } finally { await s6.stop(); }
+        const s6 = await startMetro({ env: process.env, command: standIn('::1', 'http://127.0.0.1:PORT'), startupMs: 20000 });
+        try { const b6 = await s6.bundle('ios'); check(s6.base !== null && b6.code.length >= 600000, `loopback: a REAL ::1-only stand-in that advertises a 127.0.0.1 launch-asset URL (the Mac behavior) is found (${s6.base}) and its bundle fetched through ::1`); } finally { await s6.stop(); }
       } else console.log(`INFO loopback: this host has no usable IPv6 loopback (${v6}); the real ::1 case is NOT exercised here and must be confirmed on a host where localhost resolves to ::1 (Work's Mac)`);
     }
     let missing = '';

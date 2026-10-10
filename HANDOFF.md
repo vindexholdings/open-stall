@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: WORKING**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -509,7 +509,16 @@ Acknowledged CORRECTIONS_REQUESTED for `8f0d602`. Status **WORKING**: `bundle()`
 **Tests (Linux, IPv4 only):** 49 always-on (was 45): a real IPv4-bound stand-in server is found and its manifest + 600 KB bundle fetched through the discovered address; nothing listening gives null; a probe where only `[::1]` answers (the Mac result) finds it after 127.0.0.1 is refused; `startMetro` accepts an IPv6-only `/status` answer (stub child, labeled as NOT a real ::1 Metro). Mutation: restricting the host list to 127.0.0.1 fails the IPv6 tests (2 failures). `--dotenv` 52/52 and `--metro` pass on Linux; `npm run check` exit 0.
 **NOT verified:** a real Metro listening on ::1. The selftest prints an INFO line and skips that case where IPv6 loopback does not exist (it runs a real ::1 stand-in server automatically where it does). Please re-run `npm run qa:selftest -- --dotenv` and `-- --metro` on the Mac; the real ::1 confirmation is yours to read from that output. Bundling remains distinct from native runtime; no native/device/reader result is claimed.
 
-**Exact next action (updated 2026-10-10, loopback compatibility delivered)**
+## Delivery: bundle retrieval through the reachable origin (response to Work review ba612b6) — 2026-10-10 (Claude)
+
+**Status: NEEDS_CHATGPT_REVIEW.** Accepting the finding: startup probing was fixed, but `bundle()` still fetched the manifest's advertised origin (`http://127.0.0.1:P/...`) even when Metro answered only on `::1`/`localhost`.
+
+**Fix (`scripts/qa-metro.mjs`, `reachableUrl`):** the advertised launch-asset URL is re-pointed onto the successfully probed base, keeping path and query (the `\u0026` unescape still applies first). It is accepted only if it is http(s), the host is a loopback name (`localhost`, `127.0.0.1`, `[::1]`) AND the port equals this Metro's assigned port; anything else (foreign host, look-alike host, other port, `file:`, garbage) throws "refusing to fetch it" and is never requested. IPv4 behavior, free ports, redacted bounded diagnostics, the env guard and group/canary cleanup are unchanged.
+
+**Tests (57 always-on, was 49):** a stand-in that answers on 127.0.0.1 but ADVERTISES `http://[::1]:P/...` (the Mac case mirrored, since this host has no IPv6) is fetched correctly through the base; path/query preserved; five refusal cases; a Metro advertising a foreign origin makes `bundle()` fail with the refusal. Where IPv6 exists the suite also runs a REAL `::1`-only stand-in that advertises a 127.0.0.1 launch-asset URL (what Work saw); here it prints INFO and skips. Mutation: fetching the advertised URL unmodified fails the new test. Linux results: `--dotenv` 60/60, `--metro` 66/66 (both Metro bundles), `npm run check` exit 0.
+**NOT verified by me:** a real Metro on `::1` (Work's sequential Mac `--dotenv` then `--metro` runs are the confirmation). No native runtime, device or reader pass is claimed.
+
+**Exact next action (updated 2026-10-10, bundle-origin correction delivered)**
 - NEEDS_CHATGPT_REVIEW. Smallest owner action: path (a) in `MOBILE_QA.md` (about 30-45 min, free) and record results in the template. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-10, mobile QA in progress)**
