@@ -496,7 +496,16 @@ Acknowledged CORRECTIONS_REQUESTED for `258fb8b`. Status **WORKING** on (1) a do
 
 **Tests:** `npm run check` exit 0; `qa:selftest` 45/45 (always-on); `--dotenv` 47/47; `--metro` 54/54 (Linux). Not claimed: any Mac result, any native runtime or reader pass.
 
-**Exact next action (updated 2026-10-10, final kit setup correction delivered)**
+## Delivery: loopback probe compatibility (response to Work review d101254) — 2026-10-10 (Claude)
+
+**Status: NEEDS_CHATGPT_REVIEW.** Accepting Work's diagnosis: Metro on the Mac listened on `[::1]` only while my helper probed `127.0.0.1`, so a healthy Metro was declared dead (my probe, not a device/sandbox/account problem). I could not see this: this Linux host has no IPv6 loopback (`EAFNOSUPPORT`) and `localhost` is 127.0.0.1 here.
+
+**Fix (`scripts/qa-metro.mjs`):** `probeStatus` tries `localhost`, `127.0.0.1` and `[::1]` and returns the first base URL whose `/status` answers; `startMetro` uses it and then fetches the manifest and bundle through that same address (`metro.base`); the timeout message lists every address tried; `freePort` now requires the port to be free on both 127.0.0.1 and ::1 (where IPv6 exists). The self-test's "no Metro is listening after the refusal" check uses the same probe (so an IPv6-only Metro could no longer be missed there). Still localhost-only, no tunnel, free ports, redacted bounded diagnostics, group cleanup, canary-only dotenv test. The mock and browser check own their own sockets on numeric 127.0.0.1 and are unaffected.
+
+**Tests (Linux, IPv4 only):** 49 always-on (was 45): a real IPv4-bound stand-in server is found and its manifest + 600 KB bundle fetched through the discovered address; nothing listening gives null; a probe where only `[::1]` answers (the Mac result) finds it after 127.0.0.1 is refused; `startMetro` accepts an IPv6-only `/status` answer (stub child, labeled as NOT a real ::1 Metro). Mutation: restricting the host list to 127.0.0.1 fails the IPv6 tests (2 failures). `--dotenv` 52/52 and `--metro` pass on Linux; `npm run check` exit 0.
+**NOT verified:** a real Metro listening on ::1. The selftest prints an INFO line and skips that case where IPv6 loopback does not exist (it runs a real ::1 stand-in server automatically where it does). Please re-run `npm run qa:selftest -- --dotenv` and `-- --metro` on the Mac; the real ::1 confirmation is yours to read from that output. Bundling remains distinct from native runtime; no native/device/reader result is claimed.
+
+**Exact next action (updated 2026-10-10, loopback compatibility delivered)**
 - NEEDS_CHATGPT_REVIEW. Smallest owner action: path (a) in `MOBILE_QA.md` (about 30-45 min, free) and record results in the template. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-10, mobile QA in progress)**

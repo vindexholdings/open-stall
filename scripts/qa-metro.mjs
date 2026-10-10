@@ -20,11 +20,34 @@ export function redactor(env) {
   };
 }
 
-export function freePort() {
-  return new Promise((resolve, reject) => {
-    const s = createServer(); s.unref(); s.on('error', reject);
-    s.listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => resolve(port)); });
-  });
+// Expo's `--localhost` makes Metro listen on whatever `localhost` resolves to: 127.0.0.1 on most Linux hosts but ::1 (IPv6 only)
+// on some Macs. Every probe therefore tries all loopback spellings; assuming 127.0.0.1 reports a healthy Metro as dead.
+export const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+const listenOnce = (port, host) => new Promise((resolve) => {
+  const s = createServer(); s.unref();
+  s.on('error', (e) => resolve({ ok: false, code: e.code }));
+  s.listen(port, host, () => { const used = s.address().port; s.close(() => resolve({ ok: true, port: used })); });
+});
+
+// A port that is free on IPv4 loopback AND on IPv6 loopback (where IPv6 exists).
+export async function freePort() {
+  for (let i = 0; i < 20; i++) {
+    const v4 = await listenOnce(0, '127.0.0.1');
+    if (!v4.ok) continue;
+    const v6 = await listenOnce(v4.port, '::1');
+    if (v6.ok || v6.code === 'EAFNOSUPPORT' || v6.code === 'EADDRNOTAVAIL') return v4.port;
+  }
+  throw new Error('could not find a port that is free on 127.0.0.1 and ::1');
+}
+
+// Returns the base URL (e.g. http://[::1]:8081) of the first loopback spelling whose /status answers 200, or null.
+export async function probeStatus(port, { fetchImpl = fetch, timeoutMs = 2000, hosts = LOOPBACK_HOSTS } = {}) {
+  for (const h of hosts) {
+    const base = `http://${h}:${port}`;
+    try { const r = await fetchImpl(`${base}/status`, { signal: AbortSignal.timeout(timeoutMs) }); if (r.ok) return base; } catch { /* try the next spelling */ }
+  }
+  return null;
 }
 
 // Known causes of "Metro did not start" on other machines; shown only when the captured output matches.
@@ -43,12 +66,12 @@ export function environmentSummary() {
   return `node ${process.version} ${process.platform}/${process.arch}; expo ${pkg('expo')}; @expo/cli ${pkg('@expo/cli')}; metro ${pkg('metro')}`;
 }
 
-// command: [bin, ...args] (tests pass a stand-in); defaults to the real `npx expo start`.
-export async function startMetro({ env, startupMs = 120_000, command } = {}) {
+// command: [bin, ...args] or (port) => [bin, ...args] (tests pass a stand-in); defaults to the real `npx expo start`.
+export async function startMetro({ env, startupMs = 120_000, command, probeFetch = fetch } = {}) {
   const port = await freePort();
   const redact = redactor(env);
   const privateTmp = mkdtempSync(join(tmpdir(), 'qa-metro-')); // empty transform cache; the shared /tmp/metro-cache can hold values inlined earlier
-  const argv = command ?? ['npx', 'expo', 'start', '--go', '--localhost', '--port', String(port), '--clear'];
+  const argv = typeof command === 'function' ? command(port) : command ?? ['npx', 'expo', 'start', '--go', '--localhost', '--port', String(port), '--clear'];
   const t0 = Date.now();
   let log = ''; let exit = null; let spawnError = null;
   const child = spawn(argv[0], argv.slice(1), { cwd: MOBILE, env: { ...env, TMPDIR: privateTmp }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
@@ -64,16 +87,18 @@ export async function startMetro({ env, startupMs = 120_000, command } = {}) {
     rmSync(privateTmp, { recursive: true, force: true });
   };
   const why = (headline) => {
-    const state = spawnError ? `could not be launched: ${spawnError.code ?? ''} ${spawnError.message}` : exit ? `exited early (code ${exit.code}, signal ${exit.signal}) after ${Date.now() - t0} ms` : `was still running but never answered on 127.0.0.1:${port}/status after ${Date.now() - t0} ms`;
+    const state = spawnError ? `could not be launched: ${spawnError.code ?? ''} ${spawnError.message}` : exit ? `exited early (code ${exit.code}, signal ${exit.signal}) after ${Date.now() - t0} ms` : `was still running but never answered /status on ${LOOPBACK_HOSTS.map((h) => `${h}:${port}`).join(', ')} after ${Date.now() - t0} ms`;
     const hints = hintsFor(log).map((h) => `\n  likely cause: ${h}`).join('');
     return redact(`${headline}: the child process ${state}.\n  command: ${argv.join(' ')}\n  ${environmentSummary()}\n  output tail (redacted, last ${MAX_LOG} chars):\n${log.split('\n').map((l) => `    | ${l}`).join('\n')}${hints}`);
   };
   const get = (url, headers, ms = 15_000) => fetch(url, { headers, signal: AbortSignal.timeout(ms) });
+  let base = null;
   try {
     let up = false;
     while (!up && Date.now() - t0 < startupMs) {
       if (exit !== null || spawnError) break;
-      try { up = (await get(`http://127.0.0.1:${port}/status`, undefined, 2000)).ok; } catch { /* still starting */ }
+      base = await probeStatus(port, { fetchImpl: probeFetch });
+      up = base !== null;
       if (!up) await new Promise((r) => setTimeout(r, 500));
     }
     if (!up) { const message = why('Metro did not start'); await stop(); throw new Error(message); }
@@ -83,7 +108,7 @@ export async function startMetro({ env, startupMs = 120_000, command } = {}) {
     try {
       let manifest = '';
       for (let i = 0; i < 30; i++) {
-        try { manifest = await (await get(`http://127.0.0.1:${port}/`, { 'expo-platform': platform, accept: 'multipart/mixed,application/expo+json,application/json' })).text(); } catch { /* retry */ }
+        try { manifest = await (await get(`${base}/`, { 'expo-platform': platform, accept: 'multipart/mixed,application/expo+json,application/json' })).text(); } catch { /* retry */ }
         if (manifest.includes('launchAsset') || manifest.includes('.bundle')) break;
         if (exit !== null) throw new Error(why(`Metro stopped while serving the ${platform} manifest`));
         await new Promise((r) => setTimeout(r, 1000));
@@ -96,7 +121,7 @@ export async function startMetro({ env, startupMs = 120_000, command } = {}) {
       return { manifest, code };
     } catch (e) { throw e instanceof Error ? e : new Error(String(e)); }
   }
-  return { port, bundle, stop, tail: () => redact(log) };
+  return { port, base, bundle, stop, tail: () => redact(log) };
 }
 
 export const _test = { MOBILE, existsSync };
