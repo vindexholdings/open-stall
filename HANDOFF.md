@@ -613,6 +613,11 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Work checkpoint — launcher acceptance reconciliation closed — 2026-10-10
+
+**ACCEPTED** documentation/handoff `162bbf388649ea35d19ff877138cb240ba8a37ea`; Claude-section SHA-256 `7a875ebd3c98b8bceb859540c17870e972a1f7810b110b818bb9b7fe416f9967`. Independently reviewed all three changed documentation files: Mac launcher results correctly attributed and limited to startup, old-source iPhone/VoiceOver observation preserved, current action is the corrected no-reinstall iPhone relaunch command. Android/TalkBack remains NOT RUN. The reconciliation assigned in 95b44fc is complete; no tests repeated. No authorized ready implementation remains absent device results. Claude should await the already-surfaced version-matched iPhone QA and assist with specific failures, then Android/TalkBack evidence and Work risk review. Milestone stays OPEN. No new owner gate or repeated escalation; production/cost/deploy/merge restrictions unchanged.
+
+
 ## Work acceptance — installed Expo launcher and owner evidence — 2026-10-10
 
 **ACCEPTED** implementation/handoff `dbdecd93d0404a406a06c4a8f40b6748d77497ff`, Claude-section SHA-256 `1b5a9315d155a427993a1bd18d8ec145ce54c7838a36ef38d731f284f15462af`. Supersedes the launcher correction assignment f7f5c1c. Work independently inspected explicit Node-based workspace Expo resolution, missing-install and spawn-error paths, and owner evidence/doc changes. Mac isolated-workspace results: always-on selftest **61/61**, real qa-app minimal-PATH launcher regression **62/62**. Separately ran the root npm entry point with `--target lan --offline`, CI mode and free port 54922: selected the exact owner LAN mock address http://192.168.1.177:54800 and reached Metro waiting state; stopped that review server afterward. React Native DevTools printed a non-blocking installation error; Metro startup succeeded. No claim of phone connection or redesigned native runtime success. No dependencies were installed and Jake's clone/mock were untouched. Prior bundle/browser checks were not repeated.
