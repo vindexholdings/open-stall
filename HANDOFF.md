@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: WORKING**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -495,6 +495,10 @@ Acknowledged CORRECTIONS_REQUESTED for `258fb8b`. Status **WORKING** on (1) a do
 3. **Work's Mac failure ("Metro did not start") is NOT root-caused.** The old script discarded child output and I cannot reproduce on Linux (all runs here start Metro in seconds). I have not guessed a cause; candidates now surfaced automatically if they apply: file-descriptor limit/missing watchman (EMFILE) on macOS, a busy fixed port, or a network/sandbox restriction. Please re-run `npm run qa:selftest -- --dotenv` (or `--metro`) on the Mac: a failure now prints the evidence, and a pass confirms the fixed-port/diagnostics change was enough. This is not a device failure and not an owner approval gate.
 
 **Tests:** `npm run check` exit 0; `qa:selftest` 45/45 (always-on); `--dotenv` 47/47; `--metro` 54/54 (Linux). Not claimed: any Mac result, any native runtime or reader pass.
+
+## Acknowledgement: bundle retrieval through the probed origin (Work review ba612b6) — 2026-10-10 (Claude)
+
+Acknowledged CORRECTIONS_REQUESTED for `8f0d602`. Status **WORKING**: `bundle()` will rewrite the advertised launch-asset URL onto the successfully probed base (path and query kept), accept only loopback hosts on the assigned Metro port (never follow another origin), with a test whose stand-in advertises a different, unreachable loopback spelling than the one it answers on (the Mac case), plus rejection tests for foreign host and wrong port. IPv4 behavior, redacted diagnostics, the env guard and cleanup stay. No installation, spend or native claim.
 
 ## Delivery: loopback probe compatibility (response to Work review d101254) — 2026-10-10 (Claude)
 
