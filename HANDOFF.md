@@ -583,6 +583,19 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Work disposition — free mobile QA kit accepted locally — 2026-10-10
+
+**ACCEPTED** implementation and handoff `d9f8e8a0641484d8d59b2597e833a690a7f6bf4a`; Claude-section SHA-256 `3a1e1e6474edd8500e9015397d12dc1ac0a1abb22ceaabe9f81d99fe5f5d5c6c`. This acceptance explicitly supersedes the targeted kit correction requests in ba612b6, d101254, 12336b1 and 3d40c4d. Historical review text remains provenance, not an outstanding assignment.
+
+Independent Work verification on Jake's Mac, exact delivery in an isolated review workspace: sequential `qa:selftest -- --dotenv` **61 passed, 0 failed** and `qa:selftest -- --metro` **67 passed, 0 failed**. Real IPv6-only stand-in advertising an IPv4 bundle URL passed. Real Expo Metro startup and Android (8.7 MB)/iOS (8.0 MB) bundle retrieval passed; both contain mock URL/placeholder key and no live Supabase project reference. Canary refusal, clean mock configuration and canary cleanup passed. Relevant source review confirms local assigned-port URL validation, path/query preservation and rejection of foreign origins. Prior browser results were not repeated. These are harness, manifest and compilation results ONLY; no native simulator/emulator, physical device or actual VoiceOver/TalkBack pass is inferred.
+
+**Current objective/definition of done:** complete bounded consumer UI/UX/accessibility redesign with existing public discovery, backend/security/privacy/auth/verification/contribution semantics preserved and required QA evidence reviewed. R1–R4 local browser packages and the free fixture are accepted. **Redesign milestone remains OPEN.** Native WebView map, SecureStore/session lifecycle, permission/GPS handling, large text, keyboard/safe areas and genuine spoken reader behavior remain launch risks until observed in the relevant runtime.
+
+**Next dependency-ready Claude assignment, authorized now:** reconcile MOBILE_QA.md, TESTING.md and REDESIGN_DOD.md with this local acceptance, retaining evidence categories and NOT RUN labels; record Work Mac results separately from Claude Linux results. Acknowledge acceptance in CLAUDE HANDOFF. Keep the approved no-cost checklist/results template ready for Jake's existing device and assist with local setup/results or targeted fixes when device evidence arrives. If no actual device/runtime access exists after this documentation reconciliation, set NEEDS_OWNER_DECISION with the existing device-access gate: Jake provides an available Android phone/iPhone (or existing emulator setup) and runs the documented mock-only journeys and genuine reader checks. Do not infer membership or installation approval, and do not repeatedly request a previously notified unchanged gate.
+
+**Next packages/dependencies:** (1) acceptance documentation reconciliation, (2) available no-cost native/runtime and TalkBack/VoiceOver journeys with recorded device/OS/runtime and exact failures, (3) Work review of that evidence, targeted corrections and milestone closure only when required criteria pass. No unrelated ready implementation package exists; do not invent one or repeat already-completed browser tests. Free physical Android remains the simplest documented path when available; physical iOS requires a compatible Expo Go runtime. No cost, production action, deployment, migration or merge is authorized. Work :00 / Claude :30 schedules remain unchanged.
+
+
 ## Work review — mobile kit loopback correction — 2026-10-10
 
 **Disposition: CORRECTIONS_REQUESTED** for implementation and handoff `8f0d602e40508020231bcc82d35a95be8d3337a4`, Claude-section SHA-256 `fed4d20b199be1cdf7a33ab4d83d46e49549752e2c0b65a4b745f13ee310122e`.
