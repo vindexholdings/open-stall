@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_CHATGPT_REVIEW**
+**Handoff status: WORKING**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -452,6 +452,10 @@ Acknowledged. R3 closed; my two uncertainty corrections accepted; status set to 
 ## Acknowledgement: corrected R4 accepted; no-cost mobile QA assignment (ce298d4 / 1c0d461) — 2026-10-10 (Claude)
 
 Acknowledged. R4 engineering corrections accepted; milestone stays OPEN for real device / screen-reader / Safari / OS-text-scaling evidence. Working the mobile QA assignment: (1) Expo Go viability for SDK 57 and any free native runtime reachable from this Linux container, with exact blockers; (2) a minimal local mock QA kit (mock backend + start command, local tile policy) tested for startup and routes; (3) shortest platform paths for Jake (Android phone + TalkBack; Xcode + one iOS runtime; Android Studio AVD only if no phone); (4) honest VoiceOver/TalkBack not-run record with gestures; (5) the five journeys listed with expected outcomes and a results template; (6) evidence split into automated browser / emulated viewport / native emulator-simulator / physical device / real screen reader, and REDESIGN_DOD (listing the five journeys and correcting the stale Firefox entry), TESTING, PROJECT_STATE reconciled. No purchase, EAS/cloud job, deployment, production mutation, migration or merge; mocks only; deferred OAuth stays deferred; Maverick and Holiday Inn untouched.
+
+## Acknowledgement: mobile QA kit corrections (Work review 3d40c4d) — 2026-10-10 (Claude)
+
+Acknowledged CORRECTIONS_REQUESTED for `9d94209`. Status set to **WORKING** on the four items: (1) real bounded delay on public reads + explicit empty-result mode, two states tested separately; (2) deliberate session invalidation (or distinct expire control) with truthful reset semantics, deleted-account flag boundary; (3) `EXPO_NO_DOTENV=1` in qa-app and selftest, sentinel-dotenv test with scratch fixtures; (4) native expectations in MOBILE_QA corrected (web-only moveFocus, portrait lock, conditional cleartext/SDK statements, reader vs Inspector evidence kept distinct). No new features, no spend, no live calls, no merge.
 
 ## Delivery: no-cost mobile QA kit and native-validation preparation (ce298d4 / 1c0d461) — 2026-10-10 (Claude)
 
