@@ -1,6 +1,6 @@
 # Mobile QA kit and device checklist (free, local, mock-only)
 
-Status: kit built, self-tested here and independently verified on a Mac (section 2b; accepted by Work at `d9f8e8a`); **no native runtime, physical device or screen reader has been run by Claude.** Everything in "Results" below is NOT RUN until a person fills it in. Nothing here touches the live Supabase project, a real tile server, a paid service or any account.
+Status: kit built, self-tested here and independently verified on a Mac (section 2b; accepted by Work at `d9f8e8a`); **Claude and Work have run no native runtime, physical device or screen reader; the only device evidence is the owner's iPhone/VoiceOver observation in section 2c (older build).** Everything in "Results" below is NOT RUN until a person fills it in. Nothing here touches the live Supabase project, a real tile server, a paid service or any account.
 
 ## 1. Evidence split (what each kind of evidence proves)
 | Level | What it proves | Status |
@@ -8,8 +8,8 @@ Status: kit built, self-tested here and independently verified on a Mac (section
 | A. Automated browser | DOM/ARIA, keyboard, axe, flows against the mock (Chromium, Firefox, WebKitGTK) | DONE (see `REDESIGN_DOD.md`) |
 | B. Emulated viewport | Layout at 320-1280 px | DONE (Chromium emulation; Firefox genuine scaling to 500 CSS px) |
 | C. Native emulator / simulator | The React Native code actually runs: tab bar, safe areas, rotation, keyboard avoidance, permission prompts, WebView map | **NOT RUN** (blockers in section 2) |
-| D. Native physical device | Real touch, GPS, OS text scaling, Expo Go on hardware | **NOT RUN** |
-| E. Real screen reader | VoiceOver / TalkBack actually speak the journeys | **NOT RUN** |
+| D. Native physical device | Real touch, GPS, OS text scaling, Expo Go on hardware | iPhone 13 Pro: **OWNER-OBSERVED SUCCESS on an OLDER build** (section 2c); redesigned UI revision pending. Android: **NOT RUN** |
+| E. Real screen reader | VoiceOver / TalkBack actually speak the journeys | iOS VoiceOver: **OWNER-OBSERVED SUCCESS on an OLDER build** (section 2c; the redesigned UI is not yet covered, coverage not itemized). Android TalkBack: **NOT RUN** |
 Tools that inspect the app without a person using a reader (Xcode Accessibility Inspector, Android Accessibility Scanner / `uiautomator` dumps, tree dumps, axe) are automated inspection at level C or D. They are **not** level E and never count as a VoiceOver/TalkBack pass; record them in their own line of the results template.
 A native bundle that compiles (`expo export`, or `qa:selftest --metro`) is **not** runtime evidence. A screen reader that announces startup is **not** a pass.
 
@@ -32,6 +32,21 @@ A native bundle that compiles (`expo export`, or `qa:selftest --metro`) is **not
 | Work, Jake's Mac, isolated review workspace (accepted at `d9f8e8a`) | `-- --dotenv` then `-- --metro`, sequential | 61 passed / 67 passed; a REAL IPv6-only stand-in advertising an IPv4 bundle URL passed; real Expo Metro started; Android (8.7 MB) and iOS (8.0 MB) bundles retrieved with the mock URL and placeholder key and no live Supabase reference | startup, manifest and compilation on macOS, including the `::1` case Linux cannot test |
 All of the above are **harness, manifest and compilation results only.** None is a native simulator/emulator run, a physical-device run or a VoiceOver/TalkBack pass; those remain NOT RUN. The redesign milestone stays OPEN until they exist. Counts differ between Linux and Mac runs because some tests are skipped where the host lacks a capability (for example IPv6 loopback).
 
+## 2c. Owner-observed device evidence (Jake; not automated, not independently tested by Work or Claude)
+| Item | Record |
+|---|---|
+| Owner statement (verbatim, via Work) | "I successfully launched Open Stall on my physical iPhone through Expo Go. The app functions correctly, and I tested VoiceOver successfully." |
+| Device / OS | iPhone 13 Pro, iOS 26.6.2 (owner-reported) |
+| Runtime | Expo Go on the physical phone; Expo started with `npm run start -w @open-stall/mobile` from `~/open-stall`, which Expo reported as `~/open-stall/apps/mobile` |
+| Source that served the phone | Work read-only verification of that checkout: HEAD `fb4b65d3dba7db7382b2b89257aebeb1cea70f10`, no tracked mobile or shared source differences (a modified `package-lock.json` and untracked files only). This is the source checkout, **not** a captured on-device bundle hash or a clean dependency snapshot. |
+| What that version is | It **predates the accepted R1-R4 redesign**. The redesigned UI has not yet had this physical-iPhone and VoiceOver check. The successful result is kept as a result for the older build and is **not transferred** to the redesigned source. |
+| Backend / fixture | Not supplied. |
+| Coverage | Broad statement only: not itemized per journey or per checklist item. Do not read it as every item passing, and do not invent detail. |
+| Android / TalkBack | **NOT RUN.** Nothing is claimed. |
+| Status | iPhone runtime and VoiceOver: OWNER-OBSERVED SUCCESS, revision for the redesign and per-item coverage pending. |
+
+**Missing for iPhone on the redesigned build** (record only what is not yet confirmed): launch from a separate clean checkout of `claude-local` against the local mock (`npm run qa:mock`, then `npm run qa:app -- --target lan`), then the WebView/map, session lifecycle, permissions/GPS, OS large text, keyboard and safe areas, failure and recovery states, and spoken labels and focus across the five journeys, using the section 8 template. Android runtime and genuine TalkBack remain to do on free hardware or an existing emulator.
+
 ## 3. The fixture
 Terminal 1 (leave running):
 ```
@@ -47,6 +62,8 @@ npm run qa:app -- --target web               # laptop browser
 Options: `--port` (mock, default 54800), `--metro-port` (8081), `--ios` / `--android` (also open the platform), `--offline` (Expo offline mode). The script sets only `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` (placeholder `qa-mock-anon-key`), `EXPO_PUBLIC_MAP_TILE_URL`, `EXPO_PUBLIC_MAP_ATTRIBUTION` and `EXPO_PUBLIC_LEAFLET_BASE_URL`, all pointing at the mock. No live keys and no tunnel (do not add `--tunnel`). **The launcher refuses to start (exit 3) while any `apps/mobile/.env*` file exists.** `EXPO_NO_DOTENV=1` is set too, but it is not enough: Expo's dev bundles read `.env*` files themselves and those values would override the mock settings (shown by `qa:selftest -- --dotenv`, which uses a throwaway canary file and never touches a real one). The launcher never reads, prints or moves such a file; easiest is to run the QA session from a fresh clone without `.env*` files. Otherwise park the file under a name OUTSIDE the `.env*` family (a name such as `.env.local.off` still starts with `.env.` and is still refused): `mv -n apps/mobile/.env.local apps/mobile/parked-env.local` and, afterwards, `mv -n apps/mobile/parked-env.local apps/mobile/.env.local`. `-n` makes `mv` refuse to overwrite; if nothing moved because the destination exists, stop and compare by hand. The self-test checks that this rename is accepted by the guard and that the restore cannot overwrite. These variables are baked in at bundle time: change target, restart `qa:app` (it uses `--clear`).
 
 Checks (all local, mock only): `npm run qa:selftest` (mock-contract, guard and diagnostics checks; the CI step) / `-- --metro` (adds Metro offline, Expo Go manifests and both native bundles; Metro is probed on `localhost`, `127.0.0.1` and `[::1]` because Expo `--localhost` can listen on IPv6 only; a Metro failure prints the child's exit code, a bounded redacted output tail and versions, so it can be diagnosed from the report alone) / `-- --dotenv` (the .env guard). `npm run qa:browsercheck` exports the web app against the mock and drives headless Chromium through the fixture's controls: a real loading state, filtered-empty vs unfiltered-empty, and the expired-session path (8 checks). These prove the FIXTURE is reproducible in a browser; they are not native runtime evidence.
+
+**Launcher.** `qa-app` runs the Expo CLI that npm installed for this workspace by explicit path with the same Node that runs it, so it needs no `npx` PATH lookup, global Expo or download. If Expo is not installed it stops with exit 4 and says to run `npm ci` at the repository root; if the CLI cannot be spawned it exits 5 with the reason. (A fresh Mac clone once failed with `sh: expo: command not found` before this change.) The one command: `npm run qa:app -- --target lan` from the repository root, with `npm run qa:mock` running in another terminal.
 
 **Addresses.** The app must reach the mock from where the app runs:
 | Where the app runs | Host the app uses | Why |

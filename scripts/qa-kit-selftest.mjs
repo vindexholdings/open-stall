@@ -11,6 +11,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { envFilesIn } from './qa-env-guard.mjs';
+import { expoCli } from './qa-expo.mjs';
 import { environmentSummary, freePort, hintsFor, probeStatus, reachableUrl, redactor, startMetro } from './qa-metro.mjs';
 import { startQaMock } from './qa-mock-server.mjs';
 
@@ -184,9 +185,41 @@ try {
     check(missing.includes('could not be launched') && missing.includes('ENOENT'), 'diagnostics: a missing binary is reported as a launch failure (ENOENT)', missing.slice(0, 200));
   }
 
+
+  // ---- launcher resolution (regression for "sh: expo: command not found" on a real Mac checkout)
+  {
+    const { cli, version, node } = expoCli();
+    check(existsSync(cli) && node === process.execPath && /^\d+\.\d+\.\d+/.test(version), `launcher: the workspace Expo CLI is resolved by explicit path (${version}), run with the current Node, no PATH lookup`);
+    const empty = mkdtempSync(join(tmpdir(), 'qa-noexpo-'));
+    let msg = ''; try { expoCli(empty); } catch (e) { msg = e.message; }
+    rmSync(empty, { recursive: true, force: true });
+    check(msg.includes('not installed') && msg.includes('npm ci') && msg.includes('Nothing was downloaded'), 'launcher: a missing Expo install gives an actionable message (npm ci at the repository root), not "command not found"', msg.slice(0, 200));
+    const run = spawnSync(process.execPath, ['scripts/qa-app.mjs', '--target', 'ios-simulator'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8', timeout: 30000, env: { ...process.env, QA_EXPO_RESOLVE_FROM: tmpdir() } });
+    check(run.status === 4 && `${run.stderr}`.includes('npm ci'), 'launcher: qa-app exits 4 with that message when Expo cannot be resolved', `status ${run.status} ${run.stderr.slice(0, 200)}`);
+  }
+
   const qaEnv = (extra = {}) => { const b = { ...process.env, CI: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: U, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${U}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${U}/leaflet`, ...extra }; delete b.EXPO_PUBLIC_MAP_ATTRIBUTION; return b; };
   const withMetro = async (env, fn) => { const m = await startMetro({ env }); try { return await fn(m); } finally { await m.stop(); } };
 
+
+  if (process.argv.includes('--launcher') || process.argv.includes('--metro')) {
+    // The REAL qa-app spawn path, with a PATH that contains only `node` (no npx, no node_modules/.bin, no global expo): the exact
+    // situation that failed on the Mac. qa-app must still start the dev server and answer /status.
+    if (envFilesIn(new URL('../apps/mobile', import.meta.url).pathname).length) throw new Error('apps/mobile has .env* files; park them first (see MOBILE_QA.md section 3)');
+    const bin = mkdtempSync(join(tmpdir(), 'qa-pathonly-node-'));
+    spawnSync('ln', ['-s', process.execPath, join(bin, 'node')]);
+    const port = await freePort();
+    const child = (await import('node:child_process')).spawn(join(bin, 'node'), ['scripts/qa-app.mjs', '--target', 'ios-simulator', '--metro-port', String(port), '--offline'], {
+      cwd: new URL('..', import.meta.url).pathname, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, PATH: bin, CI: '1', QA_PORT: String(new URL(U).port) } });
+    let out = ''; child.stdout.on('data', (d) => { out += d; }); child.stderr.on('data', (d) => { out += d; });
+    let base = null; let gone = false; child.on('exit', () => { gone = true; });
+    for (let i = 0; i < 90 && !base && !gone; i++) { base = await probeStatus(port, { timeoutMs: 1500 }); if (!base) await new Promise((r) => setTimeout(r, 1000)); }
+    try { process.kill(-child.pid, 'SIGTERM'); } catch { /* gone */ }
+    await new Promise((r) => setTimeout(r, 1500));
+    rmSync(bin, { recursive: true, force: true });
+    check(base !== null && out.includes('QA app -> mock at') && !out.includes('command not found'), `launcher: the real qa-app starts the dev server with a PATH that holds only node (${base ?? 'no answer'})`, `\n${redactor(process.env)(out).slice(-1500)}`);
+  }
   if (process.argv.includes('--dotenv')) {
     console.log(`INFO ${environmentSummary()}`);
     // A throwaway .env.local holding a canary (fake value) is written only if the slot is empty, and ALWAYS removed.

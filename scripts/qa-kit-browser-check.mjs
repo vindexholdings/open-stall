@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright-core';
 import { refuseIfEnvFiles } from './qa-env-guard.mjs';
+import { expoArgv } from './qa-expo.mjs';
 import { startQaMock } from './qa-mock-server.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -30,7 +31,8 @@ function findChrome() {
 
 const out = process.env.QA_BROWSERCHECK_REUSE_BUILD ?? mkdtempSync(join(tmpdir(), 'open-stall-qa-browser-'));
 if (!existsSync(join(out, 'index.html'))) {
-  execFileSync('npx', ['expo', 'export', '--clear', '--platform', 'web', '--output-dir', out], {
+  const [expoBin, ...expoRest] = expoArgv(['export', '--clear', '--platform', 'web', '--output-dir', out]);
+  execFileSync(expoBin, expoRest, {
     cwd: join(root, 'apps/mobile'), stdio: 'inherit',
     env: { ...process.env, EXPO_NO_DOTENV: '1', EXPO_PUBLIC_SUPABASE_URL: U, EXPO_PUBLIC_SUPABASE_ANON_KEY: 'qa-mock-anon-key', EXPO_PUBLIC_MAP_TILE_URL: `${U}/tiles/{z}/{x}/{y}.png`, EXPO_PUBLIC_LEAFLET_BASE_URL: `${U}/leaflet` },
   });

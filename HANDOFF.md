@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_OWNER_DECISION**
+**Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -528,7 +528,20 @@ Acknowledged ACCEPTED for `d9f8e8a`; the earlier kit correction requests (3d40c4
 
 **No actual device or runtime access exists in this environment and none has been supplied, so per the assignment: status NEEDS_OWNER_DECISION on the EXISTING device-access gate (not a new request): Jake provides an available Android phone/iPhone (or an existing emulator setup) and runs the documented mock-only journeys and genuine reader checks (`MOBILE_QA.md` sections 4-8; simplest is path (a), an Android phone with Expo Go and TalkBack; a physical iPhone only if its Expo Go opens an SDK 57 project). No installation, membership or spend is assumed.** I will not ask again unless the gate changes.
 
-**Exact next action (updated 2026-10-10, kit accepted; docs reconciled; waiting on device gate)**
+## Acknowledgement and delivery: Mac launcher fix + owner iPhone evidence reconciliation (Work dcc60a9, 3b628c9, f7f5c1c) — 2026-10-10 (Claude)
+
+**Status: NEEDS_CHATGPT_REVIEW.** Acknowledged both assignments. The launcher fix was done first because it blocks Jake.
+
+**1. Launcher (`sh: expo: command not found`).** Cause: `qa-app` spawned `npx expo` from `apps/mobile`, which depends on PATH and on npx finding a root-hoisted bin; it failed on a real Mac workspace although my helper selftests passed (they never executed that exact path). Fix: new `scripts/qa-expo.mjs` resolves the installed workspace Expo package via Node resolution from `apps/mobile`, and runs its CLI file with the same Node (`process.execPath`) by explicit path: no npx, no PATH lookup, no download, no global Expo. `qa-app`, the Metro helper and the browser check use it. A missing install prints an actionable message to run `npm ci` at the repository root and exits 4; a child spawn error exits 5 with the reason; the child's exit code is propagated. Unchanged: mock-only env guard, `--go`, `--clear`, LAN target, no production credentials, no change to Jake's checkout or his running mock.
+**Regression:** the REAL `qa-app` spawn path is run with a PATH that contains only `node` (a symlink in an empty directory; no npx, no `node_modules/.bin`, no global Expo): it must start Metro and answer `/status` (`qa:selftest -- --launcher`, also part of `--metro`). Mutation: restoring `npx expo` fails that test. Always-on tests: CLI resolved by explicit path (57.0.26 here), missing install message, `qa-app` exit 4. I also ran the documented npm entry point from the repository root: `npm run qa:app -- --target ios-simulator --metro-port 8765 --offline` answered `packager-status:running` (the LAN target needs a LAN IP this container lacks; the launch path is identical).
+**Verification:** `qa:selftest` 60/60, `--launcher` 61/61, `--metro` 70/70, `npm run check` exit 0 (Linux). Not run: a Mac, the LAN target.
+**One corrected command for Jake** (his separate clone `~/open-stall-iphone-qa`, mock already running on 54800): `cd ~/open-stall-iphone-qa && git pull --ff-only origin claude-local && npm run qa:app -- --target lan`. The earlier `PATH=...` workaround is no longer needed; I did not touch his folder.
+
+**2. Owner iPhone / VoiceOver evidence.** Replaced blanket iPhone/VoiceOver NOT RUN with **OWNER-OBSERVED SUCCESS on an OLDER build** in `MOBILE_QA.md` (new section 2c, evidence table rows D/E), `REDESIGN_DOD.md` (runtime and reader rows, new section), `PROJECT_STATE.md`, and a device record `docs/evidence/device/2026-10-10-iphone-owner-observed.md`. Exact provenance kept: iPhone 13 Pro, iOS 26.6.2 (owner-reported), Expo Go, served from `~/open-stall` via `npm run start -w @open-stall/mobile`, Work-verified HEAD `fb4b65d3dba7db7382b2b89257aebeb1cea70f10` (no tracked source diff; this is the source checkout, not a bundle hash), which **predates the redesign**, so the redesigned UI is not covered and the result is not transferred to it. Backend/fixture not supplied; coverage not itemized and not invented. Android/TalkBack NOT RUN. Listed the missing iPhone checks for the redesigned build (WebView/map, session lifecycle, permissions/GPS, large text, keyboard/safe areas, failure/recovery, spoken labels/focus across the five journeys). Claude/Work evidence stays separate.
+
+Milestone OPEN. No cost, installation, production action, deployment or merge. Next: Jake relaunches from the clean clone with the corrected command; I will help with setup or targeted fixes and record results.
+
+**Exact next action (updated 2026-10-10, launcher fix and iPhone evidence delivered)**
 - NEEDS_OWNER_DECISION (existing device gate, already surfaced; not repeated). Smallest owner action: path (a) in `MOBILE_QA.md` (about 30-45 min, free) and record results in the template. No next package invented. No production action, deployment, merge or cost.
 
 **(Superseded) Exact next action (updated 2026-10-10, mobile QA in progress)**

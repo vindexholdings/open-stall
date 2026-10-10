@@ -4,6 +4,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { expoArgv } from './qa-expo.mjs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -85,7 +86,7 @@ export async function startMetro({ env, startupMs = 120_000, command, probeFetch
   const port = await freePort();
   const redact = redactor(env);
   const privateTmp = mkdtempSync(join(tmpdir(), 'qa-metro-')); // empty transform cache; the shared /tmp/metro-cache can hold values inlined earlier
-  const argv = typeof command === 'function' ? command(port) : command ?? ['npx', 'expo', 'start', '--go', '--localhost', '--port', String(port), '--clear'];
+  const argv = typeof command === 'function' ? command(port) : command ?? expoArgv(['start', '--go', '--localhost', '--port', String(port), '--clear']);
   const t0 = Date.now();
   let log = ''; let exit = null; let spawnError = null;
   const child = spawn(argv[0], argv.slice(1), { cwd: MOBILE, env: { ...env, TMPDIR: privateTmp }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });

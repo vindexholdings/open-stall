@@ -10,6 +10,7 @@
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
 import { refuseIfEnvFiles } from './qa-env-guard.mjs';
+import { MOBILE_DIR, expoArgv } from './qa-expo.mjs';
 
 if (refuseIfEnvFiles(new URL('../apps/mobile', import.meta.url).pathname)) process.exit(3);
 const arg = (name, dflt) => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : dflt; };
@@ -36,11 +37,15 @@ const env = {
 };
 console.log(`QA app -> mock at ${base} (target: ${target})`);
 console.log('Make sure `npm run qa:mock` is running. On a phone, the phone and this computer must be on the same Wi-Fi.');
-const flags = ['expo', 'start', '--port', metroPort, '--clear'];
+const flags = ['start', '--port', metroPort, '--clear'];
 if (target === 'web') flags.push('--web'); else flags.push('--go');
 if (process.argv.includes('--ios')) flags.push('--ios');
 if (process.argv.includes('--android')) flags.push('--android');
 if (process.argv.includes('--offline')) env.EXPO_OFFLINE = '1'; // env, because Expo rejects --offline together with --localhost/--lan
 if (target === 'ios-simulator' || target === 'web') flags.push('--localhost');
-const child = spawn('npx', flags, { cwd: new URL('../apps/mobile', import.meta.url).pathname, env, stdio: 'inherit' });
-child.on('exit', (code) => process.exit(code ?? 0));
+let argv;
+// QA_EXPO_RESOLVE_FROM exists only so the self-test can prove the missing-dependency message
+try { argv = expoArgv(flags, process.env.QA_EXPO_RESOLVE_FROM || MOBILE_DIR); } catch (e) { console.error(`QA launcher stopped: ${e.message}`); process.exit(4); }
+const child = spawn(argv[0], argv.slice(1), { cwd: MOBILE_DIR, env, stdio: 'inherit' });
+child.on('error', (e) => { console.error(`QA launcher could not start the Expo CLI (${argv[1]}): ${e.code ?? ''} ${e.message}`); process.exit(5); });
+child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
