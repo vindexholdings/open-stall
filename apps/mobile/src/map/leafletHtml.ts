@@ -1,4 +1,4 @@
-import type { TileConfig } from './config';
+import type { LeafletAssets, TileConfig } from './config';
 import type { MapViewProps } from './types';
 
 /** JSON that is safe to embed inside an inline <script>. */
@@ -20,16 +20,18 @@ export function buildLeafletHtml(
   tiles: TileConfig,
   zoom: number,
   colors: { marker: string; selected: string; unverified: string; user: string },
+  assets: LeafletAssets,
 ): string {
+  const attr = (u: string, sri?: string) => (sri ? ` integrity="${sri}" crossorigin="anonymous"` : '');
   const data = safeJson({ ...props, tiles, zoom, colors });
   return `<!doctype html>
 <html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="${assets.cssUrl}"${attr(assets.cssUrl, assets.integrity?.css)}>
 <style>html,body,#map{height:100%;margin:0}</style>
 </head><body><div id="map"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="${assets.jsUrl}"${attr(assets.jsUrl, assets.integrity?.js)}></script>
 <script>
 (function () {
   var d = ${data};

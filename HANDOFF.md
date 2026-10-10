@@ -453,7 +453,24 @@ Acknowledged. R3 closed; my two uncertainty corrections accepted; status set to 
 
 Acknowledged. R4 engineering corrections accepted; milestone stays OPEN for real device / screen-reader / Safari / OS-text-scaling evidence. Working the mobile QA assignment: (1) Expo Go viability for SDK 57 and any free native runtime reachable from this Linux container, with exact blockers; (2) a minimal local mock QA kit (mock backend + start command, local tile policy) tested for startup and routes; (3) shortest platform paths for Jake (Android phone + TalkBack; Xcode + one iOS runtime; Android Studio AVD only if no phone); (4) honest VoiceOver/TalkBack not-run record with gestures; (5) the five journeys listed with expected outcomes and a results template; (6) evidence split into automated browser / emulated viewport / native emulator-simulator / physical device / real screen reader, and REDESIGN_DOD (listing the five journeys and correcting the stale Firefox entry), TESTING, PROJECT_STATE reconciled. No purchase, EAS/cloud job, deployment, production mutation, migration or merge; mocks only; deferred OAuth stays deferred; Maverick and Holiday Inn untouched.
 
-**Exact next action (updated 2026-10-10, mobile QA in progress)**
+## Delivery: no-cost mobile QA kit and native-validation preparation (ce298d4 / 1c0d461) — 2026-10-10 (Claude)
+
+**Status: NEEDS_CHATGPT_REVIEW.** Redesign stays OPEN. Nothing deployed; no live call, spend or account.
+
+**Native runtimes: NONE could be run here.** Android emulator impossible (no /dev/kvm; dl.google.com blocked); iOS Simulator needs macOS; **Expo Go for SDK 57 availability is unverifiable** (api.expo.dev/expo.dev blocked; app is `expo ~57.0.26`), so I do not promise a physical iPhone can run it. Verified instead: `npm run qa:selftest -- --metro` starts Metro offline in Expo Go mode, serves iOS and Android manifests and builds both native bundles (8.0 / 8.6 MB) carrying the mock URL and placeholder key with no live Supabase ref. That is bundling, **not** runtime.
+
+**Kit:** `scripts/qa-mock-server.mjs` (in-memory mock: GoTrue minimal, RPCs, fixtures generated around the app's searched position, local tiles and Leaflet, `/__qa/state|reset|mode` failure switches: server 500 / reject 53400 / auth 401 / lost response); `scripts/qa-app.mjs` (targets lan | android-emulator 10.0.2.2 | ios-simulator | web; only EXPO_PUBLIC_* pointing at the mock; no tunnel); `npm run qa:mock | qa:app | qa:selftest` (17 checks, 26 with `--metro`; the cheap one is now a CI step).
+
+**`MOBILE_QA.md`:** evidence split A-E, blockers, addresses (phone LAN vs emulator vs simulator), permission/GPS simulation and stale/accuracy boundaries, map WebView network policy, the five journeys with expected outcomes, native-only checks (large text, safe areas, rotation, keyboard, tab behavior, WebView), TalkBack/VoiceOver gesture checklists marked **NOT RUN**, Jake's three paths (a Android phone + Expo Go + TalkBack, b Xcode + iOS runtime, c AVD) and a results template. `REDESIGN_DOD.md` now lists the five journeys, the A-E split, and the Firefox entry is corrected (executed). TESTING and PROJECT_STATE updated.
+
+**Flag for review (small product-adjacent change):** the native map WebView loaded Leaflet from cdnjs with no integrity check. It now pins SRI (sha256 verified equal to the npm leaflet@1.9.4 files; a unit test locks the pins to node_modules) and accepts `EXPO_PUBLIC_LEAFLET_BASE_URL` (no integrity when overridden, for QA only). Default behavior unchanged; not verified on a device.
+
+**Tests:** `npm run check` exit 0 (lint, typecheck incl. mobile, all unit suites, secret scan); mobile 36 tests; qa:selftest 17/17 and 26/26 with Metro. **NOT RUN:** native emulator/simulator, physical device, Expo Go SDK 57 launch, TalkBack, VoiceOver, OS text scaling, safe areas, rotation, keyboard avoidance, real GPS.
+
+**Exact next action (updated 2026-10-10, mobile QA delivered)**
+- NEEDS_CHATGPT_REVIEW. Smallest owner action: path (a) in `MOBILE_QA.md` (about 30-45 min, free) and record results in the template. No next package invented. No production action, deployment, merge or cost.
+
+**(Superseded) Exact next action (updated 2026-10-10, mobile QA in progress)**
 - WORKING. On delivery: commit/push, set NEEDS_CHATGPT_REVIEW with exact runtimes tried, the kit, results split and NOT RUN items.
 
 **(Superseded) Exact next action (updated 2026-10-10, R4 corrections delivered)**

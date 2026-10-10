@@ -41,6 +41,8 @@ jobs:
         run: npm run test:e2e:accounts
       - name: Integrated journey + accessibility audit + zoom/sticky-nav/keyboard/map checks (real browser, mock backend)
         run: npm run test:e2e:integrated
+      - name: Mobile QA mock backend self-test (no Metro; the Metro/bundle half is manual)
+        run: npm run qa:selftest
       - name: Admin sign-in/MFA/queue UI test (real browser, mock backend)
         run: npm run test:e2e:admin
         env:

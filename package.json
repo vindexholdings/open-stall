@@ -26,7 +26,10 @@
     "test:e2e:discovery": "node scripts/e2e-discovery.mjs",
     "test:e2e:detail": "node scripts/e2e-detail.mjs",
     "test:e2e:accounts": "node scripts/e2e-accounts.mjs",
-    "test:e2e:integrated": "node scripts/e2e-integrated.mjs"
+    "test:e2e:integrated": "node scripts/e2e-integrated.mjs",
+    "qa:mock": "node scripts/qa-mock-server.mjs",
+    "qa:app": "node scripts/qa-app.mjs",
+    "qa:selftest": "node scripts/qa-kit-selftest.mjs"
   },
   "engines": {
     "node": ">=20"

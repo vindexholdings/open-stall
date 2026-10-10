@@ -2,7 +2,7 @@ import { colors } from '@open-stall/ui';
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { DEFAULT_ZOOM, tileConfig } from './config';
+import { DEFAULT_ZOOM, leafletAssets, tileConfig } from './config';
 import { buildLeafletHtml, parseSelectMessage } from './leafletHtml';
 import type { MapViewProps } from './types';
 
@@ -14,7 +14,7 @@ export function MapView({ center, userLocation, markers, onSelectMarker, height 
         selected: colors.accentStrong,
         unverified: colors.status.unverified.fg,
         user: colors.text,
-      }),
+      }, leafletAssets),
     [center, userLocation, markers],
   );
 
