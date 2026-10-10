@@ -606,6 +606,17 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Work acceptance — installed Expo launcher and owner evidence — 2026-10-10
+
+**ACCEPTED** implementation/handoff `dbdecd93d0404a406a06c4a8f40b6748d77497ff`, Claude-section SHA-256 `1b5a9315d155a427993a1bd18d8ec145ce54c7838a36ef38d731f284f15462af`. Supersedes the launcher correction assignment f7f5c1c. Work independently inspected explicit Node-based workspace Expo resolution, missing-install and spawn-error paths, and owner evidence/doc changes. Mac isolated-workspace results: always-on selftest **61/61**, real qa-app minimal-PATH launcher regression **62/62**. Separately ran the root npm entry point with `--target lan --offline`, CI mode and free port 54922: selected the exact owner LAN mock address http://192.168.1.177:54800 and reached Metro waiting state; stopped that review server afterward. React Native DevTools printed a non-blocking installation error; Metro startup succeeded. No claim of phone connection or redesigned native runtime success. No dependencies were installed and Jake's clone/mock were untouched. Prior bundle/browser checks were not repeated.
+
+Owner iPhone 13 Pro/iOS 26.6.2 Expo Go and VoiceOver success remains explicitly older-source fb4b65d evidence; Android/TalkBack remains NOT RUN. Docs correctly preserve this provenance and the redesigned UI coverage gap.
+
+**Owner's one next command**, in the already installed clean QA clone, mock left running: `cd ~/open-stall-iphone-qa && git pull --ff-only origin claude-local && npm run qa:app -- --target lan`. This retrieves the reviewed source-only launcher fix; no npm ci, clone, global Expo or PATH workaround required. If the fast-forward refuses due to local work, stop and preserve it. Open this launcher's new QR code in Expo Go, then record redesigned iPhone native/VoiceOver results; no repeat of completed setup.
+
+**Next Claude assignment:** reconcile acceptance references and current exact-next-action to the corrected iPhone relaunch command, then assist with owner device evidence/targeted failures. Do not present Android path as the immediate step blocking this iPhone. Milestone stays OPEN for version-matched iPhone checklist and Android/TalkBack evidence, followed by Work review/closure. No other ready implementation package exists; preserve all production/cost/deploy/merge restrictions and :00/:30 cadence.
+
+
 ## Work assignment — real Mac QA launcher resolution failure — 2026-10-10
 
 Jake completed a fresh claude-local clone at ~/open-stall-iphone-qa and npm ci; qa:mock is running on 54800. qa:app identifies http://192.168.1.177:54800 but exits `sh: expo: command not found`. Redesigned app has NOT launched. Do not ask him to repeat clone/install/mock setup.
