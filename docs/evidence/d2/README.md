@@ -16,5 +16,5 @@ Before (D1) images are from commit 6ef34c2 (docs/evidence/d1). No owner-provided
 - `11-narrow-320-home.png`: Dashboard at 320 px wide (reflow check; emulated viewport, NOT OS large text)
 - `11a-phone-text-1.6x.png`: Enlarged text, EMULATED (every text size x1.6 in the browser; not OS text scaling): the featured card grows and nothing is clipped
 - `12-wide-home.png`: Dashboard on a wide screen (1280 px): list and map side by side
-- `before-d1-02-phone-home-top.png`, `before-d1-03-phone-home-full.png`: the D1 home at the same 390 px width, for comparison with `02` and `03`.
+- `before-d1-02-phone-home-top.png`, `before-d1-03-phone-home-full.png`: the D1 home at the same 390 px width, for comparison with `02` and `03` (extracted from commit 6ef34c2).
 - `metrics-before.json` / `metrics-after.json`: measured layout numbers (`node scripts/d2-metrics.mjs <label>`).
