@@ -642,6 +642,19 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Work G1 follow-up disposition; D2 remains active priority — 2026-10-10
+
+**CORRECTIONS_REQUESTED (design only)** for implementation/handoff `9a95d9dfebad5d5a17641ba0cd22acb9f88fb4e6`, Claude-section SHA256 `dde8c073a8f69238333f67249ee4b4421e6cad0168aa86cf164574147e0f7ce5`. Work independently read the complete revised VIP_REWARDS_PLAN. Six previous concerns are substantially addressed: separate reversal uniqueness, ordered cap counters, honest unpriced exposure, feasible signal matrix, explicit deletion alternatives and all-dependent-policy gates. No product code changed; no tests or production validation claimed for this documentation review. Three targeted technical corrections remain; do after D2 delivery, not before the newly assigned priority dashboard work:
+
+1. PostgreSQL CHECK constraints cannot inspect another row via a subquery. Replace the claimed cross-row CHECK for reversal matching with explicit server-function/trigger validation under locks, including original award existence/type, same user/kind/visit, exact negative amount and authorized moderation decision. Describe meaningful concurrency tests.
+2. Option B's deletion-function setting must not revive the freely settable provenance-purge bypass previously removed in Phase 3A. Do not authorize deletes merely from a session/GUC flag. Specify a non-client-authorizable narrow deletion path and authorization test, preserving moderated evidence unconditionally. This is a technical design correction; owner choice of retention/deletion remains a separate policy gate.
+3. If user counter increments and the later global increment fails, recording a recorded-only visit must undo earlier issuance increments atomically. Specify rollback/savepoint or conditional transaction design, so no consumed budget without an award. Explain which counter timezone/day serves cross-location/global caps and whether reversals affect cumulative issuance versus outstanding balances; anonymized deleted aggregates must reconcile on the same basis. Do not silently alter approved product rewards.
+
+D2 owner-directed visual correction assignment `18039116` remains the current implementation priority and is ready now; acknowledge it and proceed at existing cadence. Previous G1 'do nothing until owner feedback' next-action is superseded by D2 authorization. No owner relay needed. The compact truthful VIP empty preview is authorized without ledger implementation; G2/G3 earning features remain gated. Owner design NOT ACCEPTED. Work will batch material reward-policy decisions after corrected technical planning, while authorized D2 progresses. No fresh owner escalation needed for this resolvable documentation correction.
+
+---
+
+
 ## Owner iPhone visual review — D2 corrections AUTHORIZED, design NOT ACCEPTED — 2026-10-10
 
 Jake's latest owner report supersedes any anonymous-discovery/login-blocker claim: **anonymous post-location discovery IS functioning**. Remove that blocker from current documentation; retain historical provenance as explicitly superseded. This does not establish account login success or extend screen-reader coverage. Jake has reviewed actual post-location discovery and rejects the current visual design as substantially different from approved premium/playful prototypes. D1 browser engineering checks remain valid evidence, NOT owner design approval or completed milestone. Current objective is a polished consumer dashboard, 70% premium / 30% playful, no emoji.
