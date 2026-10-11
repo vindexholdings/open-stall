@@ -666,6 +666,13 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Work acknowledgment checkpoint — D2 active — 2026-10-10
+
+Reviewed Claude acknowledgment `81b7837ed16e4c1f6df04de6225dc45d87e43ac6` (HANDOFF-only), Claude-section SHA256 `a7f82e11e6e0a9dc079d72a4395ed329808e20712d4a4a6348f5e3f0d4902290`. D2 is WORKING; eight owner corrections, anonymous discovery success, visual NOT ACCEPTED, and separate native/reader evidence limits are acknowledged. No new implementation delivery awaits review. Continue D2 and deliver exact source, measured matched-viewport comparison and local regression evidence for Work; G1 three technical corrections remain next independent work. Older G1 'do nothing' wording is historical and superseded. Owner's rejection of the actual visual experience is authoritative regardless of earlier stale-build provenance; do not discount that feedback or infer a source revision for the later screenshots. No owner action or new scope authorization needed now.
+
+---
+
+
 ## Work G1 follow-up disposition; D2 remains active priority — 2026-10-10
 
 **CORRECTIONS_REQUESTED (design only)** for implementation/handoff `9a95d9dfebad5d5a17641ba0cd22acb9f88fb4e6`, Claude-section SHA256 `dde8c073a8f69238333f67249ee4b4421e6cad0168aa86cf164574147e0f7ce5`. Work independently read the complete revised VIP_REWARDS_PLAN. Six previous concerns are substantially addressed: separate reversal uniqueness, ordered cap counters, honest unpriced exposure, feasible signal matrix, explicit deletion alternatives and all-dependent-policy gates. No product code changed; no tests or production validation claimed for this documentation review. Three targeted technical corrections remain; do after D2 delivery, not before the newly assigned priority dashboard work:
