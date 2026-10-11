@@ -183,6 +183,63 @@ try {
     await ctx.close();
   }
 
+
+  // 1b. Show/Hide Password on the real sign-in form: masked by default, text kept, no submit/network, keyboard, not persisted
+  {
+    const { ctx, page } = await newPage();
+    await page.goto(`${base}/auth/sign-in?next=%2Faccount`);
+    const field = page.getByLabel('Password', { exact: true });
+    const typeOf = () => field.evaluate((e) => e.type);
+    const PW = 'p4ss w0rd & more!';
+    await fill(page, 'Email', USER.email); await fill(page, 'Password', PW);
+    check((await typeOf()) === 'password' && (await button(page, 'Show password').count()) === 1 && (await button(page, 'Hide password').count()) === 0, 'password: masked by default with a "Show password" button');
+    const loginsBefore = acct.logins; const urlBefore = page.url();
+    await button(page, 'Show password').click();
+    check((await typeOf()) === 'text' && (await field.inputValue()) === PW && (await button(page, 'Hide password').count()) === 1 && (await button(page, 'Show password').count()) === 0, 'password: Show reveals the exact typed text and the action becomes "Hide password"');
+    await button(page, 'Hide password').click();
+    check((await typeOf()) === 'password' && (await field.inputValue()) === PW && (await button(page, 'Show password').count()) === 1, 'password: Hide re-masks and the text is unchanged after the round trip');
+    await field.focus(); await page.keyboard.press('End');
+    await page.keyboard.type('X');
+    check((await field.inputValue()) === `${PW}X`, 'password: editing after a toggle keeps appending to the same text');
+    await fill(page, 'Password', PW);
+    check(acct.logins === loginsBefore && page.url() === urlBefore && (await alerts(page)).length === 0, 'password: toggling never submits, never calls the network and shows no error', `${acct.logins - loginsBefore} ${page.url()}`);
+    // accessible name/role: the visible text is the name; neither control exposes the password
+    const aria = await page.evaluate(() => [...document.querySelectorAll('input[type="password"], input[type="text"], [role="button"]')].map((e) => `${e.getAttribute('aria-label') || ''}|${e.getAttribute('aria-describedby') || ''}|${e.getAttribute('aria-pressed') || ''}`).join('\n'));
+    check(!aria.includes('p4ss') && !aria.includes('w0rd'), 'password: the typed password appears in no accessible name, description or state');
+    const toggle = button(page, 'Show password');
+    const box = await toggle.boundingBox();
+    check(box && box.height >= 44, `password: the toggle is a real button with a target at least 44 px tall (${box?.height})`);
+    // keyboard: Tab from the field reaches the toggle, with a visible focus ring; Space and Enter both toggle
+    await field.focus(); await page.keyboard.press('Tab');
+    const focusedName = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || document.activeElement?.textContent);
+    const ring = await page.evaluate(() => { const e = document.activeElement; const c = e ? getComputedStyle(e) : null; return !!c && ((c.outlineStyle !== 'none' && parseFloat(c.outlineWidth) > 0) || c.boxShadow !== 'none'); });
+    check(focusedName === 'Show password' && ring, 'password: Tab from the field reaches the toggle and it shows a visible focus ring', `${focusedName} ring ${ring}`);
+    await page.keyboard.press('Enter');
+    check((await typeOf()) === 'text', 'password: Enter on the focused toggle shows the password');
+    await page.keyboard.press('Space');
+    check((await typeOf()) === 'password', 'password: Space on the focused toggle hides it again');
+    // a rejected login keeps the text, and Enter in the field still signs in
+    await fill(page, 'Password', 'wrong password!!');
+    await button(page, 'Show password').click();
+    await field.press('Enter');
+    check(await alerted(page, /Email or password is incorrect/) && (await field.inputValue()) === 'wrong password!!', 'password: Enter in the field still signs in; a rejected login recovers with the entered text unchanged (shown state kept)');
+    check((await page.getByLabel('Email', { exact: true }).inputValue()) === USER.email, 'password: the email also survives that rejected login');
+    // not persisted: visibility never survives leaving the screen
+    await page.goto(`${base}/auth/sign-in`);
+    check((await page.getByLabel('Password', { exact: true }).evaluate((e) => e.type)) === 'password', 'password: a fresh visit to the screen is masked again (visibility is never persisted)');
+    // sign-up mode has the same control and a hint that still reads
+    await button(page, 'New here? Create an account').click();
+    check((await button(page, 'Show password').count()) === 1 && (await text(page, 'At least 8 characters')), 'password: the sign-up form has the same control and keeps its hint');
+    await page.screenshot({ path: join(SHOTS, 'narrow-password-toggle.png'), fullPage: true });
+    // the successful login still works with the field revealed
+    await page.goto(`${base}/auth/sign-in?next=%2Faccount`);
+    await fill(page, 'Email', USER.email); await fill(page, 'Password', GOOD_PW);
+    await button(page, 'Show password').click();
+    await button(page, 'Sign in').click();
+    check(await text(page, 'Your account'), 'password: a correct login succeeds while the password is shown');
+    await ctx.close();
+  }
+
   // 2. Sign-up and reset
   {
     const { ctx, page } = await newPage();
