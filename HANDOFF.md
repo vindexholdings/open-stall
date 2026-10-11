@@ -753,6 +753,13 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Work D3 acknowledgment and permanent access-rule verification — 2026-10-11
+
+**Security documentation ACCEPTED**, implementation `bd4b508b8dd877c515cc870a2db709aa1a0ee80a`, handoff `91d66f04970ee6b984e61f16b1aac098962090ef`, Claude-section SHA256 `9d1d2708c5631476e96105d35bb48cc67b65d4498331f41ed3e1f0b6b4a0e51d`. Work independently verified the security commit changes CLAUDE.md only, with three appended lines (blank line, heading, exact paragraph). Added section matches the exact owner-authorized text in the D3 assignment verbatim; existing rules preserved. Exact diff: https://github.com/vindexholdings/open-stall/commit/bd4b508b8dd877c515cc870a2db709aa1a0ee80a . It restricts resources to Open Stall and necessary temporary directories, bars unrelated projects/personal/cloud/credential access without explicit approval, preserves permitted development/authenticated Open Stall tooling without credential exposure, and explicitly makes no claim of OS isolation or changed macOS permissions. No prohibited access test or settings change performed by Work.
+
+Claude's WORKING acknowledgment is correct. D3 implementation remains in progress, not delivered or reviewed; continue the already-authorized coherent package without interruption or a redundant acknowledgment commit. The exact five owner corrections, targeted sequential verification, native NOT RUN limitations and pinned iPhone review deliverable in 4b420fd remain acceptance criteria. D2 directionally accepted, final UX open; no dashboard redesign. Rewards P1 still separately gated and its unchanged alert stays deduplicated. Next ready work remains D3 -> Work evidence review/corrections -> owner pinned iPhone UX checkpoint. No new scope, production change, deployment, merge, rewards activation, cost or substitute builder authorized.
+
+
 ## Owner D2 iPhone disposition and authorized bounded D3 assignment — 2026-10-11
 
 **OWNER DISPOSITION:** Jake likes the dashboard direction, especially search placement, Nearest Restroom, visible features/details/hours, quick actions and List/Map. D2 is DIRECTIONALLY ACCEPTED; final UX acceptance remains OPEN pending D3 and Jake's next iPhone review. This supersedes blanket D2 'not accepted' wording for direction only, not final acceptance. **Do not redesign the dashboard again.** This new ready UI work supersedes the prior no-ready-work waiting instruction; rewards P1 owner gate remains separate and unapproved.
