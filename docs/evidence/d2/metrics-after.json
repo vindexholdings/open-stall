@@ -16,15 +16,15 @@
       },
       "quickActions": {
         "y": 332,
-        "h": 104,
+        "h": 48,
         "w": 366
       },
       "firstCard": {
-        "y": 602,
+        "y": 546,
         "h": 256,
         "w": 366
       },
-      "pageHeight": 1500,
+      "pageHeight": 1444,
       "horizontalOverflow": false
     },
     "phone-390x844-text-1.5x": {
@@ -40,15 +40,15 @@
       },
       "quickActions": {
         "y": 429,
-        "h": 104,
+        "h": 102,
         "w": 366
       },
       "firstCard": {
-        "y": 754,
+        "y": 752,
         "h": 416,
         "w": 366
       },
-      "pageHeight": 2003,
+      "pageHeight": 2001,
       "horizontalOverflow": false
     },
     "narrow-320x640": {
@@ -64,15 +64,15 @@
       },
       "quickActions": {
         "y": 408,
-        "h": 104,
+        "h": 102,
         "w": 296
       },
       "firstCard": {
-        "y": 696,
+        "y": 694,
         "h": 276,
         "w": 296
       },
-      "pageHeight": 1618,
+      "pageHeight": 1616,
       "horizontalOverflow": false
     }
   }

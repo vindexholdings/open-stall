@@ -97,3 +97,4 @@ Do not silently pull future scope forward.
 - Gates: reward activation and redemption (economics, cost, legal and accounting, integration); exterior photos are approved for PLANNING only, with the "no user-uploaded photos in v1" rule in CLAUDE.md still needing an explicit scope decision; no uploads, storage vendor or purchased assets.
 - Device QA continues separately: redesigned-build iPhone checks (login unconfirmed), Android and TalkBack NOT RUN.
 - D2 (owner-directed visual corrections): DELIVERED LOCALLY 2026-10-11, waiting for Work's review and Jake's iPhone review of the corrected build. Next: the three G1 technical corrections, then feedback-driven dashboard corrections.
+- G1 second-round technical corrections (Work 67f3dd2): DELIVERED in `VIP_REWARDS_PLAN.md` 2026-10-11; two further owner decision rows added (day basis for cross-location/global caps; reversals versus issuance counters). G2 still waits for every decision.
