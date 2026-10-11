@@ -1,6 +1,6 @@
 # VIP / rewards plan (G1: design only)
 
-Status: DESIGN ONLY, written 2026-10-11, corrected the same day after Work's review (`b556988`). Nothing here is built, migrated or shown to users. No live database change, no UI, no merchant redemption. Rules below marked **(approved)** come from Jake via Work; everything else is a proposal, and decisions that change product behavior are listed in section 9 for the owner.
+Status: DESIGN AND PLANNING ONLY. Written 2026-10-11; corrected after Work's reviews (`b556988`, `67f3dd2`, `2446657`); reconciled 2026-10-11 to **Jake's approved rewards policy** (Work assignment `ee98fa3`, section 2). Nothing here is built, migrated, enabled or shown to users, and this document authorizes no ledger, schema, RPC, activation, deployment, live change, cost or merchant redemption. Section 11 is the bounded G2 implementation specification; implementing it needs a separate Work authorization. **Superseded proposals** (kept only so the history is clear, none is a current requirement): the 60-minute same-location cooldown, a 12-hour repeat guard, and the "owner decision needed" status of rows 1-10 of section 9.
 
 ## 1. What exists today (read from the migrations, not assumed)
 Checked `supabase/migrations/` through `20261010000001`. Only `20261006000002_favorites_reviews_checkins.sql` defines `check_in`; no later migration redefines it or the `checkins` table.
@@ -14,23 +14,36 @@ Checked `supabase/migrations/` through `20261010000001`. Only `20261006000002_fa
 | Points | `profiles.points_balance integer not null default 0 check (>= 0)` exists and is returned by `get_my_profile`; **nothing writes it** and there is no ledger, no lifetime counter, no policy table. The app does not display it (D1 shows no balances) |
 So today a check-in is a recorded visit with no reward, and the 12-hour rule makes "four rewarded visits a day" impossible.
 
-## 2. Approved rules (approved)
-- +5 **spendable** points per eligible check-in.
-- +5 **lifetime** points on the FIRST daily check-in at each location (lifetime is cumulative achievement: never spendable, never decremented by spending).
-- Up to **four rewarded** check-ins per user per location per day. Later visits may be recorded without points.
-- Default maximum per user/location/day: **20 spendable and 5 lifetime** (4 x 5 and 1 x 5). Defaults are configurable and versioned; changes apply prospectively only.
-- No seven-day declining schedule.
-- Eligibility must not fabricate human presence: server trusted time, the existing auth/location evidence, idempotency, atomic concurrent cap enforcement.
+## 2. Approved rules (approved by Jake, recorded via Work 2026-10-11)
+- **No cooldown and no other minimum interval between rewarded visits.** The earlier 60-minute cooldown proposal is rejected and superseded. Rapid genuine visits are allowed to receive all four rewards. Fraud holds are separate documented eligibility decisions (section 5), never a cooldown in disguise: a hold needs a recorded reason from section 5's signals, not elapsed time alone.
+- Per user, per location, per **location-local calendar day** (Cody: America/Denver), rewarded visits are numbered in the order the server accepts them:
+  | Visit that day at this location | Spendable | Lifetime |
+  |---|---|---|
+  | 1st | +5 | +5 |
+  | 2nd, 3rd, 4th | +5 each | 0 |
+  | 5th and later | 0 | 0 (the visit may still be recorded) |
+- Maximum per user/location/local day: **20 spendable and 5 lifetime**. No seven-day declining schedule.
+- **Account-wide spendable issuance cap, provisional: 60 spendable per user per UTC calendar day.** It is a SPENDABLE ISSUANCE cap, not a lifetime cap. Per-location counts and the first-daily rule use the location-local day.
+- **Lifetime is modeled independently.** If a user's spendable capacity for the UTC day is exhausted, a visit that is the first of its local day at its location still earns its +5 lifetime. The first-daily lifetime rule is never silently changed by a spendable cap; the visit's outcome says so explicitly (section 11.3).
+- Point values and limits are configurable and versioned; every change is prospective only.
+- **Reversals:** an audited confirmed-fraud reversal may correct both spendable and lifetime balances as appropriate. **Gross issuance capacity is never restored by a reversal** (counters count points issued; section 4a).
+- **Deletion (approved SUBJECT TO privacy/security review):** unmoderated rows are deleted and only the deleted totals are aggregated; moderated evidence is severed and preserved; the purge authority is a non-client-authorizable database role with no GUC bypass (section 7, review criteria in section 11.7).
+- **Retention:** cleared fraud holds keep their flags for a provisional 90 days after clearance; confirmed-fraud audit follows the reviewed retention rule.
+- **Optional GPS accuracy** is approved as a weak, client-reported, spoofable signal: it is never proof of presence and never used for fingerprinting.
+- **Holds** are reviewed by the existing MFA admins, with no self-adjudication and an immutable audit trail. No new admin authority is created.
+- Anonymous discovery is unchanged and requires no account.
+- **Global production issuance budget: UNSET. Production rewards are DISABLED.** A local test fixture may set a budget on a disposable database to test behavior; no production amount is approved.
+- Eligibility must not fabricate human presence: server trusted time, the existing auth and location evidence, idempotency, atomic concurrent cap enforcement.
 - Points have no promised monetary value and nothing is redeemable now; premium or merchant offers need separate economics, cost, legal and integration approval.
 
 ## 3. The conflict and the replacement design
-The 12-hour guard and the 10/day rate limit conflict with four rewarded visits per day. Do not just delete the guard. Split three concerns that are mixed in `check_in` today:
+The 12-hour guard and the 10/day rate limit in today's `check_in` conflict with four rewarded visits per day. Do not just delete the guard. Split three concerns that are mixed in `check_in` today:
 1. **Visit recording** (append-only `visits`): one row per accepted visit with server `occurred_at`, the location, a client-generated idempotency key (`unique (user_id, idempotency_key)`; a retry returns the same visit and never double-awards), and minimal evidence (a distance bucket computed server-side from the client coordinates, which are then discarded). Recording is always allowed within abuse limits.
-2. **Reward eligibility** (a pure, versioned policy function evaluated in the same transaction): rewarded visits at this location in the current policy day (< per-location cap), the cooldown, the per-user daily cap and the global issuance budget (section 4a). The result and policy version are stored with the visit: `eligible`, `eligible_first_daily`, `recorded_only` (with the reason: location cap, cooldown, user cap, budget exhausted) or `held`.
-3. **Abuse limits** (separate from and stricter than the reward caps): per-user visits recorded per day (replacing today's 10/day; proposal 30), per user/location visits recorded per day (proposal 12), and the signals in section 5. Hitting one holds or refuses; it never silently grants points.
+2. **Reward eligibility** (a pure, versioned policy evaluation in the same transaction, section 11.2): the visit's ordinal at this location and local day (1-4 rewarded, 5+ recorded only), the user's spendable issuance for the UTC day against the cap, the global budget if one is set, and any hold. There is NO cooldown. The result and policy version are stored with the visit as **two independent outcomes**, a spendable outcome and a lifetime outcome (section 11.3).
+3. **Abuse limits** (separate from the reward caps, technical proposals for Work to confirm in G2): per-user visits recorded per day (replacing today's 10/day; proposal 30), per user/location visits recorded per day (proposal 12), and the signals in section 5. Hitting one holds or refuses; it never silently grants points.
 
 ## 4. Ledger (design)
-- `reward_policy_versions` (immutable): `id`, `effective_from`, `spendable_per_visit` (5), `lifetime_first_daily` (5), `max_rewarded_per_location_day` (4), `max_spendable_per_user_day`, `max_spendable_global_day`, `cooldown_minutes`, `day_boundary`, `created_by`, `created_at`. A change inserts a new row; a trigger requires `effective_from > now()` so a change is always prospective.
+- `reward_policy_versions` (immutable): `id`, `effective_from`, `spendable_per_visit` (5), `lifetime_first_daily` (5), `max_rewarded_per_location_day` (4), `max_spendable_per_user_utc_day` (60, provisional), `max_spendable_global_utc_day` (NULL = unset: no issuance), `rewards_enabled` (default false), `created_by`, `created_at`. There is no cooldown column. Day bases are fixed by design (location-local for per-location rules, UTC for the cross-location and global caps), not configurable per row. A change inserts a new row; a trigger requires `effective_from > now()` so a change is always prospective.
 - `reward_ledger` (append-only: UPDATE denied, and DELETE denied except the narrow deletion path in section 7):
   `id`, `entry_type` (`award` | `reversal`), `visit_id`, `user_id`, `policy_version`, `kind` (`spendable` | `lifetime`), `amount` (> 0 for an award, < 0 for a reversal), `reason`, `reverses_entry_id` (reversals only, references the original award row), `moderation_decision_id` (reversals only, references the admin decision that ordered it), `created_at`.
 - **Awards and reversals are idempotent separately, so one never blocks the other.** Awards: a partial unique index `unique (visit_id, kind) where entry_type = 'award'`. Reversals: `unique (reverses_entry_id)` (an original row can be reversed at most once, whole amount only).
@@ -47,11 +60,11 @@ The per-user/location/day advisory lock alone cannot enforce limits that span lo
 |---|---|---|
 | 0 | Policy version in effect | read the immutable version row chosen by server `now()`; versions are insert-only and prospective, so no lock is needed and a transition cannot change a transaction midway |
 | 1 | One user's visits | `pg_advisory_xact_lock(hash('user', user_id))` (stops one user racing themselves across locations) |
-| 2 | User + location + policy day (idempotency, location cap, cooldown) | `pg_advisory_xact_lock(hash('uld', user_id, location_id, day))` then count rewarded visits |
+| 2 | User + location + local policy day (idempotency, visit ordinal, location cap, first-daily lifetime) | `pg_advisory_xact_lock(hash('uld', user_id, location_id, day))` then count rewarded visits |
 | 3 | User + policy day issuance (per-user daily cap) | `reward_counters_user_day(user_id, day, spendable, lifetime)` updated by `insert ... on conflict do update set spendable = spendable + :amount where spendable + :amount <= :cap returning` (an atomic conditional increment; zero rows returned means the cap is reached) |
 | 4 | Global daily issuance (budget) | `reward_counters_global_day(day, spendable)` with the same conditional increment, always LAST because it is the hottest row; if contention appears, split it into N bucket rows, which changes only this step |
 Lock order is always 0, 1, 2, 3, 4. **Atomic rollback when a later limit fails:** steps 3 and 4 and the ledger inserts run inside ONE inner block of the award function (a PL/pgSQL `begin ... exception ... end` is a subtransaction, i.e. an implicit savepoint). If the user counter increments and the global increment then returns zero rows, the function raises a private SQLSTATE; the exception handler runs after the inner block's writes (the user-counter increment and any ledger rows) have been rolled back automatically, and then, in the outer transaction, records the visit as `recorded_only` with `budget_exhausted`. So budget can never be consumed without an award, and an award can never exist without its counters. The same shape handles a user-cap failure at step 3. Test: force the global cap to be exhausted and assert the user counter, ledger and counters are unchanged while the visit exists as `recorded_only`; concurrent sessions that race for the last unit of budget produce exactly one award.
-**Which day each counter uses.** Per user/location caps, the cooldown and the first-daily lifetime bonus use the **location-local policy day** (owner decision 1). The cross-location per-user cap and the global budget use **one UTC calendar day**, because they span locations and time zones and are budget/accounting limits, not user-facing "daily" promises. Consequence, stated plainly: a user visiting places in two time zones can receive up to the per-user cap per UTC day, and the local day and UTC day boundaries differ; both bases are recorded on the visit (`policy_day_local`, `issuance_day_utc`) so every counter can be reconciled. This is an owner decision (section 9, row 9).
+**Which day each counter uses.** Per user/location caps, the visit ordinal and the first-daily lifetime bonus use the **location-local policy day** (approved). The cross-location per-user cap and the global budget use **one UTC calendar day**, because they span locations and time zones and are budget/accounting limits, not user-facing "daily" promises. Consequence, stated plainly: a user visiting places in two time zones can receive up to the per-user cap per UTC day, and the local day and UTC day boundaries differ; both bases are recorded on the visit (`policy_day_local`, `issuance_day_utc`) so every counter can be reconciled. This basis is approved (section 9, row 9).
 **Counters measure gross issuance, reversals do not reopen it.** The counters count points ISSUED. A reversal reduces the user's outstanding balance but does NOT decrement an issuance counter, so reversing fraud cannot reopen a day's budget and be farmed again. Reporting keeps three figures per UTC day: issued (gross), reversed, and outstanding = issued - reversed (- redeemed, none now). The anonymous deleted-user aggregates (section 7) store gross issued and reversed per UTC day on the same basis, so reconciliation is: counters issued = sum of awards by UTC day + deleted-aggregate issued, and likewise for reversals.
 **Policy transitions:** the policy day's counters carry across a change; the cap values used are those of the version in effect at the visit's server time, so lowering a cap applies to later visits that same day and never claws back earlier awards. Tests: two concurrent sessions at one location (cap), the same user at two locations (user cap), many users (global budget), retry with one idempotency key, a transition between two visits, the rollback test above.
 
@@ -64,12 +77,12 @@ Client coordinates do not prove presence: a client can send any coordinates, and
 | Retry duplicates | idempotency key | no, new argument | implement in G2 (additive, optional) | key stored with the visit |
 | Distance bucket from the restroom | client coordinates, restroom coordinates | partly (checked, then discarded) | store only the bucket (for example <= 50 m, 50-150 m), never the coordinates | bucket only; weak, claim-derived evidence |
 | Implausible movement between visits | the RESTROOM coordinates of two consecutive visits and the server times | yes, without storing any user coordinate | implement in G2: distance between the two restrooms divided by elapsed server time above a plausible travel speed flags `held` | derived from public location data and server time; weak, because both visits are still claims |
-| Accuracy ceiling | client-reported accuracy | **no** (not in the payload) | defer: needs an additive optional argument and a client change; client-reported and spoofable | accuracy bucket only |
+| Accuracy ceiling | client-reported accuracy | **no** (not in the payload) | approved as an optional weak signal (G2 adds the optional argument; the client change waits for its own package); client-reported and spoofable, never proof of presence; a missing value is NOT suspicious by itself | accuracy bucket only |
 | Multi-account or shared-device patterns | device or network identifiers | **no** | **defer**; needs legal and privacy review; no fingerprinting; the only conceivable first-party signal (accounts with near-identical visit sequences) is not built without review | none collected |
-**Suspicious is not fraud.** States: `eligible` -> `held` (reversible, reason recorded) -> `cleared` or `confirmed_fraud` (reversing ledger rows, section 4). Every change goes through the existing admin identity, MFA and `moderation_log` audit pattern; no self-adjudication; no automatic punitive account action without human review. The existing Phase 3A rules (immutable originals, append-only decisions, self-adjudication block, provenance kept with the person severed) are preserved. Retention of the per-visit flags and hold reasons: proposal 90 days after a hold is cleared; confirmed-fraud audit records follow section 7.
+**Suspicious is not fraud.** States: `eligible` -> `held` (reversible, reason recorded) -> `cleared` or `confirmed_fraud` (reversing ledger rows, section 4). Every change goes through the existing admin identity, MFA and `moderation_log` audit pattern; no self-adjudication; no automatic punitive account action without human review. The existing Phase 3A rules (immutable originals, append-only decisions, self-adjudication block, provenance kept with the person severed) are preserved. Retention of the per-visit flags and hold reasons: provisional 90 days after a hold is cleared (approved as provisional); confirmed-fraud audit records follow section 7 and the reviewed retention rule.
 
 ## 6. Economics model (planning, not an accounting or legal conclusion)
-- Spendable issuance = 5 x eligible visits. Per user/location/day exposure is at most 20 spendable (and 5 lifetime); with the per-user daily cap (proposal 60 spendable) and the global daily budget, issuance per day is bounded no matter how many places a user visits.
+- Spendable issuance = 5 x eligible visits. Per user/location/day exposure is at most 20 spendable (and 5 lifetime); with the provisional per-user cap of 60 spendable per UTC day and a global daily budget (unset in production), SPENDABLE issuance per user per day is bounded no matter how many places are visited. **Lifetime is not bounded by those caps** (by design it is independent): it is bounded only by one +5 per user/location/local day, the abuse limits and the implausible-movement hold, so lifetime exposure grows with distinct locations visited. Lifetime is non-spendable and attaches no benefit, which is why this is acceptable for now; any benefit attached to it triggers the review in the next paragraph.
 - **What is true today:** no redeemable reward, cash-out, price or promise exists in the product, and nothing issues points. **What is not known:** points that users can earn create expectations, and unpriced future exposure can arise before any redemption exists (promotional commitments, accounting treatment, consumer-protection or loyalty-program rules). The plan makes no claim that exposure is zero; it is unpriced and unassessed. Legal and accounting review is required before any points are issued.
 - **Lifetime points** are designed as an achievement counter, not spendable. If any benefit, tier, discount or access is ever attached to them they stop being purely cosmetic and need the same review; until then no benefit attaches.
 - Illustration only, not a forecast: 1,000 active users averaging 2 rewarded visits a day issue 10,000 spendable points a day, 300,000 a month. At a hypothetical redemption cost of $0.002 per point and full redemption that would be $600 a month. Real numbers need a priced redemption and a measured redemption rate.
@@ -91,21 +104,80 @@ Policy implications for the owner: under B a user's points and history disappear
 - Lifetime badges, monthly challenges, seasonal collectible badges and progress: derived only from actual earned ledger data; no fabricated progress; none shown until the ledger exists.
 - Exterior photos: planning must cover moderation, faces and license plates, privacy, EXIF/location stripping, ownership, licensing and takedown, storage and egress cost, and a vendor decision. **`CLAUDE.md` says no user-uploaded photos in v1**, so this needs an explicit scope decision before any design beyond planning; no uploads, storage vendor or purchased assets without reviewed approval.
 
-## 9. Decisions needed from the owner (material product impact; I will not choose silently)
-Batched recommendation, one line each (technical details stay in this document):
-| # | Decision | Options | Recommendation |
+## 9. Owner decisions: recorded (policy matrix)
+Jake's decisions (via Work, `ee98fa3`) replace the earlier recommendation table. Nothing in this table is an open owner blocker for G2 planning.
+| # | Topic | Status | Current requirement |
 |---|---|---|---|
-| 1 | Reward day boundary | UTC day / location-local day / rolling 24 h | location-local day, with an IANA time zone stored per location at import (the Cody seed would use `America/Denver`) |
-| 2 | Cooldown between rewarded visits at one place | none / 60 min / 2 h | 60 minutes (stops rapid-tap farming, still allows four a day) |
-| 3 | Caps | per user/location/day 4 (approved); per user/day across places; global daily budget | 60 spendable per user per day; a global daily budget set by the owner before issuance starts |
-| 4 | Reversal policy | whether a confirmed-fraud reversal may also reduce lifetime points; who may order it | yes, only by an audited reversing row ordered by an admin who did not take part in the original visit |
-| 5 | Deletion policy | option A, B or C (section 7) | B: delete and aggregate, fraud audit kept with the person severed |
-| 6 | Retention | per-visit flags and hold reasons | 90 days after a hold is cleared; confirmed-fraud audit per Phase 3A |
-| 7 | Accuracy argument | whether to add an optional accuracy value to the check-in call (client change) | yes, as an additive argument, treated as weak evidence |
-| 8 | Fraud review | who reviews holds and how fast | the existing admin queue, same MFA and audit rules |
-| 9 | Day basis for cross-location and global caps | UTC day / location-local day / user-local day | UTC calendar day for the per-user daily cap and the global budget (they span locations); location-local day for per-location caps and first-daily bonus; both recorded per visit |
-| 10 | Reversals and issuance counters | reversal reopens the day's budget or not | no: counters are gross issuance; a reversal reduces outstanding balance only |
+| 1 | Reward day boundary | APPROVED | location-local calendar day, IANA time zone stored per location (Cody: America/Denver) |
+| 2 | Cooldown | APPROVED: NONE | no cooldown or other minimum interval; the 60-minute proposal is superseded |
+| 3 | Caps | APPROVED, user cap PROVISIONAL, global UNSET | 4 rewarded visits per user/location/local day (20 spendable, 5 lifetime); 60 spendable per user per UTC day (provisional, versioned); global production issuance budget unset, production rewards disabled |
+| 4 | Reversals | APPROVED | audited confirmed-fraud reversal may correct both balances; ordered by an admin who did not take part; gross issuance capacity never restored |
+| 5 | Deletion | APPROVED subject to privacy/security review | section 7 option B; review criteria in section 11.7 |
+| 6 | Retention | PROVISIONAL | cleared hold flags 90 days after clearance; confirmed-fraud audit per the reviewed rule |
+| 7 | Accuracy | APPROVED as a weak signal | optional, client-reported, spoofable; never proof; no fingerprinting |
+| 8 | Hold review | APPROVED | existing MFA admins, no self-adjudication, immutable audit, no authority expansion |
+| 9 | Day basis for cross-location and global caps | APPROVED | UTC day for the per-user cap and global budget; location-local day for per-location rules; both stored on the visit |
+| 10 | Reversals versus issuance counters | APPROVED | counters are gross issuance; a reversal reduces outstanding balance only |
+Still gated (not decided, not inferred): the **global production issuance budget** and enabling rewards in production, legal/accounting review before any points are issued, the confirmed-fraud audit retention rule, any redemption or merchant offer, exterior photos (section 10), and the privacy/security review of deletion before it is implemented.
 
 ## 10. Sequence and pending gates
-D1 dashboard and the password correction -> Work review and **Jake's visual checkpoint** (D1 is open at that gate) -> bounded owner-feedback dashboard corrections -> **G2** (local-only policy, ledger, counters and configuration with source migrations on disposable Postgres only; immutability, idempotency, reversal-uniqueness, lock-order/concurrency, day-boundary, cap, transition, deletion and reconciliation tests; no live change). **G2 waits for every decision its implementation depends on**: day boundary (1), cooldown (2), all caps and the budget (3), reversal policy including lifetime (4), deletion policy (5), retention (6), the accuracy argument (7), who reviews holds (8), the cross-location day basis (9) and how reversals interact with issuance counters (10). It does not start on 1-3 alone. -> **G3** badges, monthly challenges, seasonal collectibles and progress from real ledger data -> any reward activation or redemption only after its own owner gates (economics, cost, legal and accounting review, integration).
+Dashboard owner-feedback corrections (a separate track, when Jake's iPhone feedback arrives) -> **G2 specification review by Work** (section 11) -> scoped local G2 implementation only after Work authorizes it (source migrations on a disposable local Postgres, never live) -> **G3** achievements/challenges specification, which depends on a correct earned-data model -> any reward activation or redemption only after its own gates (economics, cost, legal and accounting review, integration, a set global budget). No policy item above waits on an owner decision any more; G2 still waits for Work's authorization.
 **Exterior photos:** the direction is approved for planning only, subject to review. It does not authorize uploads, storage, a vendor or purchased assets, and it does not resolve the existing `CLAUDE.md` constraint (no user-uploaded photos in v1), which needs an explicit scope decision before anything beyond planning. No deployment, production migration, merge, cost or merchant redemption is authorized by this document.
+
+## 11. G2 implementation specification and acceptance/test plan (planning only)
+Scope when authorized: local-only source migrations, SQL functions and tests on a **disposable local Postgres**. Not in scope: any live database, deployment, UI, rewards display, activation, merchant redemption, photos, or a global production budget. Production keeps `rewards_enabled = false`.
+
+### 11.1 Server-only
+All evaluation and awarding happens in the database in one security-definer function. The client sends only the location, its coordinates (checked against 150 m, then discarded), an optional accuracy value and an idempotency key. The client can never submit an amount, a day, a count or an outcome, and no TypeScript in the mobile app computes eligibility or balances. A TypeScript reference model may exist in test code only, as an oracle for cross-checking the SQL; it is never imported by the app.
+
+### 11.2 Pure evaluation
+`evaluate_visit(policy, facts) -> outcome` is a pure SQL function (no table access, no `now()`): inputs are the policy version row, the visit's ordinal among accepted visits that user/location/local day, the user's spendable already issued that UTC day, the global issued that UTC day, and the hold flag. The award function gathers the facts under the section 4a locks and then applies `evaluate_visit`, so the rules are testable by table-driven unit tests without a database state.
+**Ordinal.** The ordinal counts every accepted, non-rejected visit in server-acceptance order, whether or not it earned points; a visit whose spendable is blocked by a cap still occupies its slot (otherwise a cap hit would let a later visit jump into a slot).
+
+### 11.3 Two independent outcomes per visit
+`spendable_outcome`: `awarded` (+5) | `location_cap` (ordinal 5+) | `user_day_cap` | `budget_exhausted` | `budget_unset` | `rewards_disabled` | `held`.
+`lifetime_outcome`: `awarded` (+5, ordinal 1 only) | `not_first_daily` | `rewards_disabled` | `held`.
+They are decided separately: a first-of-day visit whose spendable is `user_day_cap` has `lifetime_outcome = awarded`. A user-facing result must name the actual outcome (no silent drop and no fabricated earned state). Awards are all-or-nothing per entry; with 5-point steps and a 60 cap no partial grant arises, and a future non-dividing policy is refused as capped rather than partially granted.
+Decision table (cap 60, per-location 4; all values +5 per spendable award):
+| Situation | Spendable | Lifetime |
+|---|---|---|
+| 1st visit of the local day at a location, caps free | awarded | awarded |
+| 2nd-4th visit | awarded | not_first_daily |
+| 5th visit, 6th, ... | location_cap (visit recorded) | not_first_daily |
+| 1st visit, user already at 60 spendable this UTC day | user_day_cap | awarded |
+| 3rd visit, user at 60 | user_day_cap | not_first_daily |
+| Global budget set and exhausted | budget_exhausted | per rule above (independent of spendable) |
+| Global budget unset or rewards disabled | budget_unset / rewards_disabled | rewards_disabled (nothing is issued; the visit is recorded) |
+| Visit held | held (no award yet) | held |
+Rapid repeats are allowed: four visits in four minutes at one location earn 20 spendable and 5 lifetime; the fifth is recorded only.
+
+### 11.4 Ledger, counters, locking, rollback
+As sections 4 and 4a (unchanged mechanics), minus the cooldown: append-only ledger with `entry_type` award/reversal; separate idempotency for awards (`unique (visit_id, kind) where entry_type='award'`) and reversals (`unique (reverses_entry_id)`); atomic conditional counters for the user UTC day and (when a budget is set) the global UTC day; fixed lock order 0-4; inner-block rollback so a failed later limit leaves no counter or ledger residue and records the corresponding outcome. **Held visits** keep their slot and award nothing; on clearance an admin-ordered `award_held_visit` runs the same conditional counter increments against the visit's original UTC day (if capacity is gone the outcome is `user_day_cap`/`budget_exhausted` at clearance, never an over-issue). On `confirmed_fraud` there is no award and the hold stays as audit.
+
+### 11.5 Policy versions, time zones, DST
+Versions are immutable and prospective (`effective_from > now()` enforced). The version applies by the visit's server time. Local day = `(occurred_at at time zone location.tz)::date` using the location's IANA zone; the UTC day is `(occurred_at at time zone 'UTC')::date`; both are stored on the visit. A "day" is a calendar date, so a DST local day may be 23 or 25 hours long and nothing assumes 24 hours.
+Boundary fixtures (America/Denver): the last second before and the first second after local midnight start different per-location days; UTC midnight falls at 18:00 MDT (UTC-6) or 17:00 MST (UTC-7), so one local day spans two UTC days and the 60 cap applies to each UTC day separately (reaching 60 needs at least three locations, since one location yields at most 20 per local day, so 120 across one local evening needs six distinct locations: a UTC-cap consequence the owner approved); spring-forward 2027-03-14 (23-hour local day) and fall-back 2026-11-01 (25-hour local day); a second fixture zone (for example Pacific/Honolulu or Asia/Kolkata) proves the per-location rule uses the location's zone and the cap uses UTC; a location with a missing/invalid zone fails closed (recorded, no award).
+
+### 11.6 Optional accuracy, conservative holds
+An optional accuracy value is stored only as a bucket and never changes the 150 m check. Missing accuracy is normal and never suspicious. Poor accuracy alone never denies a genuine visit: it can contribute to a `held` outcome only together with another signal (implausible movement, abuse limit). Held reasons are recorded and reviewed (section 5); a visit that is recorded-only or held never shows or creates earned state.
+
+### 11.7 Deletion: privacy/security review criteria
+Before the purge is implemented Work/privacy review must confirm: the disjoint partition and returned-rows aggregate (section 7); that moderated evidence is severed, never deleted; that the aggregate carries no field that can re-identify a person (per UTC day only; small-count suppression is a review question for very low-traffic days); the role evidence queries (section 7 tests); that the guard trigger is invoker-security with a fixed `search_path`; that no client role, GUC or default privilege reaches the purge; row-lock order and the reversal race (section 4); that the 90-day cleared-hold flag removal is a documented routine (the local mechanism is a callable function; any scheduler such as an extension or cron is a separate approval because it may add cost or infrastructure); idempotency of a repeated purge.
+
+### 11.8 Existing MFA audit integration (no authority expansion)
+Holds and reversals use the existing admin identity, MFA gate, `moderation_log` and decision records. No new role, no new admin power: `reverse_reward` and the hold decisions require the same independent-admin checks as Phase 3A, with no self-adjudication; each decision is immutable and audited.
+
+### 11.9 Acceptance and test plan (all on a disposable local Postgres, plus pure table-driven unit tests)
+1. **Policy table-driven tests** for every row of the 11.3 decision table, including independence of lifetime from the spendable cap.
+2. **Rapid genuine visits**: four visits within a minute at one location earn exactly 20 spendable and 5 lifetime; the fifth is recorded-only with `location_cap`.
+3. **UTC cap across local days and time zones**: the same user across two local days straddling UTC midnight, and across two zones; the cap counts per UTC day only.
+4. **Retries and races**: one idempotency key from two sessions yields one visit and one set of awards; two sessions racing for the 4th slot and for the 60th spendable point each yield exactly one award; the lock-order test shows no deadlock across locations.
+5. **Rollback**: forced global exhaustion leaves the user counter and ledger unchanged and the visit recorded with `budget_exhausted`.
+6. **Balances and reversals**: balances equal ledger sums; a reversal corrects spendable and lifetime but the issuance counters stay gross; concurrent duplicate reversals produce one; self-adjudication and non-reversal decisions are refused.
+7. **Retention and deletion**: the worked example of section 7; disjoint aggregates; moderated rows severed; second purge a no-op; role evidence queries; reversal-versus-purge race; cleared-hold flags older than 90 days removed, newer kept.
+8. **Policy transitions and DST** per 11.5; prospective-only versions.
+9. **Safety**: `rewards_enabled = false` and a NULL global budget issue nothing; no client grants on any new table; the client cannot supply an amount or day; no coordinates stored; no device identifiers collected; anonymous discovery unaffected; `npm run check` and the existing e2e suites unchanged.
+Evidence format: a short result table per item and the exact commit; no device, reader or production claims.
+
+### 11.10 Out of scope until separately authorized
+Any mobile UI that shows points, balances, badges, offers or progress; the optional-accuracy client change; the scheduler for retention; rewards activation; a production global budget; merchant redemption; exterior photos; G3 achievements/challenges.
