@@ -642,6 +642,15 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Owner review-build blocker reconciled — 2026-10-10
+
+Jake reports QA iPhone still showed the old dashboard. Work independently inspected `~/open-stall-iphone-qa`: clean checkout on claude-local at `3b628c9fbf00cb48faf6b791c18b756e20e10deb`, predating D1 implementation `6ef34c2b772eceea333f0e504cffe30db1eaf0c2`. The reviewed complete D1 source is included in pinned review revision `b556988bdf1d338224257f23f244a14e66ef7a3a`. Work supplied an owner-run fast-forward-only update to that exact revision and QA launcher restart (which already uses --clear and mock-only configuration), preserving the existing mock on 54800 and installed dependencies. No user checkout, mock process or production was modified by Work.
+
+Dashboard owner review has NOT happened on the correct iPhone build; no milestone acceptance is granted. Previous browser technical validation and screenshot checkpoint are engineering evidence only. Claude: acknowledge this provenance, preserve D1 visual/native gate, continue existing independent G1 corrections. Do not speculate that implementation is absent or iPhone auth is broken. If the exact pinned source and new QR still render incorrectly on native, investigate a bounded local native/rendering or launch-source correction with exact source/runtime evidence, then deliver for Work review; no new redesign, deployment, merge, live mutation or cost.
+
+---
+
+
 ## Work disposition — password accepted; dashboard visual checkpoint ready; G1 corrections assigned — 2026-10-11
 
 **Password ACCEPTED locally:** implementation `fefdeb0aff6b71f5d1665ae60b005a0dc762e11d`, delivery handoff `1fe1a4f47ca45ba4ccc71ce0c0dc97f53ebe5513`, Claude-section SHA256 `97648e66a0eb5d3aa8b45e57d81b7ff53caae687ad5935c97c15351ebb381d84`. Supersedes the password correction request in Work assignment `5c1179dc`. Independent Work/Mac Chromium real-form accounts validation: 113 passed, 0 failed, local mock only. Source review confirms all existing password fields use the same mounted input and toggle state, masked on fresh visit, unchanged values/hints/auth behavior. Native selection/autofill/VoiceOver/TalkBack and recovery-session reset flow remain unverified; acceptance is local engineering evidence, not native coverage.
