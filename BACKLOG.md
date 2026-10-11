@@ -90,7 +90,9 @@ Do not silently pull future scope forward.
 - Consumer UI/UX/accessibility redesign: R1/R2 closed, R3 functionally accepted, R4 integrated validation delivered locally (REDESIGN_DOD.md). Remaining before launch (owner/QA gates, not local work): Safari/Firefox, native iOS/Android runs, real screen-reader pass, tile-provider/ODbL decision.
 
 ## Dashboard-first milestone and VIP planning (owner-approved 2026-10-10; status 2026-10-11)
-- D1 dashboard-first home: DELIVERED LOCALLY for Work review (visual direction still needs Jake's explicit feedback; not accepted). Separate commit: Show/Hide Password.
-- G1 VIP/rewards plan: DELIVERED (`VIP_REWARDS_PLAN.md`, design only). Owner decisions open: reward day boundary, cooldown, global daily cap, lifetime reversal on confirmed fraud, ledger handling on deletion, signal retention.
-- Next 2-3: (1) Work review + Jake's visual checkpoint -> bounded dashboard corrections; (2) G2 local-only policy/ledger/configuration with concurrency and idempotency tests, only after the day-boundary, cooldown and cap decisions; (3) G3 badges/challenges/seasonal collectibles from real ledger data. Gates: reward activation and redemption (economics, cost, legal, integration), exterior photos (privacy, moderation, licensing, storage cost, and the "no user-uploaded photos in v1" rule in CLAUDE.md).
+- Show/Hide Password: ACCEPTED locally (Work b556988).
+- D1 dashboard-first home: technically reviewed; waits at Jake's visual checkpoint (Work presents it). Not design-accepted; no speculative further redesign before feedback.
+- G1 VIP/rewards plan: corrected in `VIP_REWARDS_PLAN.md` per Work's six points; a batched eight-row owner recommendation table is in section 9 (Work presents it, not raw technical detail).
+- Next, in order: (1) owner visual feedback -> bounded dashboard corrections; (2) G2 local-only policy/ledger/counters/configuration, which waits for ALL decisions it depends on (day boundary, cooldown, caps and budget, reversal policy incl. lifetime, deletion policy, retention, accuracy argument, hold review), not only the first three; (3) G3 badges/challenges/seasonal collectibles from real ledger data.
+- Gates: reward activation and redemption (economics, cost, legal and accounting, integration); exterior photos are approved for PLANNING only, with the "no user-uploaded photos in v1" rule in CLAUDE.md still needing an explicit scope decision; no uploads, storage vendor or purchased assets.
 - Device QA continues separately: redesigned-build iPhone checks (login unconfirmed), Android and TalkBack NOT RUN.
