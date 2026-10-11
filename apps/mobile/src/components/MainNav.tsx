@@ -14,7 +14,7 @@ export type MainNavProps = {
 };
 
 const HREF: Record<string, string> = { index: '/', favorites: '/favorites', account: '/account', settings: '/settings' };
-const ICON: Record<string, IconName> = { index: 'pin', favorites: 'heart', account: 'user', settings: 'filter' };
+const ICON: Record<string, IconName> = { index: 'pin', favorites: 'heart', account: 'user', settings: 'gear' };
 
 /**
  * The app's main navigation. Web: a labeled `navigation` landmark of ordinary links (Tab, Enter, `aria-current="page"`),

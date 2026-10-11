@@ -1,5 +1,7 @@
 import { TRANSPORT_MODES, validateDisplayName, type DisplayMode, type TransportMode } from '@open-stall/domain';
 import { useRef, useState } from 'react';
+import { StyleSheet, Text } from 'react-native';
+import { colors, typography } from '@open-stall/ui';
 import { usePreferences } from '../account/preferences';
 import { RadioGroup } from '../components/RadioGroup';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -9,8 +11,8 @@ import { StatusBanner } from '../components/StatusBanner';
 import { TextField } from '../components/TextField';
 
 const MODES: { key: DisplayMode; label: string; hint: string }[] = [
-  { key: 'plain', label: 'Plain', hint: 'Straightforward wording and star ratings.' },
-  { key: 'risque', label: 'Risqué', hint: 'Playful wording. The facts stay the same.' },
+  { key: 'plain', label: 'Plain', hint: 'Straightforward wording.' },
+  { key: 'risque', label: 'Risqué', hint: 'Playful wording; the facts stay the same.' },
 ];
 const TRANSPORT_LABEL: Record<TransportMode, string> = { walk: 'Walk', bike: 'Bike', drive: 'Drive' };
 
@@ -60,16 +62,14 @@ export default function SettingsScreen() {
         <StatusBanner tone={message.error ? 'danger' : 'success'} urgent={message.error} title={message.text} />
       ) : null}
 
-      <Section title="Display style" hint={MODES.find((m) => m.key === prefs.mode)!.hint}>
+      <Section title="Preferences">
         <RadioGroup
           label="Display style"
           options={MODES.map((m) => ({ value: m.key, label: m.label }))}
           value={prefs.mode}
           onChange={(mode) => void run({ ...prefs, mode })}
         />
-      </Section>
-
-      <Section title="Usual way of getting around" hint="Used as the starting choice for directions.">
+        <Text style={styles.hint}>{MODES.find((m) => m.key === prefs.mode)!.hint}</Text>
         <RadioGroup
           label="Usual way of getting around"
           options={TRANSPORT_MODES.map((t) => ({ value: t, label: TRANSPORT_LABEL[t] }))}
@@ -82,12 +82,14 @@ export default function SettingsScreen() {
         <Section title="Display name">
           <TextField label="Display name (optional)" value={name} onChangeText={(v) => { setName(v); setNameError(null); }} autoCapitalize="words" maxLength={30}
             error={nameError}
-            hint="May be shown publicly later (for example on leaderboards). Don’t use your real name or email." />
+            hint="May be shown publicly later. Don’t use your real name or email." />
           <PrimaryButton label={saving ? 'Saving…' : 'Save display name'} disabled={saving} onPress={() => void saveName()} />
         </Section>
       ) : (
-        <StatusBanner tone="info" title="Saved on this device" message="Sign in to keep these settings across devices and to set a display name." />
+        <StatusBanner tone="info" title="Saved on this device" message="Sign in to keep them across devices and set a display name." />
       )}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({ hint: { ...typography.label, fontWeight: '400', color: colors.textMuted } });

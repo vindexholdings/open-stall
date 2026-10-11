@@ -10,13 +10,15 @@ type Props = { title: string; subtitle?: string; children?: ReactNode; /** Forms
    * Without it, focus stays on the control that opened the screen, which is now hidden. Leave off for the tab roots,
    * where moving focus out of the tab bar would be disorienting.
    */
-  moveFocus?: boolean };
+  moveFocus?: boolean;
+  /** Tighter spacing for the dashboard home, so more of it fits on a phone screen. */
+  dense?: boolean };
 
 /** Page frame: scrolls, respects safe areas, and keeps content to a readable width on large screens. */
 /** The page heading can take programmatic focus (not a Tab stop). */
 const focusable = { tabIndex: -1 } as object;
 
-export function Screen({ title, subtitle, children, form = false, moveFocus = false }: Props) {
+export function Screen({ title, subtitle, children, form = false, moveFocus = false, dense = false }: Props) {
   const headingRef = useRef<{ focus?: (o?: { preventScroll?: boolean }) => void } | null>(null);
   useFocusEffect(
     useCallback(() => {
@@ -28,7 +30,7 @@ export function Screen({ title, subtitle, children, form = false, moveFocus = fa
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View role="main" style={[styles.content, form && styles.form]}>
+        <View role="main" style={[styles.content, form && styles.form, dense && styles.dense]}>
           <View style={styles.header}>
             <Text ref={headingRef as never} {...focusable} accessibilityRole="header" aria-level={1} style={styles.title}>
               {title}
@@ -47,6 +49,7 @@ const styles = StyleSheet.create({
   scroll: { alignItems: 'center' },
   content: { width: '100%', maxWidth: layout.maxContentWidth, padding: spacing.md, gap: spacing.md },
   form: { maxWidth: layout.formMaxWidth },
+  dense: { padding: spacing.sm + 4, gap: spacing.sm + 2 },
   header: { gap: spacing.xs },
   // Programmatic focus (moveFocus) is for screen readers and keyboard position; a heading is not operable, so no ring.
   title: { ...typography.title, color: colors.text, outlineStyle: 'none' as never },

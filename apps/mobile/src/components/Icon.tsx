@@ -9,7 +9,7 @@ import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
  * carries the meaning, so icons are hidden from assistive technology.
  */
 export type IconName =
-  | 'search' | 'pin' | 'list' | 'map' | 'filter' | 'heart' | 'user' | 'plus' | 'check' | 'close' | 'info' | 'alert' | 'help' | 'chevron' | 'navigate' | 'compass';
+  | 'search' | 'pin' | 'list' | 'map' | 'filter' | 'heart' | 'user' | 'plus' | 'check' | 'close' | 'info' | 'alert' | 'help' | 'chevron' | 'navigate' | 'compass' | 'gear' | 'medal';
 
 type Props = { name: IconName; size?: number; color?: string; /** Color of cut-outs (the hole in a pin). Defaults to the surface color. */ inner?: string };
 
@@ -94,6 +94,21 @@ export function Icon({ name, size = 24, color = colors.text, inner = colors.surf
       break;
     case 'navigate':
       body = <View style={{ position: 'absolute', left: 4 * u, top: 3 * u, width: 0, height: 0, borderLeftWidth: 8 * u, borderRightWidth: 8 * u, borderBottomWidth: 18 * u, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color, transform: [{ rotate: '45deg' }, { translateX: 2 * u }] }} />;
+      break;
+    case 'gear': {
+      // ring with eight teeth
+      const teeth = [0, 45, 90, 135].map((deg) => (
+        <View key={deg} style={{ position: 'absolute', left: 9.5 * u, top: 1.5 * u, width: 5 * u, height: 21 * u, borderRadius: 1.5 * u, backgroundColor: color, transform: [{ rotate: `${deg}deg` }] }} />
+      ));
+      body = (<>{teeth}<View style={dot(5, 5, 14, color)} /><View style={dot(8.6, 8.6, 6.8, inner)} /></>);
+      break;
+    }
+    case 'medal':
+      body = (<>
+        <View style={{ position: 'absolute', left: 6.5 * u, top: 13 * u, width: 4 * u, height: 9 * u, backgroundColor: color, transform: [{ rotate: '14deg' }] }} />
+        <View style={{ position: 'absolute', left: 13.5 * u, top: 13 * u, width: 4 * u, height: 9 * u, backgroundColor: color, transform: [{ rotate: '-14deg' }] }} />
+        <View style={dot(5, 1.5, 14, color)} /><View style={dot(8.6, 5.1, 6.8, inner)} />
+      </>);
       break;
     case 'compass':
       body = (<><View style={ring(2, 2, 20)} /><View style={{ position: 'absolute', left: 8.2 * u, top: 6.5 * u, width: 0, height: 0, borderLeftWidth: 3.8 * u, borderRightWidth: 3.8 * u, borderBottomWidth: 11 * u, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color, transform: [{ rotate: '35deg' }] }} /></>);

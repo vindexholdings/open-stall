@@ -321,6 +321,9 @@ try {
     await signIn(page, '/settings');
     check(await text(page, 'Display name'), 'settings loads signed in');
     check((await h1s(page)) === 1 && (await unlabeledInputs(page)) === 0, 'settings has one h1 and labeled inputs');
+    const headings = await page.evaluate(() => [...document.querySelectorAll('[role="heading"][aria-level="2"], h2')].filter((h) => !h.closest('[aria-hidden="true"]')).map((h) => h.textContent));
+    check(headings.includes('Preferences') && headings.includes('Display name') && !headings.includes('Usual way of getting around'), 'D2 settings: current preferences are grouped under one "Preferences" section, then the display name', JSON.stringify(headings));
+    check((await page.getByRole('radiogroup', { name: 'Display style' }).count()) === 1 && (await page.getByRole('radiogroup', { name: 'Usual way of getting around' }).count()) === 1 && (await page.getByRole('radio').count()) === 5, 'D2 settings: every option is kept (2 display styles and 3 ways of getting around, with their labels)');
     await page.getByRole('radio', { name: 'Risqué', exact: true }).click();
     check(await text(page, 'Saved.'), 'a preference change is confirmed');
     await fill(page, 'Display name (optional)', 'Admin Joe');

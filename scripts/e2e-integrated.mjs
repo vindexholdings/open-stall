@@ -319,7 +319,7 @@ try {
         await page.keyboard.press('Tab');
         await page.waitForTimeout(40); // let the focus-ring state render
         // (the page heading takes programmatic focus only and is not operable, so it is skipped)
-        const f = await page.evaluate(() => { const el = document.activeElement; if (!el || el === document.body || el.tagName === 'H1') return null; const s = getComputedStyle(el); const key = `${el.tagName}|${el.getAttribute('aria-label') || el.textContent?.trim().slice(0, 30)}|${Math.round(el.getBoundingClientRect().top)}`; const ring = (s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) >= 2) || s.boxShadow !== 'none'; return { key, ring }; });
+        const f = await page.evaluate(() => { const el = document.activeElement; if (!el || el === document.body || el.tagName === 'H1') return null; const s = getComputedStyle(el); const key = `${el.tagName}|${el.getAttribute('aria-label') || el.textContent?.trim().slice(0, 30)}|${Math.round(el.getBoundingClientRect().top)}`; let ring = (s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) >= 2) || s.boxShadow !== 'none'; if (!ring && el.tagName === 'INPUT') { const hs = getComputedStyle(el.parentElement); ring = hs.outlineStyle !== 'none' && parseFloat(hs.outlineWidth) >= 2; /* the search field draws its ring on the pill that wraps the input */ } return { key, ring }; });
         if (!f) continue;
         if (!seen.has(f.key)) { seen.add(f.key); if (!f.ring) noRing.push(f.key); }
       }

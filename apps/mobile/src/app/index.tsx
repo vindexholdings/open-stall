@@ -20,7 +20,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { usePreferences } from '../account/preferences';
-import { NearestCard, QuickActions, ResultSearch, type QuickAction } from '../components/Dashboard';
+import { NearestCard, QuickActions, SearchBar, VipPreview, type QuickAction } from '../components/Dashboard';
 import { enterActivates, useFocusStyle } from '../components/focus';
 import { FilterPanel } from '../components/FilterPanel';
 import { LocationList, type LocationListItem } from '../components/LocationList';
@@ -140,21 +140,21 @@ export default function NearbyScreen() {
         subtitle: [nearest.addressLine, nearest.city].filter(Boolean).join(', ') || undefined,
       }
     : null;
-  const directions = () => {
-    if (!nearest) return;
+  // Destination only: the maps app uses the device's own position as the origin, so the user's coordinates are never sent.
+  const directionsTo = (id: string) => {
+    const target = results.find((l) => l.id === id);
+    if (!target) return;
     const mode: TravelMode = prefs.transport;
-    const url = buildNavigationUrl(Platform.OS === 'ios' ? 'apple' : 'google', nearest.coordinates, mode);
+    const url = buildNavigationUrl(Platform.OS === 'ios' ? 'apple' : 'google', target.coordinates, mode);
     if (url) void Linking.openURL(url);
   };
+  const directions = () => { if (nearest) directionsTo(nearest.id); };
   const quickActions: QuickAction[] = [
     ...(origin && !wide
-      ? [{ key: 'view', label: view === 'map' ? 'Show list' : 'Show map', hint: view === 'map' ? 'Back to the list' : 'See restrooms on a map', icon: view === 'map' ? 'list' : 'map', tone: 'blue', kind: 'button', onPress: () => setView(view === 'map' ? 'list' : 'map') } satisfies QuickAction]
+      ? [{ key: 'view', label: view === 'map' ? 'List' : 'Map', spoken: view === 'map' ? 'Show list' : 'Show map', icon: view === 'map' ? 'list' : 'map', tone: 'blue', kind: 'button', onPress: () => setView(view === 'map' ? 'list' : 'map') } satisfies QuickAction]
       : []),
-    ...(origin
-      ? [{ key: 'filters', label: activeFilters ? `Filters (${activeFilters})` : 'Filters', hint: filtersOpen ? 'Hide the filter options' : 'Narrow by access and rating', icon: 'filter', tone: 'teal', kind: 'button', expanded: filtersOpen, onPress: () => setFiltersOpen((v) => !v) } satisfies QuickAction]
-      : []),
-    { key: 'favorites', label: 'Favorites', hint: 'Your saved restrooms', icon: 'heart', tone: 'rose', kind: 'link', onPress: () => router.navigate('/favorites') },
-    { key: 'add', label: 'Add a restroom', hint: 'Help others find one', icon: 'plus', tone: 'amber', kind: 'link', onPress: () => router.navigate('/contribute') },
+    { key: 'favorites', label: 'Favorites', spoken: 'Favorites, your saved restrooms', icon: 'heart', tone: 'rose', kind: 'link', onPress: () => router.navigate('/favorites') },
+    { key: 'add', label: 'Add restroom', spoken: 'Add a restroom', icon: 'plus', tone: 'amber', kind: 'link', onPress: () => router.navigate('/contribute') },
   ];
 
   const loading = nearby.state.status === 'loading';
@@ -195,7 +195,7 @@ export default function NearbyScreen() {
       )
     ) : null;
 
-  const list = results.length > 0 ? <LocationList items={items} emptyMessage="" onSelect={openLocation} /> : null;
+  const list = results.length > 0 ? <LocationList items={items} emptyMessage="" onSelect={openLocation} onDirections={directionsTo} /> : null;
   const map = origin ? (
     <MapView
       center={origin}
@@ -210,7 +210,6 @@ export default function NearbyScreen() {
 
   const controls = origin ? (
     <>
-      <ResultSearch value={query} onChange={setQuery} />
       <Text
         accessibilityRole="header"
         aria-level={2}
@@ -222,21 +221,28 @@ export default function NearbyScreen() {
       {verifiedHint && results.length > 0 ? (
         <VerifiedHint id={verifiedHint.id} name={verifiedHint.name} distance={formatDistance(verifiedHint.distanceMeters)} onOpen={openLocation} />
       ) : null}
-      <FilterPanel filters={filters} onChange={setFilters} open={filtersOpen} onOpenChange={setFiltersOpen} />
       {notices}
     </>
   ) : null;
 
-  // Nearest-restroom hero and quick actions. Phones: above everything. Wide: the top of the left column, beside the map.
+  // Search and filters come first. Then the compact featured result, compact actions and the honest VIP preview.
+  // Phones: stacked at the top. Wide: the top of the left column, beside the map.
   const top = (
     <>
+      {origin ? (
+        <>
+          <SearchBar value={query} onChange={setQuery} filtersOpen={filtersOpen} activeFilters={activeFilters} onToggleFilters={() => setFiltersOpen((v) => !v)} />
+          <FilterPanel filters={filters} onChange={setFilters} open={filtersOpen} onOpenChange={setFiltersOpen} hideToggle />
+        </>
+      ) : null}
       {origin && nearestItem ? <NearestCard item={nearestItem} onDirections={directions} onOpen={openLocation} narrowed={searching || activeFilters > 0} /> : null}
       <QuickActions actions={quickActions} />
+      <VipPreview />
     </>
   );
 
   return (
-    <Screen title="Open Stall" subtitle="Find the nearest usable restroom fast.">
+    <Screen dense title="Open Stall" subtitle={origin ? undefined : 'Find the nearest usable restroom fast.'}>
       <LocationNotice state={state} onRetry={() => void request()} />
       {!wide ? top : null}
       {origin ? (
@@ -265,7 +271,7 @@ export default function NearbyScreen() {
 }
 
 const styles = StyleSheet.create({
-  summary: { ...typography.heading, color: colors.text },
+  summary: { ...typography.label, fontSize: 15, lineHeight: 20, color: colors.text },
   hint: {
     minHeight: touchTarget.min,
     justifyContent: 'center',

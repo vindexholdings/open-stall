@@ -17,6 +17,8 @@ type Props = {
   /** Optional control from the parent (the dashboard's Filters quick action). Uncontrolled when omitted. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** The Filters button lives elsewhere (the search row): show only the active-filter chips and, when open, the options. */
+  hideToggle?: boolean;
 };
 
 function RemovableChip({ label, onRemove }: { label: string; onRemove: () => void }) {
@@ -52,7 +54,7 @@ const PURCHASE_OPTIONS = [
 const RADIUS_OPTIONS = RADIUS_MILES.map((mi) => ({ value: mi * METERS_PER_MILE, label: `${mi} mi` }));
 const RATING_OPTIONS = RATINGS.map((r) => ({ value: r, label: r === null ? 'Any rating' : `${r}+` }));
 
-export function FilterPanel({ filters, onChange, open: controlledOpen, onOpenChange }: Props) {
+export function FilterPanel({ filters, onChange, open: controlledOpen, onOpenChange, hideToggle = false }: Props) {
   const [innerOpen, setInnerOpen] = useState(false);
   const open = controlledOpen ?? innerOpen;
   const setOpen = (next: boolean | ((v: boolean) => boolean)) => {
@@ -64,8 +66,10 @@ export function FilterPanel({ filters, onChange, open: controlledOpen, onOpenCha
   const active = activeList.length;
   const set = (patch: Partial<LocationFilters>) => onChange({ ...filters, ...patch });
 
+  if (hideToggle && !open && active === 0) return null;
   return (
     <View style={styles.card}>
+      {hideToggle ? (active > 0 ? <View style={styles.row}><Chip role="button" label="Clear all" accessibilityLabel="Clear all filters" onPress={() => onChange(DEFAULT_FILTERS)} /></View> : null) : (
       <View style={styles.row}>
         <Chip
           label={open ? 'Hide filters' : active ? `Filters (${active})` : 'Filters'}
@@ -77,6 +81,7 @@ export function FilterPanel({ filters, onChange, open: controlledOpen, onOpenCha
         />
         {active > 0 ? <Chip role="button" label="Clear all" accessibilityLabel="Clear all filters" onPress={() => onChange(DEFAULT_FILTERS)} /> : null}
       </View>
+      )}
       {active > 0 ? (
         <View role="list" aria-label="Active filters" style={styles.row}>
           {activeList.map((a) => (

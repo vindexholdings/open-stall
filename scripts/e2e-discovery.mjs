@@ -372,18 +372,18 @@ try {
     // quick actions
     const group = page.getByRole('group', { name: 'Quick actions' });
     const actionNames = (await group.getByRole('button').allInnerTexts()).concat(await group.getByRole('link').allInnerTexts()).map((t) => t.split('\n')[0]).sort();
-    check(JSON.stringify(actionNames) === JSON.stringify(['Add a restroom', 'Favorites', 'Filters', 'Show map']), 'dashboard: four quick actions that map to existing features', JSON.stringify(actionNames));
+    check(JSON.stringify(actionNames) === JSON.stringify(['Add restroom', 'Favorites', 'Map']), 'dashboard: three compact actions with short visible labels that map to existing features', JSON.stringify(actionNames));
     check((await page.getByText('Sign in to', { exact: false }).count()) === 0 && (await page.getByText('points', { exact: false }).count()) === 0 && (await page.getByText('badge', { exact: false }).count()) === 0, 'dashboard: public discovery stays signed out and shows no fake balance, badge or reward');
-    // Filters tile discloses the existing panel and exposes its state
-    const filtersTile = group.getByRole('button', { name: /^Filters\./ });
-    check((await filtersTile.getAttribute('aria-expanded')) === 'false', 'dashboard: the Filters action starts collapsed');
+    // The Filters button sits in the search row, discloses the existing panel and exposes its state
+    const filtersTile = page.getByRole('button', { name: 'Show filters', exact: true });
+    check((await filtersTile.getAttribute('aria-expanded')) === 'false', 'dashboard: the Filters button starts collapsed');
     await filtersTile.click();
-    check((await filtersTile.getAttribute('aria-expanded')) === 'true' && await text(page, 'Distance'), 'dashboard: the Filters action opens the existing filter panel and says it is expanded');
-    await filtersTile.click();
+    check((await page.getByRole('button', { name: 'Hide filters', exact: true }).getAttribute('aria-expanded')) === 'true' && await text(page, 'Distance'), 'dashboard: the Filters button opens the existing filter panel and says it is expanded');
+    await page.getByRole('button', { name: 'Hide filters', exact: true }).click();
     // Show map / Show list
-    await group.getByRole('button', { name: /^Show map\./ }).click();
+    await group.getByRole('button', { name: 'Show map', exact: true }).click();
     check(await page.getByRole('region', { name: /Map of nearby restrooms/ }).isVisible() && (await page.getByRole('radio', { name: 'Map' }).getAttribute('aria-checked')) === 'true', 'dashboard: Show map switches to the map and keeps the List | Map control in step');
-    await group.getByRole('button', { name: /^Show list\./ }).click();
+    await group.getByRole('button', { name: 'Show list', exact: true }).click();
     check((await page.getByRole('radio', { name: 'List' }).getAttribute('aria-checked')) === 'true', 'dashboard: Show list switches back');
     // search: local, narrowing, truthful
     const searchBox = page.getByLabel('Search these restrooms', { exact: true });
@@ -405,17 +405,17 @@ try {
     check((await page.getByLabel('Search these restrooms', { exact: true }).inputValue()) === 'library', 'dashboard: going back keeps the search text');
     // quick-action routes
     await page.getByLabel('Search these restrooms', { exact: true }).fill('');
-    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: /^Favorites\./ }).click();
+    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: /^Favorites/ }).click();
     check(/\/favorites$/.test(page.url()), 'dashboard: the Favorites action opens Favorites');
     await page.goto(`${base}/`);
-    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: /^Add a restroom\./ }).click();
+    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: 'Add a restroom', exact: true }).click();
     check(/\/contribute$/.test(page.url()), 'dashboard: Add a restroom opens the existing contribution screen (which keeps its own sign-in rule)');
     // keyboard + focus ring on the new controls
     await page.goto(`${base}/`); await button(page, 'Find Nearest Restroom').click(); await text(page, 'Nearest restroom');
     check(await tabTo(page, 'Directions to Cody Library Restroom', 40), 'dashboard: Directions is reachable with Tab');
     const ring = await page.evaluate(() => { const s = getComputedStyle(document.activeElement); return s.outlineStyle === 'solid' && parseFloat(s.outlineWidth) >= 2; });
     check(ring, 'dashboard: Directions shows a visible focus outline');
-    check(await tabTo(page, 'Filters.', 12), 'dashboard: the quick actions are reachable with Tab');
+    check(await tabTo(page, 'Show map', 12), 'dashboard: the quick actions are reachable with Tab');
     // no emoji or dingbat symbols anywhere in the product text
     const body = await page.evaluate(() => document.body.innerText);
     check(!/\p{Extended_Pictographic}|[✓✕✔✖✗✘]/u.test(body), 'dashboard: no emoji or symbol glyphs in the visible text (icons are drawn shapes)');
@@ -429,6 +429,90 @@ try {
     check(wideBoxes.hero <= wideBoxes.map + 1, 'dashboard: on a wide screen the nearest card sits beside the map, not over it', JSON.stringify(wideBoxes));
     await w.page.screenshot({ path: join(SHOTS, 'wide-d1-dashboard.png') });
     await w.ctx.close();
+  }
+
+
+  // 10. D2 owner-directed corrections: compact featured card, search/filters first, scannable cards, compact actions, VIP preview, one Settings destination
+  {
+    const baseline = JSON.parse(readFileSync(join(root, 'docs/evidence/d2/metrics-before.json'), 'utf8')).runs['phone-390x844'];
+    const { ctx, page } = await newPage();
+    await findNearest(page);
+    await page.waitForTimeout(500);
+    const rel = (sel) => page.evaluate((q) => {
+      const top = document.querySelector('[role="main"]').getBoundingClientRect().top;
+      const el = document.querySelector(q); if (!el) return null;
+      const r = el.getBoundingClientRect(); return { y: Math.round(r.top - top), h: Math.round(r.height) };
+    }, sel);
+    const hero = await rel('[role="region"][aria-label^="Nearest"]');
+    check(hero && hero.h <= baseline.hero.h * 0.6, `D2: the featured card is at least 40% shorter than D1 (${hero?.h} px now, ${baseline.hero.h} px before, matched 390x844)`);
+    const searchPos = await rel('input[aria-label="Search these restrooms"]');
+    check(searchPos && searchPos.y < 120, `D2: search sits at the top of the screen (${searchPos?.y} px from the top; D1 ${baseline.search.y})`);
+    const firstCard = await rel('[role="list"] [role="listitem"]');
+    check(firstCard && firstCard.y < 700, `D2: the first nearby result starts above the fold of the page content (${firstCard?.y} px; D1 ${baseline.firstCard.y})`);
+    check((await page.getByRole('button', { name: 'Show filters', exact: true }).count()) === 1, 'D2: Filters is one button next to search (no second Filters control)');
+    // honest VIP preview
+    const vip = page.getByRole('region', { name: 'VIP progress' });
+    const vipText = (await vip.innerText()).replace(/\s+/g, ' ');
+    check(vipText === 'VIP progress — rewards coming soon Challenges — not available yet', 'D2: the VIP preview says rewards are coming soon and challenges are not available, nothing more', vipText);
+    check(!/\b\d+\s*(pts|points|xp)\b/i.test(vipText) && (await vip.getByRole('button').count()) === 0 && (await vip.getByRole('link').count()) === 0, 'D2: the VIP preview shows no balance, no number and no dead control');
+    // exactly one Settings destination on every main screen
+    for (const [path, name] of [['/', 'home'], ['/favorites', 'favorites'], ['/account', 'account']]) {
+      await page.goto(`${base}${path}`); if (path === '/') await button(page, 'Find Nearest Restroom').click().catch(() => {});
+      await page.waitForTimeout(300);
+      const n = await page.evaluate(() => [...document.querySelectorAll('a, button, [role="link"], [role="button"], [role="tab"]')].filter((e) => !e.closest('[aria-hidden="true"]') && e.offsetParent !== null && /settings/i.test(e.getAttribute('aria-label') || e.textContent || '')).length);
+      check(n === 1, `D2: exactly one Settings destination on ${name}`, `${n}`);
+    }
+    await page.goto(`${base}/`); await findNearest(page);
+    // cards: rating or honest unrated state, directions per card, destination only, distinct destinations
+    const cards = page.getByRole('list').first().getByRole('listitem');
+    check((await cards.count()) === 4 && (await page.getByRole('list').first().getByRole('button', { name: /^Directions to / }).count()) === 4, 'D2: every nearby card has its own Directions button');
+    check((await page.getByRole('list').first().getByText('Not rated yet', { exact: true }).count()) === 2 && (await page.getByRole('list').first().getByText('Community rating', { exact: false }).count()) === 2, 'D2: cards show the community rating, or "Not rated yet" for the two unrated restrooms');
+    const heroDest = async () => {
+      const popupP = page.context().waitForEvent('page');
+      await page.getByRole('region', { name: 'Nearest restroom' }).getByRole('button', { name: /^Directions to / }).click();
+      const pp = await popupP; await pp.waitForLoadState('domcontentloaded').catch(() => {});
+      const u = external.filter((x) => x.includes('google.com/maps/dir')).pop(); await pp.close().catch(() => {}); return u;
+    };
+    const cardDest = async (name) => {
+      const popupP = page.context().waitForEvent('page');
+      await page.getByRole('list').first().getByRole('button', { name: `Directions to ${name}`, exact: true }).click();
+      const pp = await popupP; await pp.waitForLoadState('domcontentloaded').catch(() => {});
+      const u = external.filter((x) => x.includes('google.com/maps/dir')).pop(); await pp.close().catch(() => {}); return u;
+    };
+    const d1 = await heroDest();
+    const d2 = await cardDest('Corner Gas Station');
+    check(/destination=-?\d+\.\d+,-?\d+\.\d+/.test(d2 ?? '') && !/origin=/.test(d2 ?? '') && d1 !== d2, 'D2: a card\'s Directions opens that restroom\'s destination only (no origin) and differs from the featured one', `${d1} | ${d2}`);
+    // touch targets
+    const sizes = await page.evaluate(() => {
+      const h = (el) => (el ? Math.round(el.getBoundingClientRect().height) : 0);
+      const filters = [...document.querySelectorAll('[role="button"]')].find((e) => /filters/i.test(e.getAttribute('aria-label') || ''));
+      const pill = document.querySelector('[role="group"][aria-label="Quick actions"] [role="button"], [role="group"][aria-label="Quick actions"] [role="link"]');
+      const dir = [...document.querySelectorAll('[role="list"] [role="button"]')].find((e) => /^Directions to/.test(e.getAttribute('aria-label') || ''));
+      return { filters: h(filters), pill: h(pill), dir: h(dir) };
+    });
+    check(sizes.filters >= 44 && sizes.pill >= 44 && sizes.dir >= 44, 'D2: Filters, the quick actions and card Directions are all at least 44 px tall', JSON.stringify(sizes));
+    await page.screenshot({ path: join(SHOTS, 'narrow-d2-home.png') });
+    await ctx.close();
+    // enlarged text (text-only emulation): the featured card grows instead of clipping, and nothing overflows sideways
+    const big = await newPage();
+    await findNearest(big.page);
+    const before = await big.page.evaluate(() => document.querySelector('[role="region"][aria-label^="Nearest"]').getBoundingClientRect().height);
+    await big.page.evaluate((k) => {
+      for (const el of document.querySelectorAll('body *')) { const c = getComputedStyle(el); if ([...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) { el.style.fontSize = `${parseFloat(c.fontSize) * k}px`; if (c.lineHeight !== 'normal') el.style.lineHeight = `${parseFloat(c.lineHeight) * k}px`; } }
+    }, 1.6);
+    await big.page.waitForTimeout(400);
+    const grown = await big.page.evaluate(() => {
+      const h = document.querySelector('[role="region"][aria-label^="Nearest"]'); const r = h.getBoundingClientRect();
+      const kids = [...h.querySelectorAll('*')].filter((e) => e.getBoundingClientRect().height > 0);
+      return { h: r.height, spill: kids.some((e) => e.getBoundingClientRect().bottom > r.bottom + 1 || e.getBoundingClientRect().right > r.right + 1), overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 };
+    });
+    check(grown.h > before * 1.2 && !grown.spill && !grown.overflowX, `D2: at 1.6x text (emulated) the featured card grows (${Math.round(before)} -> ${Math.round(grown.h)} px), clips nothing and nothing scrolls sideways`, JSON.stringify(grown));
+    await big.page.screenshot({ path: join(SHOTS, 'narrow-d2-text-1.6x.png') });
+    await big.ctx.close();
+    const nar = await newPage({ width: 320, height: 640 });
+    await findNearest(nar.page);
+    check(!(await nar.page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)), 'D2: no horizontal scrolling at 320 px wide');
+    await nar.ctx.close();
   }
 
   // 8. Privacy and public access
