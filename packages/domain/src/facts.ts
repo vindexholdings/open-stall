@@ -82,9 +82,9 @@ export function communityRatingText(average: number | null, count: number): stri
   return `Community rating ${ratingLabel(average, count)}`;
 }
 
-/** Symbol + word for a fact value, so Yes/No/Not reported never depends on color alone. */
-export function factMark(value: FactValue): { symbol: string; text: string } {
-  return value === 'yes' ? { symbol: '✓', text: 'Yes' } : value === 'no' ? { symbol: '✕', text: 'No' } : { symbol: '?', text: 'Not reported' };
+/** Icon name + word for a fact value, so Yes/No/Not reported never depends on color alone (the UI draws the icon). */
+export function factMark(value: FactValue): { icon: 'check' | 'close' | 'help'; text: string } {
+  return value === 'yes' ? { icon: 'check', text: 'Yes' } : value === 'no' ? { icon: 'close', text: 'No' } : { icon: 'help', text: 'Not reported' };
 }
 
 /** Detail-page rating: always labeled as a community rating; "none yet" is stated, never shown as zero. */

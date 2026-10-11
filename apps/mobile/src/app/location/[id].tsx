@@ -22,6 +22,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { usePreferences } from '../../account/preferences';
+import { Icon } from '../../components/Icon';
 import { LocationActions } from '../../components/LocationActions';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { RadioGroup } from '../../components/RadioGroup';
@@ -41,7 +42,10 @@ function FactRow({ fact }: { fact: Fact }) {
   return (
     <View role="listitem" style={styles.factRow} accessible accessibilityLabel={`${fact.label}: ${fact.text}`}>
       <Text style={styles.factLabel}>{fact.label}</Text>
-      <Text style={[styles.factValue, fact.value === 'unknown' && styles.unknown]}>{`${mark.symbol} ${mark.text}`}</Text>
+      <View style={styles.factMark}>
+        <Icon name={mark.icon} size={16} color={fact.value === 'unknown' ? colors.textMuted : colors.text} inner={colors.surface} />
+        <Text style={[styles.factValue, fact.value === 'unknown' && styles.unknown]}>{mark.text}</Text>
+      </View>
     </View>
   );
 }
@@ -256,6 +260,7 @@ const styles = StyleSheet.create({
   facts: { gap: spacing.xs },
   factRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md, minHeight: 32 },
   factLabel: { ...typography.body, color: colors.text, flex: 1 },
+  factMark: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   factValue: { ...typography.label, color: colors.text },
   unknown: { color: colors.textMuted, fontWeight: '400' },
   hours: { ...typography.body, color: colors.text, flex: 2, textAlign: 'right' },

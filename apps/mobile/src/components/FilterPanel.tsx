@@ -3,6 +3,7 @@ import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui'
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Chip } from './Chip';
+import { Icon } from './Icon';
 import { RadioGroup } from './RadioGroup';
 import { useFocusStyle } from './focus';
 
@@ -10,7 +11,13 @@ const METERS_PER_MILE = 1609.344;
 const RADIUS_MILES = [1, 2, 5, 10, 25];
 const RATINGS: (number | null)[] = [null, 3, 4];
 
-type Props = { filters: LocationFilters; onChange: (next: LocationFilters) => void };
+type Props = {
+  filters: LocationFilters;
+  onChange: (next: LocationFilters) => void;
+  /** Optional control from the parent (the dashboard's Filters quick action). Uncontrolled when omitted. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
 
 function RemovableChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   const focus = useFocusStyle();
@@ -22,7 +29,8 @@ function RemovableChip({ label, onRemove }: { label: string; onRemove: () => voi
       {...focus.handlers}
       style={[styles.removable, focus.style]}
     >
-      <Text style={styles.removableText}>{`${label}  ✕`}</Text>
+      <Text style={styles.removableText}>{label}</Text>
+      <Icon name="close" size={14} color={colors.primaryStrong} />
     </Pressable>
   );
 }
@@ -44,8 +52,14 @@ const PURCHASE_OPTIONS = [
 const RADIUS_OPTIONS = RADIUS_MILES.map((mi) => ({ value: mi * METERS_PER_MILE, label: `${mi} mi` }));
 const RATING_OPTIONS = RATINGS.map((r) => ({ value: r, label: r === null ? 'Any rating' : `${r}+` }));
 
-export function FilterPanel({ filters, onChange }: Props) {
-  const [open, setOpen] = useState(false);
+export function FilterPanel({ filters, onChange, open: controlledOpen, onOpenChange }: Props) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = controlledOpen ?? innerOpen;
+  const setOpen = (next: boolean | ((v: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    if (controlledOpen === undefined) setInnerOpen(value);
+    onOpenChange?.(value);
+  };
   const activeList = describeActiveFilters(filters);
   const active = activeList.length;
   const set = (patch: Partial<LocationFilters>) => onChange({ ...filters, ...patch });
@@ -112,6 +126,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   removable: {
     minHeight: touchTarget.min,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,

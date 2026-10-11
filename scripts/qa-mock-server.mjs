@@ -66,14 +66,15 @@ function png(w, h, rgb) { // a flat-colour PNG, built with zlib only
 }
 const TILE = png(256, 256, [221, 224, 229]);
 
-export function startQaMock({ port = 54800, host = '0.0.0.0' } = {}) {
+// names: optional display names for the four fixtures (the visual packet uses realistic ones; the QA kit keeps its "QA ..." names)
+export function startQaMock({ port = 54800, host = '0.0.0.0', names = null } = {}) {
   let gen = 0; // token generation; /__qa/expire bumps it and every older token stops working
   const bearerGen = (req) => { const m = /^Bearer (.+)$/.exec(req.headers.authorization ?? ''); if (!m) return null; try { return JSON.parse(Buffer.from(m[1].split('.')[1], 'base64url').toString()).gen ?? null; } catch { return null; } };
   const fresh = () => ({ center: { latitude: 44.5263, longitude: -109.0565 }, favorites: [], review: null, reports: [], submissions: [], edits: [], checkins: 0, deleted: false, profile: { name: null, mode: 'plain', transport: 'walk' }, signups: 0, logins: 0, calls: {} });
   let st = fresh();
   const NO_MODE = { fail: 'none', fn: null, times: 0, delayMs: 0, delayFn: null, delayTimes: null, empty: false };
   let mode = { ...NO_MODE };
-  const rowsFor = () => FIXTURES.map((f) => row(f, st.center));
+  const rowsFor = () => FIXTURES.map((f, i) => row(names?.[i] ? { ...f, name: names[i] } : f, st.center));
   const server = createServer(async (req, res) => {
     const u = new URL(req.url, 'http://x');
     const cors = { connection: 'close', 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };

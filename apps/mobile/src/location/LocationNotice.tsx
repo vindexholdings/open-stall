@@ -1,5 +1,6 @@
 import type { LocationAccessState } from '@open-stall/domain';
-import { colors, radii, spacing, typography } from '@open-stall/ui';
+import { colors, radii, shadows, spacing, tiles, typography } from '@open-stall/ui';
+import { Icon } from '../components/Icon';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { StatusBanner } from '../components/StatusBanner';
@@ -16,7 +17,8 @@ export function LocationNotice({ state, onRetry }: Props) {
   if (state.kind === 'needs-prompt') {
     return (
       <View style={styles.hero}>
-        <Text style={styles.heroTitle}>Find the nearest restroom</Text>
+        <View style={styles.heroIcon}><Icon name="pin" size={28} color={tiles.blue.fg} inner={tiles.blue.bg} /></View>
+        <Text accessibilityRole="header" aria-level={2} style={styles.heroTitle}>Find the nearest restroom</Text>
         <Text style={styles.body}>
           Open Stall uses your location once, on your device, to find restrooms near you. It is not stored.
         </Text>
@@ -59,7 +61,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadows.card,
   },
-  heroTitle: { ...typography.heading, color: colors.text },
+  heroIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: tiles.blue.bg, alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { ...typography.heading, fontSize: 22, lineHeight: 28, color: colors.text },
   body: { ...typography.body, color: colors.text },
 });

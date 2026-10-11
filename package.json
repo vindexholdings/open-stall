@@ -30,7 +30,8 @@
     "qa:mock": "node scripts/qa-mock-server.mjs",
     "qa:app": "node scripts/qa-app.mjs",
     "qa:selftest": "node scripts/qa-kit-selftest.mjs",
-    "qa:browsercheck": "node scripts/qa-kit-browser-check.mjs"
+    "qa:browsercheck": "node scripts/qa-kit-browser-check.mjs",
+    "packet:visual": "node scripts/visual-packet.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -163,9 +163,9 @@ try {
     check(await text(page, 'No key needed') && await text(page, 'No purchase needed'), 'known access facts are summarized up top');
     check((await page.getByText('Fee to use', { exact: true }).count()) === 1, 'the quick summary never lists an unknown fee');
     const fee = page.getByLabel('Fee to use: Not reported', { exact: true });
-    check((await fee.count()) === 1 && (await fee.innerText()).includes('? Not reported'), 'an unknown fee reads "? Not reported", not "No"');
-    check((await page.getByLabel('Baby changing: No', { exact: true }).innerText()).includes('✕ No'), 'a known "No" reads "✕ No"');
-    check((await page.getByLabel('Wheelchair accessible: Yes', { exact: true }).innerText()).includes('✓ Yes'), 'a known "Yes" reads "✓ Yes"');
+    check((await fee.count()) === 1 && (await fee.innerText()).includes('Not reported') && !(await fee.innerText()).trim().endsWith('No'), 'an unknown fee reads "Not reported", not "No"');
+    check((await page.getByLabel('Baby changing: No', { exact: true }).innerText()).trim().endsWith('No'), 'a known "No" reads "No"');
+    check((await page.getByLabel('Wheelchair accessible: Yes', { exact: true }).innerText()).trim().endsWith('Yes'), 'a known "Yes" reads "Yes"');
     check(await text(page, 'Mo-Su 06:00-22:00 (from public sources, may be inaccurate)'), 'hours carry the public-source caveat');
     check(await text(page, 'Where: Behind the main desk'), 'the access location note is shown');
     check((await page.getByRole('list', { name: 'Access facts' }).getByRole('listitem').count()) === 6, 'facts are a real list (5 facts + hours)');
@@ -190,9 +190,9 @@ try {
     check(await text(page, 'No community ratings yet'), 'unrated says "No community ratings yet"');
     check(!/\b0(\.0)? ?\/ ?5\b/.test(await page.locator('body').innerText()), 'a missing rating is never shown as 0');
     check((await page.getByRole('list', { name: 'Quick facts' }).count()) === 0, 'no quick-facts row when nothing is known');
-    const unknown = await page.getByText('? Not reported', { exact: true }).count();
-    check(unknown >= 8, 'every unknown fact and the hours read "? Not reported"', `${unknown}`);
-    check((await page.getByText('✕ No', { exact: true }).count()) === 0, 'no unknown fact is displayed as "No"');
+    const unknown = await page.getByText('Not reported', { exact: true }).count();
+    check(unknown >= 8, 'every unknown fact and the hours read "Not reported"', `${unknown}`);
+    check((await page.getByText('No', { exact: true }).count()) === 0, 'no unknown fact is displayed as "No"');
     check(await text(page, 'Unverified: Open Stall has not confirmed this restroom yet.'), 'provenance states the unverified status');
     check(await text(page, 'Facts marked “Not reported” are unknown'), 'provenance explains unknown vs no');
     await page.screenshot({ path: join(SHOTS, 'narrow-2-detail-sparse.png'), fullPage: true });

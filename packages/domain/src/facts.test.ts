@@ -57,9 +57,9 @@ describe('result card highlights (R1)', () => {
 
 describe('detail presentation (R2)', () => {
   it('marks every fact value with a symbol and a word', () => {
-    expect(factMark('yes')).toEqual({ symbol: '✓', text: 'Yes' });
-    expect(factMark('no')).toEqual({ symbol: '✕', text: 'No' });
-    expect(factMark('unknown')).toEqual({ symbol: '?', text: 'Not reported' });
+    expect(factMark('yes')).toEqual({ icon: 'check', text: 'Yes' });
+    expect(factMark('no')).toEqual({ icon: 'close', text: 'No' });
+    expect(factMark('unknown')).toEqual({ icon: 'help', text: 'Not reported' });
   });
   it('labels ratings as community ratings and states when there are none', () => {
     expect(communityRatingDetail(4.25, 12).headline).toBe('Community rating 4.3 / 5 (12 ratings)');

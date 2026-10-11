@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio } from './contrast';
-import { breakpoints, colors, focusRing, layout, layoutFor, tones, touchTarget } from './tokens';
+import { breakpoints, colors, focusRing, layout, layoutFor, tiles, tones, touchTarget } from './tokens';
 
 const AA = 4.5;
 
@@ -26,6 +26,9 @@ describe('tokens meet WCAG AA', () => {
     ['status text on plain surface (verified)', colors.status.verified.fg, colors.surface],
     ['status text on plain surface (unverified)', colors.status.unverified.fg, colors.surface],
     ['status text on plain surface (danger)', colors.status.danger.fg, colors.surface],
+    ['on-hero on hero', colors.onHero, colors.hero],
+    ['hero muted text on hero', colors.heroMuted, colors.hero],
+    ...Object.entries(tiles).map(([name, { fg, bg }]) => [`${name} tile`, fg, bg] as [string, string, string]),
     ...Object.entries(tones).map(([name, { fg, bg }]) => [`${name} tone`, fg, bg] as [string, string, string]),
     ...Object.entries(colors.status).map(
       ([name, { fg, bg }]) => [`${name} status`, fg, bg] as [string, string, string],
@@ -57,8 +60,11 @@ describe('R1 layout and focus tokens', () => {
     }
     expect(focusRing.outlineWidth).toBeGreaterThanOrEqual(2);
   });
-  it('every tone has a symbol so status never relies on color alone', () => {
-    for (const t of Object.values(tones)) expect(t.symbol.length).toBeGreaterThan(0);
+  it('every tone has an icon so status never relies on color alone', () => {
+    for (const t of Object.values(tones)) expect(t.icon.length).toBeGreaterThan(0);
+  });
+  it('the hero accent is visible against the hero (non-text contrast of at least 3:1)', () => {
+    expect(contrastRatio(colors.heroAccent, colors.hero)).toBeGreaterThanOrEqual(3);
   });
 });
 

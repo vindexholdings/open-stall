@@ -8,6 +8,9 @@ import {
   nearestVerifiedContext,
   quickFacts,
   resultsSummary,
+  searchLocations,
+  buildNavigationUrl,
+  type TravelMode,
   verificationBadge,
   type LocationFilters,
 } from '@open-stall/domain';
@@ -15,7 +18,9 @@ import { colors, layout, layoutFor, radii, spacing, touchTarget, typography } fr
 import { getDiscoverySession, saveDiscoverySession, type ResultsView } from '../state/discoverySession';
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
+import { usePreferences } from '../account/preferences';
+import { NearestCard, QuickActions, ResultSearch, type QuickAction } from '../components/Dashboard';
 import { enterActivates, useFocusStyle } from '../components/focus';
 import { FilterPanel } from '../components/FilterPanel';
 import { LocationList, type LocationListItem } from '../components/LocationList';
@@ -66,6 +71,13 @@ export default function NearbyScreen() {
     [router],
   );
   const origin = state.kind === 'ready' ? state.coordinates : null;
+  const [query, setQueryState] = useState<string>(() => getDiscoverySession().query);
+  const setQuery = useCallback((next: string) => {
+    saveDiscoverySession({ query: next });
+    setQueryState(next);
+  }, []);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { prefs } = usePreferences();
   const [filters, setFiltersState] = useState<LocationFilters>(() => getDiscoverySession().filters);
   const setFilters = useCallback((next: LocationFilters) => {
     saveDiscoverySession({ filters: next });
@@ -75,10 +87,13 @@ export default function NearbyScreen() {
     radiusMeters: filters.radiusMeters,
     verifiedOnly: filters.verifiedOnly,
   });
-  const results = useMemo(
+  const filtered = useMemo(
     () => applyFilters(nearby.state.locations, filters),
     [nearby.state.locations, filters],
   );
+  // Search narrows what is already loaded (name, street, town); it never looks anything up.
+  const results = useMemo(() => searchLocations(filtered, query), [filtered, query]);
+  const searching = query.trim().length > 0;
   const activeFilters = countActiveFilters(filters);
 
   // Distance-first ranking is preserved; when the nearest shown result is Unverified, say where the
@@ -113,6 +128,35 @@ export default function NearbyScreen() {
     [results],
   );
 
+  const nearest = results[0];
+  const nearestItem = nearest
+    ? {
+        id: nearest.id,
+        name: nearest.name,
+        distance: formatDistance(nearest.distanceMeters),
+        travel: `~${estimateTravelMinutes(nearest.distanceMeters, 'walk')} min walk`,
+        badge: verificationBadge(nearest),
+        facts: quickFacts(nearest),
+        subtitle: [nearest.addressLine, nearest.city].filter(Boolean).join(', ') || undefined,
+      }
+    : null;
+  const directions = () => {
+    if (!nearest) return;
+    const mode: TravelMode = prefs.transport;
+    const url = buildNavigationUrl(Platform.OS === 'ios' ? 'apple' : 'google', nearest.coordinates, mode);
+    if (url) void Linking.openURL(url);
+  };
+  const quickActions: QuickAction[] = [
+    ...(origin && !wide
+      ? [{ key: 'view', label: view === 'map' ? 'Show list' : 'Show map', hint: view === 'map' ? 'Back to the list' : 'See restrooms on a map', icon: view === 'map' ? 'list' : 'map', tone: 'blue', kind: 'button', onPress: () => setView(view === 'map' ? 'list' : 'map') } satisfies QuickAction]
+      : []),
+    ...(origin
+      ? [{ key: 'filters', label: activeFilters ? `Filters (${activeFilters})` : 'Filters', hint: filtersOpen ? 'Hide the filter options' : 'Narrow by access and rating', icon: 'filter', tone: 'teal', kind: 'button', expanded: filtersOpen, onPress: () => setFiltersOpen((v) => !v) } satisfies QuickAction]
+      : []),
+    { key: 'favorites', label: 'Favorites', hint: 'Your saved restrooms', icon: 'heart', tone: 'rose', kind: 'link', onPress: () => router.navigate('/favorites') },
+    { key: 'add', label: 'Add a restroom', hint: 'Help others find one', icon: 'plus', tone: 'amber', kind: 'link', onPress: () => router.navigate('/contribute') },
+  ];
+
   const loading = nearby.state.status === 'loading';
   const failed = nearby.state.status === 'error';
 
@@ -136,7 +180,11 @@ export default function NearbyScreen() {
 
   const empty =
     origin && locationSource && !loading && !failed && results.length === 0 ? (
-      nearby.state.locations.length > 0 ? (
+      filtered.length > 0 && searching ? (
+        <StatusBanner tone="info" title={`No restrooms match “${query.trim()}”`} message="Check the spelling, or search for part of the name or street.">
+          <SecondaryButton label="Clear search" onPress={() => setQuery('')} />
+        </StatusBanner>
+      ) : nearby.state.locations.length > 0 ? (
         <StatusBanner tone="info" title="No restrooms match your filters" message="Try removing a filter to see more restrooms.">
           <SecondaryButton label="Clear all filters" onPress={() => setFilters(DEFAULT_FILTERS)} />
         </StatusBanner>
@@ -162,29 +210,40 @@ export default function NearbyScreen() {
 
   const controls = origin ? (
     <>
+      <ResultSearch value={query} onChange={setQuery} />
       <Text
         accessibilityRole="header"
         aria-level={2}
         accessibilityLiveRegion="polite"
         style={styles.summary}
       >
-        {loading ? 'Searching…' : resultsSummary(results.length, activeFilters)}
+        {loading ? 'Searching…' : searching ? (results.length === 0 ? `No restrooms match “${query.trim()}”` : `${results.length} ${results.length === 1 ? 'restroom matches' : 'restrooms match'} “${query.trim()}”`) : resultsSummary(results.length, activeFilters)}
       </Text>
       {verifiedHint && results.length > 0 ? (
         <VerifiedHint id={verifiedHint.id} name={verifiedHint.name} distance={formatDistance(verifiedHint.distanceMeters)} onOpen={openLocation} />
       ) : null}
-      <FilterPanel filters={filters} onChange={setFilters} />
+      <FilterPanel filters={filters} onChange={setFilters} open={filtersOpen} onOpenChange={setFiltersOpen} />
       {notices}
     </>
   ) : null;
 
+  // Nearest-restroom hero and quick actions. Phones: above everything. Wide: the top of the left column, beside the map.
+  const top = (
+    <>
+      {origin && nearestItem ? <NearestCard item={nearestItem} onDirections={directions} onOpen={openLocation} narrowed={searching || activeFilters > 0} /> : null}
+      <QuickActions actions={quickActions} />
+    </>
+  );
+
   return (
     <Screen title="Open Stall" subtitle="Find the nearest usable restroom fast.">
       <LocationNotice state={state} onRetry={() => void request()} />
+      {!wide ? top : null}
       {origin ? (
         wide ? (
           <View style={styles.wideRow}>
             <View style={styles.wideList}>
+              {top}
               {controls}
               {empty}
               {list}

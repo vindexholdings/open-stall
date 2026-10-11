@@ -145,12 +145,13 @@ try {
     const names = await cardNames(page);
     check(JSON.stringify(names) === JSON.stringify(ORDER), 'results are ranked nearest first (distance-first ranking preserved)', JSON.stringify(names));
     check(await text(page, 'Nearest'), 'the nearest result is labeled in text');
-    check((await page.getByText('? Unverified', { exact: true }).count()) === 2, 'unverified restrooms carry the Unverified badge (text and symbol)');
+    check((await page.getByText('Unverified', { exact: true }).count()) === 2, 'unverified restrooms carry the Unverified badge (the word; the icon is decorative)');
     check(await text(page, 'Community rating 4.5 / 5 (12 ratings)'), 'community ratings are labeled as community ratings');
     check((await page.getByText('Community rating', { exact: false }).count()) === 2, 'unrated restrooms show no rating');
     check(await text(page, 'No key needed'), 'known facts appear on the card');
-    check((await page.getByText('Key required', { exact: true }).count()) === 1 && (await page.getByText('Wheelchair accessible', { exact: true }).count()) === 2, 'unknown facts are not shown as negatives');
-    const link = page.getByRole('link', { name: /Cody Library Restroom/ });
+    const listArea = page.getByRole('list').first();
+    check((await listArea.getByText('Key required', { exact: true }).count()) === 1 && (await listArea.getByText('Wheelchair accessible', { exact: true }).count()) === 2, 'unknown facts are not shown as negatives');
+    const link = page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ });
     const label = await link.getAttribute('aria-label');
     check(/Nearest\. Cody Library Restroom\. Verified Sep 2026\. .*(ft|mi), ~\d+ min walk/.test(label ?? ''), 'a card has one meaningful spoken name', label ?? '');
     check((await page.getByRole('radio', { name: 'List' }).getAttribute('aria-checked')) === 'true', 'List is the default view on a phone');
@@ -190,7 +191,7 @@ try {
     check(await gone(page, 'Park Pavilion Restroom'), 'Verified only hides unverified restrooms');
     check(JSON.stringify(await cardNames(page)) === JSON.stringify(['Cody Library Restroom', 'Corner Gas Station']), 'the remaining results keep distance order');
     await page.getByRole('button', { name: 'Hide filters' }).click();
-    check(await text(page, 'Verified only  ✕'), 'a collapsed filter panel still shows the active filter');
+    check(await button(page, 'Remove filter: Verified only').first().isVisible(), 'a collapsed filter panel still shows the active filter');
     check(await text(page, '2 restrooms nearby, filtered'), 'the header says results are filtered');
     await button(page, 'Remove filter: Verified only').click();
     check(await text(page, 'Park Pavilion Restroom'), 'removing the active-filter chip restores results');
@@ -251,7 +252,7 @@ try {
     check((await page.getByRole('radio', { name: 'Map' }).count()) === 0, 'wide screens have no List/Map switch to operate');
     const boxes = await page.evaluate(() => {
       const list = document.querySelector('[role="list"]').getBoundingClientRect();
-      const map = document.querySelector('[role="region"]').getBoundingClientRect();
+      const map = document.querySelector('[role="region"][aria-label^="Map of"]').getBoundingClientRect();
       return { listRight: list.right, mapLeft: map.left, contentWidth: document.querySelector('[role="list"]').closest('div').parentElement.getBoundingClientRect().width };
     });
     check(boxes.mapLeft >= boxes.listRight - 1, 'the map sits beside the list, not over it', JSON.stringify(boxes));
@@ -347,12 +348,95 @@ try {
     await o.ctx.close();
   }
 
+
+  // 9. Dashboard-first home (D1): nearest card, quick actions, local search, icons without emoji
+  {
+    const { ctx, page } = await newPage();
+    check(await findNearest(page), 'dashboard: results appear after granting location');
+    const hero = page.getByRole('region', { name: 'Nearest restroom' });
+    const heroText = (await hero.innerText()).replace(/\s+/g, ' ');
+    check(heroText.includes('Cody Library Restroom') && /\d+(\.\d)? (ft|mi)/.test(heroText) && /~\d+ min walk/.test(heroText), 'dashboard: the nearest card leads with the name, a distance and a walking estimate', heroText);
+    check((await cardNames(page))[0] === 'Cody Library Restroom' && heroText.includes('Verified'), 'dashboard: the nearest card is the first (distance-first) result and shows its real verification status');
+    check(heroText.includes('No key needed') && !/\bNo\b(?! key| purchase)/.test(heroText), 'dashboard: the card lists known facts only and never an unknown as a negative', heroText);
+    const hb = await hero.getByRole('button', { name: /^Directions to / }).boundingBox();
+    const db = await hero.getByRole('link', { name: /^Details for / }).boundingBox();
+    check(hb && db && hb.height >= 48 && db.height >= 48, `dashboard: Directions and Details are at least 48 px tall (${hb?.height}, ${db?.height})`);
+    // directions open a maps app with ONLY the destination (never the user's position)
+    const popupP = page.context().waitForEvent('page');
+    await hero.getByRole('button', { name: /^Directions to / }).click();
+    const popup = await popupP;
+    await popup.waitForLoadState('domcontentloaded').catch(() => {});
+    const dir = external.filter((u) => u.includes('google.com/maps/dir')).pop() ?? popup.url(); // the test network blocks the real maps host; the blocked request is what the app asked for
+    check(/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=-?\d+\.\d+,-?\d+\.\d+&travelmode=/.test(dir) && !/origin=/.test(dir) && !dir.includes('44.5263'), 'dashboard: Directions opens a maps link with only the destination (no origin, not the user position)', dir);
+    await popup.close().catch(() => {});
+    // quick actions
+    const group = page.getByRole('group', { name: 'Quick actions' });
+    const actionNames = (await group.getByRole('button').allInnerTexts()).concat(await group.getByRole('link').allInnerTexts()).map((t) => t.split('\n')[0]).sort();
+    check(JSON.stringify(actionNames) === JSON.stringify(['Add a restroom', 'Favorites', 'Filters', 'Show map']), 'dashboard: four quick actions that map to existing features', JSON.stringify(actionNames));
+    check((await page.getByText('Sign in to', { exact: false }).count()) === 0 && (await page.getByText('points', { exact: false }).count()) === 0 && (await page.getByText('badge', { exact: false }).count()) === 0, 'dashboard: public discovery stays signed out and shows no fake balance, badge or reward');
+    // Filters tile discloses the existing panel and exposes its state
+    const filtersTile = group.getByRole('button', { name: /^Filters\./ });
+    check((await filtersTile.getAttribute('aria-expanded')) === 'false', 'dashboard: the Filters action starts collapsed');
+    await filtersTile.click();
+    check((await filtersTile.getAttribute('aria-expanded')) === 'true' && await text(page, 'Distance'), 'dashboard: the Filters action opens the existing filter panel and says it is expanded');
+    await filtersTile.click();
+    // Show map / Show list
+    await group.getByRole('button', { name: /^Show map\./ }).click();
+    check(await page.getByRole('region', { name: /Map of nearby restrooms/ }).isVisible() && (await page.getByRole('radio', { name: 'Map' }).getAttribute('aria-checked')) === 'true', 'dashboard: Show map switches to the map and keeps the List | Map control in step');
+    await group.getByRole('button', { name: /^Show list\./ }).click();
+    check((await page.getByRole('radio', { name: 'List' }).getAttribute('aria-checked')) === 'true', 'dashboard: Show list switches back');
+    // search: local, narrowing, truthful
+    const searchBox = page.getByLabel('Search these restrooms', { exact: true });
+    const callsBefore = requests.filter((r) => r.path === '/rest/v1/rpc/nearby_locations').length;
+    await searchBox.fill('gas');
+    check(await text(page, '1 restroom matches “gas”') && (await cardNames(page)).join('|') === 'Corner Gas Station', 'dashboard: search narrows the list by name, street or town');
+    check((await page.getByRole('region', { name: 'Nearest match' }).innerText()).includes('Corner Gas Station'), 'dashboard: while searching the card says "Nearest match" and shows the nearest match, not the nearest restroom overall');
+    check(requests.filter((r) => r.path === '/rest/v1/rpc/nearby_locations').length === callsBefore, 'dashboard: search makes no network request (it only narrows what is loaded)');
+    await searchBox.fill('zzzz');
+    check(await text(page, 'No restrooms match “zzzz”') && !(await text(page, 'No restrooms match your filters')), 'dashboard: a search with no match says so and is not confused with the filter message');
+    check((await page.getByRole('region', { name: /Nearest/ }).count()) === 0, 'dashboard: no nearest card is shown when nothing matches (no stale card)');
+    await page.getByRole('button', { name: 'Clear search' }).first().click();
+    check(await text(page, '4 restrooms nearby, nearest first') && (await searchBox.inputValue()) === '', 'dashboard: Clear search restores every restroom');
+    // search survives opening a restroom and going back
+    await searchBox.fill('library');
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
+    check(await text(page, 'Get there'), 'dashboard: a result still opens its detail');
+    await page.goBack();
+    check((await page.getByLabel('Search these restrooms', { exact: true }).inputValue()) === 'library', 'dashboard: going back keeps the search text');
+    // quick-action routes
+    await page.getByLabel('Search these restrooms', { exact: true }).fill('');
+    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: /^Favorites\./ }).click();
+    check(/\/favorites$/.test(page.url()), 'dashboard: the Favorites action opens Favorites');
+    await page.goto(`${base}/`);
+    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: /^Add a restroom\./ }).click();
+    check(/\/contribute$/.test(page.url()), 'dashboard: Add a restroom opens the existing contribution screen (which keeps its own sign-in rule)');
+    // keyboard + focus ring on the new controls
+    await page.goto(`${base}/`); await button(page, 'Find Nearest Restroom').click(); await text(page, 'Nearest restroom');
+    check(await tabTo(page, 'Directions to Cody Library Restroom', 40), 'dashboard: Directions is reachable with Tab');
+    const ring = await page.evaluate(() => { const s = getComputedStyle(document.activeElement); return s.outlineStyle === 'solid' && parseFloat(s.outlineWidth) >= 2; });
+    check(ring, 'dashboard: Directions shows a visible focus outline');
+    check(await tabTo(page, 'Filters.', 12), 'dashboard: the quick actions are reachable with Tab');
+    // no emoji or dingbat symbols anywhere in the product text
+    const body = await page.evaluate(() => document.body.innerText);
+    check(!/\p{Extended_Pictographic}|[✓✕✔✖✗✘]/u.test(body), 'dashboard: no emoji or symbol glyphs in the visible text (icons are drawn shapes)');
+    check((await page.locator('[aria-hidden="true"]').count()) > 0 && (await page.locator('img').count()) === 0, 'dashboard: icons are decorative (hidden from assistive technology) and no bitmap images are used');
+    await page.screenshot({ path: join(SHOTS, 'narrow-d1-dashboard.png') });
+    await ctx.close();
+    // wide: the card and actions sit in the left column beside the map
+    const w = await newPage({ width: 1280, height: 800 });
+    await findNearest(w.page);
+    const wideBoxes = await w.page.evaluate(() => ({ hero: document.querySelector('[role="region"][aria-label^="Nearest"]').getBoundingClientRect().right, map: document.querySelector('[role="region"][aria-label^="Map of"]').getBoundingClientRect().left }));
+    check(wideBoxes.hero <= wideBoxes.map + 1, 'dashboard: on a wide screen the nearest card sits beside the map, not over it', JSON.stringify(wideBoxes));
+    await w.page.screenshot({ path: join(SHOTS, 'wide-d1-dashboard.png') });
+    await w.ctx.close();
+  }
+
   // 8. Privacy and public access
   {
     const nearby = requests.filter((r) => r.path === '/rest/v1/rpc/nearby_locations');
     check(nearby.length > 0, 'searches were made');
     check(nearby.every((r) => r.auth === `Bearer ${ANON}`), 'discovery uses only the public anon key (no account, no user token)');
-    check(external.every((u) => /tile|openstreetmap|fonts|gstatic/i.test(u)) , 'the only external requests attempted were map tiles/fonts, all blocked in this test', JSON.stringify(external.slice(0, 5)));
+    check(external.every((u) => /tile|openstreetmap|fonts|gstatic|google\.com\/maps\/dir/i.test(u)) , 'the only external requests attempted were map tiles/fonts and the user-triggered directions link, all blocked in this test', JSON.stringify(external.slice(0, 5)));
   }
 } finally {
   await browser.close();

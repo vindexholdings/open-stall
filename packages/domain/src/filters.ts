@@ -123,3 +123,22 @@ export function resultsSummary(count: number, filtersActive: number): string {
     ? `${count} ${noun} nearby, filtered`
     : `${count} ${noun} nearby, nearest first`;
 }
+
+const fold = (text: string): string => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/**
+ * Local search over restrooms that are ALREADY loaded: every word typed must appear in the name, street address, city or
+ * region (accents and case ignored). It never looks anything up, so it cannot invent places, and it keeps the incoming
+ * (distance) order. An empty query returns the list unchanged.
+ */
+export function searchLocations<T extends { name: string; addressLine: string | null; city: string | null; region: string | null }>(
+  locations: readonly T[],
+  query: string,
+): T[] {
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [...locations];
+  return locations.filter((l) => {
+    const hay = fold([l.name, l.addressLine, l.city, l.region].filter(Boolean).join(' '));
+    return words.every((w) => hay.includes(w));
+  });
+}

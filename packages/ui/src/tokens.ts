@@ -36,6 +36,11 @@ export const colors = {
   accent: palette.brandTeal,
   accentStrong: palette.brandTealStrong,
   focus: palette.brandBlueStrong,
+  /** Dashboard hero (D1): deep brand blue with white text; `heroMuted` is secondary text, `heroAccent` a bright teal for icons/graphics (>= 3:1). */
+  hero: palette.brandBlueStrong,
+  onHero: palette.white,
+  heroMuted: '#DCEBFF',
+  heroAccent: '#7FE7DE',
   /** Semantic status tokens: text color on matching background. */
   status: {
     verified: { fg: palette.green700, bg: palette.green50 },
@@ -44,6 +49,25 @@ export const colors = {
     closed: { fg: palette.neutral600, bg: palette.neutral100 },
     danger: { fg: palette.red700, bg: palette.red50 },
   },
+} as const;
+
+/**
+ * Playful accents (D1): tinted tiles for quick actions and icon badges. Each pair is a strong foreground on a soft tint of
+ * the same hue and meets AA for text and icons (tokens.test.ts). Premium base, playful accents: they are never the only
+ * carrier of meaning.
+ */
+export const tiles = {
+  blue: { fg: palette.brandBlueStrong, bg: '#E3F0FF' },
+  teal: { fg: palette.brandTealStrong, bg: '#DDF5F2' },
+  amber: { fg: palette.amber800, bg: '#FFF1D6' },
+  rose: { fg: '#A31A4E', bg: '#FDE8EE' },
+} as const;
+export type TileTone = keyof typeof tiles;
+
+/** One soft elevation for cards and the hero (works on web and with the new architecture on iOS/Android). */
+export const shadows = {
+  card: { boxShadow: [{ offsetX: 0, offsetY: 2, blurRadius: 10, color: 'rgba(17, 24, 39, 0.08)' }] },
+  hero: { boxShadow: [{ offsetX: 0, offsetY: 6, blurRadius: 18, color: 'rgba(11, 99, 196, 0.28)' }] },
 } as const;
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
@@ -77,11 +101,11 @@ export function layoutFor(width: number): LayoutMode {
  */
 export const focusRing = { outlineColor: palette.brandBlueStrong, outlineWidth: 3, outlineOffset: 2, outlineStyle: 'solid' } as const;
 
-/** Tone tokens for banners and notices: text color on matching background, plus a symbol so tone never relies on color alone. */
+/** Tone tokens for banners and notices: text color on matching background, plus an icon name so tone never relies on color alone. */
 export const tones = {
-  info: { fg: palette.brandBlueStrong, bg: '#EAF3FF', symbol: 'i' },
-  success: { ...colors.status.verified, symbol: '✓' },
-  warning: { ...colors.status.unverified, symbol: '!' },
-  danger: { ...colors.status.danger, symbol: '!' },
+  info: { fg: palette.brandBlueStrong, bg: '#EAF3FF', icon: 'info' },
+  success: { ...colors.status.verified, icon: 'check' },
+  warning: { ...colors.status.unverified, icon: 'alert' },
+  danger: { ...colors.status.danger, icon: 'alert' },
 } as const;
 export type Tone = keyof typeof tones;

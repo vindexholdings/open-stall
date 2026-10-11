@@ -206,11 +206,11 @@ try {
     await button(page, 'Show filters').click();
     await page.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
     check(await text(page, '2 restrooms nearby, filtered'), 'journey: the Verified-only filter narrows the list');
-    await page.getByRole('link', { name: /Cody Library Restroom/ }).click();
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
     check(await text(page, 'Community rating 4.5 / 5 (12 ratings)') && page.url().includes('/location/'), 'journey: a result opens its detail page', `${page.url()} ${(await page.locator('body').innerText()).slice(0, 300).replace(/\n/g, ' | ')}`);
     await page.goBack();
     check(await text(page, '2 restrooms nearby, filtered') && (await page.getByRole('button', { name: 'Remove filter: Verified only' }).count()) === 1, 'journey: going back keeps the results and the active filter');
-    await page.getByRole('link', { name: 'Favorites' }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Favorites' }).click();
     check(await text(page, 'Sign in to save favorite restrooms'), 'journey: Favorites explains the sign-in requirement');
     await button(page, 'Sign in or create account').click();
     await fill(page, 'Email', USER.email); await fill(page, 'Password', GOOD_PW);
@@ -218,24 +218,24 @@ try {
     check(await text(page, 'No favorites yet.') && new URL(page.url()).pathname === '/favorites', 'journey: signing in returns to Favorites, unlocked');
     await page.getByRole('link', { name: 'Nearby restrooms' }).click();
     check(await text(page, '2 restrooms nearby, filtered'), 'journey: the Nearby tab still has its results and filter after the detour');
-    await page.getByRole('link', { name: /Cody Library Restroom/ }).click();
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
     await button(page, 'Save to favorites').click();
     check(await text(page, 'Saved to favorites.') && acct.favorites.length === 1, 'journey: a restroom is saved to favorites');
     await page.getByRole('radio', { name: '4 stars', exact: true }).click();
     await page.getByRole('checkbox', { name: 'Clean', exact: true }).click();
     await button(page, 'Save rating').click();
     check(await text(page, 'Thanks. Your rating was saved.') && acct.review?.rating === 4, 'journey: a rating with an observation is saved');
-    await page.getByRole('link', { name: 'Favorites' }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Favorites' }).click();
     check(await text(page, '1 of 5 saved') && await text(page, 'Cody Library Restroom'), 'journey: the favorite appears in Favorites');
-    await page.getByRole('link', { name: 'Settings' }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Settings' }).click();
     await page.getByRole('radio', { name: 'Risqué', exact: true }).click();
     check(await text(page, 'Saved.') && acct.mode === 'risque', 'journey: a preference change is saved');
     await page.goto(`${base}/location/${RICH}`);
     check(await text(page, 'Update my rating'), 'journey: after reload the saved rating is recognized (button says Update)');
-    await page.getByRole('link', { name: 'Account' }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Account' }).click();
     await button(page, 'Sign out').click();
     check(await text(page, 'You’re not signed in'), 'journey: sign out returns to the signed-out account page');
-    await page.getByRole('link', { name: 'Favorites' }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Favorites' }).click();
     check(await text(page, 'Sign in to save favorite restrooms'), 'journey: Favorites is gated again');
     await ctx.close();
   }
@@ -328,7 +328,7 @@ try {
     }
     // focus after navigation by keyboard: a result opened with Enter must not leave focus lost on <body>
     await findNearest(page);
-    await page.getByRole('link', { name: /Cody Library Restroom/ }).focus();
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).focus();
     await page.keyboard.press('Enter');
     await page.waitForURL(/\/location\//, { timeout: 5000 }).catch(() => {});
     await page.waitForTimeout(400);
@@ -411,7 +411,7 @@ try {
     check((ring.style !== 'none' && ring.w >= 2) || ring.shadow !== 'none', 'map: a focused zoom control shows a visible focus indicator', JSON.stringify(ring));
     await page.keyboard.press('Enter');
     await page.screenshot({ path: join(SHOTS, 'wide-home-map.png') });
-    check((await page.getByRole('link', { name: /Cody Library Restroom/ }).count()) === 1, 'map: the results list carries every restroom, so markers are not the only way in');
+    check((await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).count()) === 1, 'map: the results list carries every restroom, so markers are not the only way in');
     await ctx.close();
   }
 

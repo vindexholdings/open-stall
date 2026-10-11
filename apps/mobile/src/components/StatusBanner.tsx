@@ -1,6 +1,7 @@
 import { radii, spacing, tones, typography, type Tone } from '@open-stall/ui';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Icon, type IconName } from './Icon';
 
 type Props = {
   tone: Tone;
@@ -27,9 +28,7 @@ export function StatusBanner({ tone, title, message, children, urgent = false }:
       style={[styles.box, { backgroundColor: t.bg, borderColor: t.fg }]}
     >
       <View style={styles.head}>
-        <Text accessibilityElementsHidden importantForAccessibility="no" style={[styles.symbol, { color: t.bg, backgroundColor: t.fg }]}>
-          {t.symbol}
-        </Text>
+        <Icon name={t.icon as IconName} size={24} color={t.fg} inner={t.bg} />
         <Text style={[styles.title, { color: t.fg }]}>{title}</Text>
       </View>
       {message ? <Text style={[styles.message, { color: t.fg }]}>{message}</Text> : null}
@@ -41,7 +40,6 @@ export function StatusBanner({ tone, title, message, children, urgent = false }:
 const styles = StyleSheet.create({
   box: { gap: spacing.sm, padding: spacing.md, borderRadius: radii.lg, borderWidth: 1 },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  symbol: { width: 24, height: 24, borderRadius: 12, textAlign: 'center', lineHeight: 24, overflow: 'hidden', fontWeight: '700' },
   title: { ...typography.heading, flexShrink: 1 },
   message: { ...typography.body },
   actions: { gap: spacing.sm },

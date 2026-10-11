@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilters, clearFilter, countActiveFilters, DEFAULT_FILTERS, describeActiveFilters, resultsSummary, type LocationFilters } from './filters';
+import { applyFilters, searchLocations, clearFilter, countActiveFilters, DEFAULT_FILTERS, describeActiveFilters, resultsSummary, type LocationFilters } from './filters';
 import type { NearbyLocation } from './nearby';
 
 // Synthetic, in-memory fixtures only.
@@ -115,5 +115,30 @@ describe('active filter summary (R1)', () => {
     expect(resultsSummary(0, 2)).toBe('No restrooms match your filters');
     expect(resultsSummary(1, 0)).toBe('1 restroom nearby, nearest first');
     expect(resultsSummary(3, 1)).toBe('3 restrooms nearby, filtered');
+  });
+});
+
+describe('searchLocations', () => {
+  const rows = [
+    { name: 'Cody Library Restroom', addressLine: '1 Library Way', city: 'Cody', region: 'WY' },
+    { name: 'Corner Gas Station', addressLine: '9 Main St', city: 'Powell', region: 'WY' },
+    { name: 'Café Niño', addressLine: null, city: null, region: null },
+  ];
+  it('returns everything, in order, for an empty or blank query', () => {
+    expect(searchLocations(rows, '').map((r) => r.name)).toEqual(rows.map((r) => r.name));
+    expect(searchLocations(rows, '   ').length).toBe(3);
+  });
+  it('matches name, street, city and region, ignoring case', () => {
+    expect(searchLocations(rows, 'LIBRARY').map((r) => r.name)).toEqual(['Cody Library Restroom']);
+    expect(searchLocations(rows, 'main st').map((r) => r.name)).toEqual(['Corner Gas Station']);
+    expect(searchLocations(rows, 'powell').map((r) => r.name)).toEqual(['Corner Gas Station']);
+    expect(searchLocations(rows, 'wy').length).toBe(2);
+  });
+  it('needs every word, and ignores accents', () => {
+    expect(searchLocations(rows, 'cody station').length).toBe(0);
+    expect(searchLocations(rows, 'cafe nino').map((r) => r.name)).toEqual(['Café Niño']);
+  });
+  it('finds nothing it was not given (no lookup, no invented places)', () => {
+    expect(searchLocations(rows, 'seattle')).toEqual([]);
   });
 });

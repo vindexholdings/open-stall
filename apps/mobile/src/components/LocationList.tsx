@@ -1,6 +1,7 @@
-import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui';
+import { colors, radii, shadows, spacing, tiles, touchTarget, typography } from '@open-stall/ui';
 import type { VerificationBadge as Badge } from '@open-stall/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Icon } from './Icon';
 import { enterActivates, useFocusStyle } from './focus';
 import { VerificationBadge } from './VerificationBadge';
 
@@ -43,7 +44,7 @@ function Card({ item, onSelect }: { item: LocationListItem; onSelect?: (id: stri
       onPress={() => onSelect?.(item.id)}
       {...enterActivates(() => onSelect?.(item.id))}
       {...focus.handlers}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed, item.tag ? styles.top : null, focus.style]}
+      style={({ pressed }) => [styles.card, { borderLeftColor: item.badge.kind === 'verified' ? colors.status.verified.fg : colors.status.unverified.fg }, pressed && styles.pressed, item.tag ? styles.top : null, focus.style]}
     >
       <View style={styles.head}>
         <View style={styles.titleBlock}>
@@ -52,7 +53,10 @@ function Card({ item, onSelect }: { item: LocationListItem; onSelect?: (id: stri
         </View>
         {item.distance ? (
           <View style={styles.distanceBlock}>
-            <Text style={styles.distance}>{item.distance}</Text>
+            <View style={styles.distancePill}>
+              <Icon name="pin" size={16} color={tiles.blue.fg} inner={tiles.blue.bg} />
+              <Text style={styles.distance}>{item.distance}</Text>
+            </View>
             {item.travel ? <Text style={styles.travel}>{item.travel}</Text> : null}
           </View>
         ) : item.distanceLabel ? (
@@ -69,6 +73,10 @@ function Card({ item, onSelect }: { item: LocationListItem; onSelect?: (id: stri
         </View>
       ) : null}
       {item.ratingText ? <Text style={styles.rating}>{item.ratingText}</Text> : null}
+      <View style={styles.more}>
+        <Text style={styles.moreText}>Details</Text>
+        <Icon name="chevron" size={18} color={colors.primaryStrong} />
+      </View>
     </Pressable>
   );
 }
@@ -97,16 +105,21 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
+    borderLeftWidth: 6,
     borderColor: colors.border,
+    ...shadows.card,
   },
-  top: { borderColor: colors.primaryStrong, borderWidth: 2 },
+  top: { borderColor: colors.primaryStrong, borderWidth: 2, borderLeftWidth: 6 },
+  distancePill: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: tiles.blue.bg, borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+  more: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end' },
+  moreText: { ...typography.label, color: colors.primaryStrong },
   pressed: { backgroundColor: colors.surfaceMuted },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   titleBlock: { flex: 1, gap: spacing.xs },
   tag: { ...typography.label, color: colors.primaryStrong, textTransform: 'uppercase', letterSpacing: 0.5 },
   name: { ...typography.heading, color: colors.text },
   distanceBlock: { alignItems: 'flex-end' },
-  distance: { ...typography.heading, color: colors.primaryStrong },
+  distance: { ...typography.heading, fontSize: 18, color: colors.primaryStrong },
   travel: { ...typography.label, color: colors.textMuted },
   distanceInline: { ...typography.label, color: colors.primaryStrong },
   subtitle: { ...typography.body, color: colors.textMuted },
