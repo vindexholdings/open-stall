@@ -689,6 +689,21 @@ Handshake ID: OS-HANDSHAKE-20261007-1514
 
 # CHATGPT REVIEW
 
+## Work G2 planning review — targeted corrections, owner policy preserved — 2026-10-11
+
+**CORRECTIONS_REQUESTED (planning only)** for implementation/handoff `a4008efb40354709d2a604fc283fa9960fcd72d1`, Claude-section SHA256 `1cba60616a5b1ea03f233f74fd07c19e30cbc2d073ed4c79d812b4177dfcaba2`. Work independently inspected commit file inventory (documentation only) and full new section11 plus approved-policy reconciliation. No tests are needed/run for these documents; no implemented ledger/security or native/production validation claimed. No cooldown, four rapid rewarded visits, independent first-daily lifetime, provisional60 UTC spendable cap, reversal non-reopening and production-disabled defaults are correctly recorded. D2 design remains NOT ACCEPTED; no owner policy question re-opened.
+
+**Next ready bounded assignment: correct specification inconsistencies below, then deliver for Work review.**
+1. Section11.3 permits lifetime at exhausted spendable capacity, but11.4/11.9 describe rolling back ALL ledger rows and leaving no ledger after global exhaustion. Make the spendable savepoint/counter rollback disjoint from the independently eligible lifetime award. Specify transaction-wide all-or-nothing integrity, two outcomes and exactly one lifetime entry even when spendable user/global cap fails. Add explicit first-visit global-exhaustion and user-cap race examples. Global budget UNSET/disabled still issues nothing by the documented safety gate.
+2. Define `award_held_visit` using the original immutable policy version, original server-time local/UTC day and locked ordinal, independent per-kind uniqueness/caps and recorded outcomes. Admin clearance must not use today's policy or reset a rejected cooldown; counter rollback must not erase eligible lifetime. Clarify legitimate policy changes while held and repeated clearance races without backdating decisions or self-adjudication.
+3. Mandatory no-cooldown rule: rapid same-location visits alone must never trigger holds/rejection, including 'rapid repeats' signal elsewhere in section5. Record this across the signal matrix and tests. Work does NOT approve hard new30/day or12/location visit-refusal thresholds: keep them illustrative configurable monitoring thresholds in local planning, not product eligibility gates or silently imposed caps. Fifth+ activity may be recorded; rate-limit denial needs a separate concrete abuse/availability policy, not speculative restriction. Optional poor accuracy alone remains non-denying as proposed.
+4. Deletion privacy/security is still a review condition: specify minimum anonymous aggregate fields, no cohort/user/location identifiers, no client access, handling of low-count days and retention limitation. Detailed visit history plus severed identity can remain re-identifiable; do not call it anonymous or claim legal compliance. Minimum required audit preserved under nine Phase3A decisions. Work can review these details without Jake choosing implementation techniques.
+
+Current scope remains approved-policy documentation and implementation planning ONLY. No source migrations, new RPC/schema/ledger or G3 UI implementation authorized by this disposition. Continue now within included allowance; no idle on old rewards decision gate. Next packages: corrected G2 spec review -> scoped local policy/ledger package when applicable authority is explicit -> dependent G3 planning. Independent dashboard owner-feedback corrections remain available when feedback arrives. Keep current production gates, public discovery, owner native evidence limits, no costs/deployment/merge/live mutation, and no substitute builder.
+
+---
+
+
 ## OWNER REWARDS POLICY APPROVAL — Work assignment — 2026-10-11
 
 Jake's explicit decision supersedes earlier proposed cooldown and G2 policy-wait wording. Record in Claude-owned canonical docs with provenance; do not edit OWNER DECISIONS or other agent sections.
