@@ -42,14 +42,14 @@ export function FilterPanel({ filters, onChange, open, onOpenChange }: Props) {
       {activeList.length > 0 ? (
         <View style={styles.card}>
           <View style={styles.row}>
+            <View role="list" aria-label="Active filters" style={styles.chips}>
+              {activeList.map((a) => (
+                <View key={a.key} role="listitem">
+                  <RemovableChip label={a.label} onRemove={() => onChange(clearFilter(filters, a.key))} />
+                </View>
+              ))}
+            </View>
             <Chip role="button" label="Clear all" accessibilityLabel="Clear all filters" onPress={() => onChange(DEFAULT_FILTERS)} />
-          </View>
-          <View role="list" aria-label="Active filters" style={styles.row}>
-            {activeList.map((a) => (
-              <View key={a.key} role="listitem">
-                <RemovableChip label={a.label} onRemove={() => onChange(clearFilter(filters, a.key))} />
-              </View>
-            ))}
           </View>
         </View>
       ) : null}
@@ -68,7 +68,9 @@ export function FilterPanel({ filters, onChange, open, onOpenChange }: Props) {
 
 const styles = StyleSheet.create({
   card: { gap: spacing.sm, padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surfaceMuted },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
+  // flexShrink lets the chips wrap inside the row (without it a long second chip runs off the screen)
+  chips: { flexShrink: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
   removable: {
     minHeight: touchTarget.min,
     flexDirection: 'row',

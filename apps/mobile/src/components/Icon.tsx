@@ -9,7 +9,7 @@ import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
  * carries the meaning, so icons are hidden from assistive technology.
  */
 export type IconName =
-  | 'search' | 'pin' | 'list' | 'map' | 'filter' | 'heart' | 'user' | 'plus' | 'check' | 'close' | 'info' | 'alert' | 'help' | 'chevron' | 'navigate' | 'compass' | 'gear' | 'medal' | 'star' | 'clock' | 'back';
+  | 'search' | 'pin' | 'list' | 'map' | 'filter' | 'heart' | 'user' | 'plus' | 'check' | 'close' | 'info' | 'alert' | 'help' | 'chevron' | 'navigate' | 'compass' | 'gear' | 'medal' | 'star' | 'clock' | 'back' | 'minus';
 
 type Props = { name: IconName; size?: number; color?: string; /** Color of cut-outs (the hole in a pin). Defaults to the surface color. */ inner?: string };
 
@@ -92,16 +92,22 @@ export function Icon({ name, size = 24, color = colors.text, inner = colors.surf
     case 'chevron':
       body = <View style={{ position: 'absolute', left: 6.5 * u, top: 7 * u, width: 9 * u, height: 9 * u, borderRightWidth: w, borderTopWidth: w, borderColor: color, transform: [{ rotate: '45deg' }] }} />;
       break;
+    case 'minus':
+      body = <View style={bar(6, 12, 12)} />;
+      break;
     case 'back':
       body = <View style={{ position: 'absolute', left: 8.5 * u, top: 7 * u, width: 9 * u, height: 9 * u, borderLeftWidth: w, borderBottomWidth: w, borderColor: color, transform: [{ rotate: '45deg' }] }} />;
       break;
-    case 'star':
-      // an eight-point star: two squares, one turned 45 degrees
-      body = (<>
-        <View style={{ position: 'absolute', left: 5.5 * u, top: 5.5 * u, width: 13 * u, height: 13 * u, borderRadius: 1.5 * u, backgroundColor: color }} />
-        <View style={{ position: 'absolute', left: 5.5 * u, top: 5.5 * u, width: 13 * u, height: 13 * u, borderRadius: 1.5 * u, backgroundColor: color, transform: [{ rotate: '45deg' }] }} />
-      </>);
+    case 'star': {
+      // five points around a filled core: each point is a triangle in a full-size frame turned about the center
+      const points = [0, 72, 144, 216, 288].map((deg) => (
+        <View key={deg} style={{ position: 'absolute', left: 0, top: 0, width: 24 * u, height: 24 * u, transform: [{ rotate: `${deg}deg` }] }}>
+          <View style={{ position: 'absolute', left: 7.2 * u, top: 1.6 * u, width: 0, height: 0, borderLeftWidth: 4.8 * u, borderRightWidth: 4.8 * u, borderBottomWidth: 10.5 * u, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color }} />
+        </View>
+      ));
+      body = (<>{points}<View style={dot(6.6, 6.6, 10.8, color)} /></>);
       break;
+    }
     case 'clock':
       body = (<>
         <View style={ring(2, 2, 20)} />

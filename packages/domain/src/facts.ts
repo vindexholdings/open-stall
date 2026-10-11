@@ -89,8 +89,9 @@ export function communityRatingText(average: number | null, count: number): stri
 }
 
 /** Icon name + word for a fact value, so Yes/No/Not reported never depends on color alone (the UI draws the icon). */
-export function factMark(value: FactValue): { icon: 'check' | 'close' | 'help'; text: string } {
-  return value === 'yes' ? { icon: 'check', text: 'Yes' } : value === 'no' ? { icon: 'close', text: 'No' } : { icon: 'help', text: 'Not reported' };
+export function factMark(value: FactValue): { icon: 'check' | 'minus' | 'help'; text: string } {
+  // confirmed absent is a neutral minus, not a cross: "No key needed" is good news and must not look like a warning
+  return value === 'yes' ? { icon: 'check', text: 'Yes' } : value === 'no' ? { icon: 'minus', text: 'No' } : { icon: 'help', text: 'Not reported' };
 }
 
 /** Detail-page rating: always labeled as a community rating; "none yet" is stated, never shown as zero. */
@@ -110,7 +111,7 @@ export function provenanceNotes(l: Pick<PublicLocation, 'verification' | 'lastVe
     l.verification === 'verified'
       ? `${badge.label}: Open Stall confirmed this restroom exists. Other details can still change.`
       : 'Unverified: Open Stall has not confirmed this restroom yet.',
-    'Facts marked “Not reported” are unknown. They are not the same as “No”.',
+    'Anything described as “not reported” is unknown. It does not mean “no”.',
     'Details can change. If something here is out of date, tell us.',
   ];
   if (l.attribution) out.push(l.attribution);

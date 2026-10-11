@@ -36,6 +36,8 @@ function findChrome() {
 // ---------------------------------------------------------------- mock backend
 const RICH = '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d11';
 const SPARSE = '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d12';
+const PRESENT = '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d15';
+const ABSENT = '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d16';
 const BROKEN = '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d13';
 const GONE = '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d14';
 const base_row = { address_line: null, city: 'Cody', region: 'WY', postal_code: null, latitude: 44.5273, longitude: -109.0565, last_verified_at: null, opening_hours: null,
@@ -46,6 +48,9 @@ const ROWS = {
     key_required: false, purchase_required: false, wheelchair_accessible: true, baby_changing: false, has_hot_water: true, opening_hours: 'Mo-Su 06:00-22:00',
     access_location: 'Behind the main desk', average_rating: 4.5, rating_count: 12, attribution: 'Data © OpenStreetMap contributors' },
   [SPARSE]: { ...base_row, id: SPARSE, name: 'Park Pavilion Restroom', verification: 'unverified' },
+  // every fact known present / every fact confirmed absent: the two ends of the truth table
+  [PRESENT]: { ...base_row, id: PRESENT, name: 'All Present Restroom', verification: 'verified', fee_required: true, key_required: true, purchase_required: true, wheelchair_accessible: true, gender_neutral: true, baby_changing: true, has_hot_water: true, has_cold_water: true },
+  [ABSENT]: { ...base_row, id: ABSENT, name: 'All Absent Restroom', verification: 'verified', fee_required: false, key_required: false, purchase_required: false, wheelchair_accessible: false, gender_neutral: false, baby_changing: false, has_hot_water: false, has_cold_water: false },
 };
 const acct = { reviews: 0, reports: [], favoritesAdds: 0, favorite: false, review: null, checkins: 0 };
 let fail = 'none'; // none | server | auth  (applies to write functions)
@@ -156,19 +161,22 @@ try {
     check(await text(page, 'Cody Library Restroom'), 'detail loads signed out');
     check((await page.locator('[role="heading"][aria-level="1"]').count()) === 1, 'detail has exactly one level-1 heading');
     const h = await headings(page);
-    const order = ['Get there', 'Access', 'Amenities', 'About these details', 'Save, rate and check in', 'Something wrong?'];
-    check(JSON.stringify(h.filter((x) => order.includes(x))) === JSON.stringify(order), 'sections follow the reading order: get there, facts, provenance, actions', JSON.stringify(h));
+    const order = ['Get there', 'Features & Access', 'About these details', 'Save, rate and check in', 'Something wrong?'];
+    check(JSON.stringify(h.filter((x) => order.includes(x))) === JSON.stringify(order), 'sections follow the reading order: get there, features & access, provenance, actions', JSON.stringify(h));
+    check((await page.getByRole('heading', { name: 'Access', exact: true }).count()) === 0 && (await page.getByRole('heading', { name: 'Amenities', exact: true }).count()) === 0, 'D3: access and amenities are ONE compact Features & Access section');
     check(await text(page, 'Verified Sep 2026'), 'the verified badge shows text and date');
     check(await text(page, 'Community rating 4.5 / 5 (12 ratings)'), 'the rating is labeled as a community rating with its count');
-    check(await text(page, 'No key needed') && await text(page, 'No purchase needed'), 'known access facts are summarized up top');
-    check((await page.getByText('Fee to use', { exact: true }).count()) === 1, 'the quick summary never lists an unknown fee');
-    const fee = page.getByLabel('Fee to use: Not reported', { exact: true });
-    check((await fee.count()) === 1 && (await fee.innerText()).includes('Not reported') && !(await fee.innerText()).trim().endsWith('No'), 'an unknown fee reads "Not reported", not "No"');
-    check((await page.getByLabel('Baby changing: No', { exact: true }).innerText()).trim().endsWith('No'), 'a known "No" reads "No"');
-    check((await page.getByLabel('Wheelchair accessible: Yes', { exact: true }).innerText()).trim().endsWith('Yes'), 'a known "Yes" reads "Yes"');
-    check(await text(page, 'Mo-Su 06:00-22:00 (from public sources, may be inaccurate)'), 'hours carry the public-source caveat');
+    // D3 truth table, mixed row: present / confirmed absent / unknown, each as its own feature-specific phrase
+    const featureList = page.getByRole('list', { name: 'Access and features' });
+    const phrases = await featureList.getByRole('listitem').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    check(JSON.stringify(phrases) === JSON.stringify(['No key needed', 'No purchase required', 'Fee not reported', 'Wheelchair accessible', 'Gender-neutral not reported', 'No baby changing', 'Hot water available']), 'D3: each feature reads in its own words (known present, confirmed absent, not reported)', JSON.stringify(phrases));
+    check(JSON.stringify(await page.getByRole('list', { name: 'Other details' }).getByRole('listitem').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))) === JSON.stringify(['Cold water not reported']), 'D3: cold water is still listed, as lower-emphasis other details');
+    check((await page.getByText('Yes', { exact: true }).count()) === 0 && (await page.getByText('No', { exact: true }).count()) === 0 && (await page.getByText('Not reported', { exact: true }).count()) === 0, 'D3: no repeated Yes / No / Not reported column');
+    check(!(await page.locator('body').innerText()).includes('No fee to use'), 'D3: "no purchase required" does not imply "no fee": the unknown fee is not shown as absent');
+    check(await text(page, 'Hours: Mo-Su 06:00-22:00 (from public sources, may be inaccurate)'), 'hours carry the public-source caveat');
     check(await text(page, 'Where: Behind the main desk'), 'the access location note is shown');
-    check((await page.getByRole('list', { name: 'Access facts' }).getByRole('listitem').count()) === 6, 'facts are a real list (5 facts + hours)');
+    check(!/min (walk|bike|drive)/i.test(await page.locator('body').innerText()), 'D3: no invented walking, biking or driving minutes on the details page');
+    check((await page.getByRole('button', { name: 'Back', exact: true }).count()) === 0 && (await page.getByRole('button', { name: 'Go to nearby restrooms' }).count()) === 1, 'D3: opened directly, the control is the named "Nearby restrooms", never a fake Back');
     check(await text(page, 'Data © OpenStreetMap contributors'), 'source attribution is shown');
     check(await text(page, 'Ratings come from signed-in community members'), 'the page explains that ratings are separate from verification');
     check(!(await page.locator('body').innerText()).includes('Offline:'), 'no offline banner when online');
@@ -189,13 +197,37 @@ try {
     check(await text(page, 'hasn’t confirmed this restroom yet'), 'the banner explains what unverified means');
     check(await text(page, 'No community ratings yet'), 'unrated says "No community ratings yet"');
     check(!/\b0(\.0)? ?\/ ?5\b/.test(await page.locator('body').innerText()), 'a missing rating is never shown as 0');
-    check((await page.getByRole('list', { name: 'Quick facts' }).count()) === 0, 'no quick-facts row when nothing is known');
-    const unknown = await page.getByText('Not reported', { exact: true }).count();
-    check(unknown >= 8, 'every unknown fact and the hours read "Not reported"', `${unknown}`);
-    check((await page.getByText('No', { exact: true }).count()) === 0, 'no unknown fact is displayed as "No"');
+    const sparse = await page.getByRole('list', { name: 'Access and features' }).getByRole('listitem').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    check(JSON.stringify(sparse) === JSON.stringify(['Key requirement not reported', 'Purchase requirement not reported', 'Fee not reported', 'Wheelchair access not reported', 'Gender-neutral not reported', 'Baby changing not reported', 'Hot water not reported']) && await text(page, 'Hours not reported') && await text(page, 'Cold water not reported'), 'D3: every unknown feature and the hours say "not reported"', JSON.stringify(sparse));
+    const body = await page.locator('body').innerText();
+    check(!/\bNo (key|purchase|fee|baby|hot|cold)\b|\bNot (wheelchair|gender)/.test(body), 'D3: no unknown feature is ever written as a negative');
     check(await text(page, 'Unverified: Open Stall has not confirmed this restroom yet.'), 'provenance states the unverified status');
-    check(await text(page, 'Facts marked “Not reported” are unknown'), 'provenance explains unknown vs no');
+    check(await text(page, 'described as “not reported” is unknown'), 'provenance explains unknown vs no');
     await page.screenshot({ path: join(SHOTS, 'narrow-2-detail-sparse.png'), fullPage: true });
+    // large text at the narrowest width: labels wrap, nothing clips or scrolls sideways
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.evaluate((k) => { for (const el of document.querySelectorAll('body *')) { const c = getComputedStyle(el); if ([...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) { el.style.fontSize = `${parseFloat(c.fontSize) * k}px`; if (c.lineHeight !== 'normal') el.style.lineHeight = `${parseFloat(c.lineHeight) * k}px`; } } }, 1.6);
+    await page.waitForTimeout(300);
+    // The page content (the main region) must not overflow. The tab bar's labels are capped on real devices with maxFontSizeMultiplier;
+    // a browser CSS emulation like this one cannot honor that cap, so the bar is excluded from this measurement.
+    const bigOverflow = await page.evaluate(() => Math.max(0, ...[...document.querySelectorAll('[role="main"], [role="main"] *')].map((e) => e.getBoundingClientRect().right - window.innerWidth)));
+    check(bigOverflow <= 1, 'D3: at 320 px with 1.6x text (emulated) the feature labels wrap and the page content does not scroll sideways', String(bigOverflow));
+    await page.screenshot({ path: join(SHOTS, 'narrow-d3-detail-large-text.png'), fullPage: true });
+    await ctx.close();
+  }
+
+  // 2b. D3 truth-table ends: everything known present, everything confirmed absent
+  {
+    const { ctx, page } = await newPage();
+    await page.goto(`${base}/location/${PRESENT}`);
+    await text(page, 'All Present Restroom');
+    const list = async (name) => page.getByRole('list', { name }).getByRole('listitem').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    check(JSON.stringify(await list('Access and features')) === JSON.stringify(['Key required', 'Purchase required', 'Fee to use', 'Wheelchair accessible', 'Gender-neutral', 'Baby changing available', 'Hot water available']) && JSON.stringify(await list('Other details')) === JSON.stringify(['Cold water available']), 'D3: every fact known present reads as present');
+    await page.screenshot({ path: join(SHOTS, 'narrow-d3-detail-present.png'), fullPage: true });
+    await page.goto(`${base}/location/${ABSENT}`);
+    await text(page, 'All Absent Restroom');
+    check(JSON.stringify(await list('Access and features')) === JSON.stringify(['No key needed', 'No purchase required', 'No fee to use', 'Not wheelchair accessible', 'Not gender-neutral', 'No baby changing', 'No hot water']) && JSON.stringify(await list('Other details')) === JSON.stringify(['No cold water']), 'D3: every fact confirmed absent reads as absent (and only then)');
+    await page.screenshot({ path: join(SHOTS, 'narrow-d3-detail-absent.png'), fullPage: true });
     await ctx.close();
   }
 
@@ -205,7 +237,7 @@ try {
     await page.goto(`${base}/location/${RICH}`);
     check(await text(page, 'Cody Library Restroom'), 'wide detail loads');
     const box = async (name) => page.getByRole('heading', { name, exact: true }).boundingBox();
-    const access = await box('Access'); const nav = await box('Get there');
+    const access = await box('Features & Access'); const nav = await box('Get there');
     check(access && nav && nav.x > access.x + 300, 'on wide screens the actions column sits beside the facts', JSON.stringify({ access, nav }));
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     check(overflow <= 1, 'no horizontal scroll on wide screens');
@@ -247,6 +279,10 @@ try {
     check(await text(page, 'Sign in to report a problem'), 'Report a problem explains the sign-in requirement when signed out');
     await button(page, 'Sign in or create account').click();
     check(page.url().includes('next=%2Freport%3Fid%3D' + RICH) || page.url().includes('next=/report?id=' + RICH), 'the report destination is carried through sign-in', page.url());
+    check((await button(page, 'Back').count()) === 1, 'D3: the sign-in screen opened from a restroom flow has a visible Back');
+    await button(page, 'Back').click();
+    check(await text(page, 'Sign in to report a problem'), 'D3: Back from sign-in returns to the screen that asked for it (no back trap)');
+    await button(page, 'Sign in or create account').click();
     await page.getByLabel('Email', { exact: true }).fill(USER.email);
     await page.getByLabel('Password', { exact: true }).fill(GOOD_PW);
     await button(page, 'Sign in').click();

@@ -102,7 +102,6 @@ const newPage = async ({ width = 390, height = 844, geolocation = true, at = HER
   return { ctx, page };
 };
 const text = (page, t) => page.getByText(t, { exact: false }).filter({ visible: true }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
-const gone = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'hidden', timeout: 4000 }).then(() => true, () => false);
 /** The filter sheet slides in and out, so wait for the dialog to be (in)active instead of reading it at once. */
 const dialogOpen = (page) => page.getByRole('dialog', { name: 'Filters' }).waitFor({ state: 'visible' }).then(() => true, () => false);
 const dialogClosed = (page) => page.getByRole('dialog').waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false);
@@ -601,6 +600,7 @@ try {
     await page.getByLabel('Search these restrooms', { exact: true }).fill('library');
     await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
     check(await text(page, 'Features & Access') && (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1, 'D3: a restroom opened from the list has one visible Back control');
+    check(await text(page, 'straight-line') && !/min (walk|bike|drive)/i.test(await page.locator('body').innerText()), 'D3: the details page labels its distance straight-line and shows no invented minutes');
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     check(new URL(page.url()).pathname === '/' && (await page.getByLabel('Search these restrooms', { exact: true }).inputValue()) === 'library' && await button(page, 'Remove filter: Within 5 mi').isVisible(), 'D3: Back returns to the actual previous screen with the search and the distance choice intact');
     // browser back does the same

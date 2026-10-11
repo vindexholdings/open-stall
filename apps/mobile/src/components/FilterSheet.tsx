@@ -144,7 +144,7 @@ function SheetBody({ applied, onApply, onDismiss }: Omit<Props, 'visible'>) {
         </ScrollView>
         <View style={styles.footer}>
           <View style={styles.footerBtn}>
-            <SecondaryButton label="Clear" onPress={() => setDraft(DEFAULT_FILTERS)} accessibilityHint="Resets your choices in this sheet. Apply filters to use them." />
+            <SecondaryButton tall label="Clear" onPress={() => setDraft(DEFAULT_FILTERS)} accessibilityHint="Resets your choices in this sheet. Apply filters to use them." />
           </View>
           <View style={styles.footerBtn}>
             <PrimaryButton label="Apply filters" onPress={() => onApply(draft)} />

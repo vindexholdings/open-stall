@@ -204,7 +204,9 @@ try {
     const { ctx, page } = await newPage('phone');
     check(await findNearest(page), 'journey: finding restrooms works signed out');
     await button(page, 'Show filters').click();
+    await page.getByRole('dialog', { name: 'Filters' }).waitFor({ state: 'visible' });
     await page.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
+    await page.getByRole('button', { name: 'Apply filters' }).click();
     check(await text(page, '2 restrooms nearby, filtered'), 'journey: the Verified-only filter narrows the list');
     await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
     check(await text(page, 'Community rating 4.5 / 5 (12 ratings)') && page.url().includes('/location/'), 'journey: a result opens its detail page', `${page.url()} ${(await page.locator('body').innerText()).slice(0, 300).replace(/\n/g, ' | ')}`);
@@ -256,6 +258,7 @@ try {
     await findNearest(page);
     if (view === 'phone') { await page.getByRole('radio', { name: 'Map' }).click(); await text(page, 'Map of nearby restrooms'); const v = await audit(page, 'home-map', view); const bad = v.filter((x) => x.impact === 'serious' || x.impact === 'critical'); if (bad.length) seriousByScreen.push(`home-map@${view}: ${bad.map((b) => `${b.id}(${b.nodes}) ${b.targets[0] ?? ''}`).join('; ')}`); }
     await button(page, 'Show filters').click().catch(() => {});
+    await page.getByRole('dialog', { name: 'Filters' }).waitFor({ state: 'visible' }).catch(() => {});
     { const v = await audit(page, 'home-filters-open', view); const bad = v.filter((x) => x.impact === 'serious' || x.impact === 'critical'); if (bad.length) seriousByScreen.push(`home-filters-open@${view}: ${bad.map((b) => `${b.id}(${b.nodes}) ${b.targets[0] ?? ''}`).join('; ')}`); }
     await signIn(page, '/account');
     await text(page, 'Signed in as');

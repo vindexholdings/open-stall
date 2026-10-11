@@ -140,3 +140,7 @@ Inspector / Scanner / tree dump findings (automated inspection, NOT a reader pas
 TalkBack or VoiceOver ACTUALLY USED by a person (device vs simulator), version: journeys heard correctly: yes/no per journey
 Defects (screenshot or screen recording; no real personal data):
 ```
+
+## 9. D3 review additions (Jake's iPhone checklist; nothing here has been run on a device)
+On the pinned D3 build: (1) a restroom's Details has ONE "Features & Access" list in plain words ("No key needed", "Fee not reported"); (2) open a restroom from the list: **Back** is visible and returns to the same list with your search and filters; (3) the Filters button opens a sheet: Cancel discards, Apply filters applies, Clear resets the draft, focus returns to the button; (4) the default distance is 1 mi, an empty result offers "Search within 2 mi", and no walking minutes appear anywhere; (5) icons are tasteful and the layout is unchanged. For VoiceOver: the sheet is announced as "Filters", background content is not reachable, the checkboxes say checked/unchecked, and focus lands back on "Show filters" after closing. NOT RUN by Claude or Work: iOS edge-swipe back (not provided), Android Back and TalkBack. Record anything you see in section 8's template.
+

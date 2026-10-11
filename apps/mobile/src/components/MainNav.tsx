@@ -40,7 +40,7 @@ export function MainNav({ state, descriptors, navigation }: MainNavProps) {
         const content = (
           <>
             <View style={[styles.pill, focused && styles.pillOn]}><Icon name={ICON[route.name] ?? 'pin'} size={22} color={tint} inner={focused ? tiles.blue.bg : colors.surface} /></View>
-            <Text style={labelStyle}>{label}</Text>
+            <Text maxFontSizeMultiplier={1.3} style={labelStyle}>{label}</Text>
           </>
         );
         return isWeb ? (

@@ -31,7 +31,8 @@
     "qa:app": "node scripts/qa-app.mjs",
     "qa:selftest": "node scripts/qa-kit-selftest.mjs",
     "qa:browsercheck": "node scripts/qa-kit-browser-check.mjs",
-    "packet:visual": "node scripts/visual-packet.mjs"
+    "packet:visual": "node scripts/visual-packet.mjs",
+    "packet:d3": "node scripts/visual-packet-d3.mjs"
   },
   "engines": {
     "node": ">=20"

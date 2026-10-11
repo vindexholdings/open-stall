@@ -2,9 +2,9 @@ import { colors, radii, spacing, touchTarget, typography } from '@open-stall/ui'
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { useFocusStyle } from './focus';
 
-type Props = { label: string; onPress: () => void; disabled?: boolean; accessibilityHint?: string };
+type Props = { label: string; onPress: () => void; disabled?: boolean; accessibilityHint?: string; /** Same height as a primary button, for rows where the two sit side by side. */ tall?: boolean };
 
-export function SecondaryButton({ label, onPress, disabled = false, accessibilityHint }: Props) {
+export function SecondaryButton({ label, onPress, disabled = false, accessibilityHint, tall = false }: Props) {
   const focus = useFocusStyle();
   return (
     <Pressable
@@ -14,7 +14,7 @@ export function SecondaryButton({ label, onPress, disabled = false, accessibilit
       disabled={disabled}
       onPress={onPress}
       {...focus.handlers}
-      style={({ pressed }) => [styles.button, (pressed || disabled) && styles.dimmed, focus.style]}
+      style={({ pressed }) => [styles.button, tall && styles.tall, (pressed || disabled) && styles.dimmed, focus.style]}
     >
       <Text style={styles.label}>{label}</Text>
     </Pressable>
@@ -32,6 +32,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
+  tall: { minHeight: touchTarget.primary },
   dimmed: { opacity: 0.6 },
   label: { ...typography.heading, fontSize: 17, color: colors.primaryStrong },
 });

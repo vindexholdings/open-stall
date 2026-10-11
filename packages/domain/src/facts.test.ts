@@ -83,7 +83,7 @@ describe('result card highlights (R1)', () => {
 describe('detail presentation (R2)', () => {
   it('marks every fact value with a symbol and a word', () => {
     expect(factMark('yes')).toEqual({ icon: 'check', text: 'Yes' });
-    expect(factMark('no')).toEqual({ icon: 'close', text: 'No' });
+    expect(factMark('no')).toEqual({ icon: 'minus', text: 'No' });
     expect(factMark('unknown')).toEqual({ icon: 'help', text: 'Not reported' });
   });
   it('labels ratings as community ratings and states when there are none', () => {
@@ -101,7 +101,7 @@ describe('detail presentation (R2)', () => {
     const unverified = provenanceNotes({ verification: 'unverified', lastVerifiedAt: null, attribution: '© Contributors' });
     expect(unverified[0]).toBe('Unverified: Open Stall has not confirmed this restroom yet.');
     expect(unverified.at(-1)).toBe('© Contributors');
-    for (const n of [verified, unverified]) expect(n.join(' ')).toMatch(/“Not reported” are unknown/);
+    for (const n of [verified, unverified]) expect(n.join(' ')).toMatch(/“not reported” is unknown/);
     expect(verified.join(' ')).not.toMatch(/community/i);
     // No blanket source claim: without attribution nothing says where the details came from.
     for (const l of [{ verification: 'verified' as const, lastVerifiedAt: null, attribution: null }, { verification: 'unverified' as const, lastVerifiedAt: null, attribution: null }]) {
