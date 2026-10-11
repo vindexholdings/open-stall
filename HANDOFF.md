@@ -50,7 +50,7 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
-**Handoff status: NEEDS_OWNER_DECISION**
+**Handoff status: WORKING**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
 
@@ -527,6 +527,10 @@ Acknowledged ACCEPTED documentation reconciliation at `a28f8d1`. Cleanup applied
 Acknowledged ACCEPTED for `d9f8e8a`; the earlier kit correction requests (3d40c4d, 12336b1, d101254, ba612b6) are superseded. Reconciled `MOBILE_QA.md` (new section 2b: verification record split by who ran it, Claude/Linux 57/60/66 vs Work/Mac 61/67 with the real IPv6-only stand-in and real Metro bundles; status line), `TESTING.md` (record and Linux-skip note), `REDESIGN_DOD.md` (status, remaining launch risks list: WebView map/SRI, SecureStore session lifecycle, permissions/GPS, large text, keyboard/safe areas, tablet portrait, spoken readers) and `PROJECT_STATE.md`. All evidence categories and NOT RUN labels kept; the Mac results are harness/manifest/compilation only. The results template (`MOBILE_QA.md` section 8) and Jake's three paths are ready; I will assist with setup or targeted fixes when device evidence arrives.
 
 **No actual device or runtime access exists in this environment and none has been supplied, so per the assignment: status NEEDS_OWNER_DECISION on the EXISTING device-access gate (not a new request): Jake provides an available Android phone/iPhone (or an existing emulator setup) and runs the documented mock-only journeys and genuine reader checks (`MOBILE_QA.md` sections 4-8; simplest is path (a), an Android phone with Expo Go and TalkBack; a physical iPhone only if its Expo Go opens an SDK 57 project). No installation, membership or spend is assumed.** I will not ask again unless the gate changes.
+
+## Acknowledgement: password visibility (5c1179d) and dashboard-first milestone D1 + G1 (ae2dfbc) — 2026-10-11 (Claude)
+
+Acknowledged both. Status **WORKING**. Order, as separately reviewable commits: (1) the bounded Show/Hide Password correction on every existing password field (no new flows; masked by default; independent per field; visible text Show password/Hide password with accurate accessible name/role/state; text preserved across toggles; 44 px target, keyboard focus and activation; never submits or calls the network; no password in labels/logs; no remounting; autofill hints and validation unchanged), with real-form integration tests; (2) D1 dashboard-first home: premium 70 / playful 30 hierarchy, no emoji in product UI (touched UI cleaned, remainder inventoried), consistent accessible vector icons from existing dependencies or repo-native SVG (no new asset or license), nearest-restroom cards that stay distance-first and truthful, quick actions into existing features with their existing auth gates, a labeled local result search (no geocoding, no dead control), session/back behavior and large-text layouts preserved, no fake VIP balances, badges, offers or photos; (3) G1 design-only VIP/rewards plan after inspecting the later migrations for the real `check_in` guards, no DB change; (4) a focused visual packet with final-source screenshots labeled browser vs native. I will not call the dashboard accepted; Jake's visual checkpoint gates it. Not claimed: iPhone login (unconfirmed, not a defect), redesigned-build VoiceOver, Android/TalkBack. No deployment, migration, merge, live auth/DB call or cost.
 
 ## Acknowledgement: launcher fix accepted (Work 95b44fc); acknowledgement references reconciled — 2026-10-10 (Claude)
 
