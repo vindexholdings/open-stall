@@ -403,13 +403,16 @@ try {
     check(await text(page, 'Get there'), 'dashboard: a result still opens its detail');
     await page.goBack();
     check((await page.getByLabel('Search these restrooms', { exact: true }).inputValue()) === 'library', 'dashboard: going back keeps the search text');
+    // label in name (WCAG 2.5.3): each quick action's visible text is contained in its spoken name
+    const lin = await page.getByRole('group', { name: 'Quick actions' }).locator('a, button, [role="link"], [role="button"]').evaluateAll((els) => els.map((e) => ({ name: (e.getAttribute('aria-label') || '').toLowerCase(), vis: (e.innerText || '').trim().toLowerCase() })));
+    check(lin.length >= 2 && lin.every((x) => x.vis && x.name.includes(x.vis)), `dashboard: every quick action's visible text is contained in its spoken name (label-in-name) ${JSON.stringify(lin)}`);
     // quick-action routes
     await page.getByLabel('Search these restrooms', { exact: true }).fill('');
     await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: /^Favorites/ }).click();
     check(/\/favorites$/.test(page.url()), 'dashboard: the Favorites action opens Favorites');
     await page.goto(`${base}/`);
-    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: 'Add a restroom', exact: true }).click();
-    check(/\/contribute$/.test(page.url()), 'dashboard: Add a restroom opens the existing contribution screen (which keeps its own sign-in rule)');
+    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: 'Add restroom', exact: true }).click();
+    check(/\/contribute$/.test(page.url()), 'dashboard: Add restroom opens the existing contribution screen (which keeps its own sign-in rule)');
     // keyboard + focus ring on the new controls
     await page.goto(`${base}/`); await button(page, 'Find Nearest Restroom').click(); await text(page, 'Nearest restroom');
     check(await tabTo(page, 'Directions to Cody Library Restroom', 40), 'dashboard: Directions is reachable with Tab');

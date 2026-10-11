@@ -154,7 +154,7 @@ export default function NearbyScreen() {
       ? [{ key: 'view', label: view === 'map' ? 'List' : 'Map', spoken: view === 'map' ? 'Show list' : 'Show map', icon: view === 'map' ? 'list' : 'map', tone: 'blue', kind: 'button', onPress: () => setView(view === 'map' ? 'list' : 'map') } satisfies QuickAction]
       : []),
     { key: 'favorites', label: 'Favorites', spoken: 'Favorites, your saved restrooms', icon: 'heart', tone: 'rose', kind: 'link', onPress: () => router.navigate('/favorites') },
-    { key: 'add', label: 'Add restroom', spoken: 'Add a restroom', icon: 'plus', tone: 'amber', kind: 'link', onPress: () => router.navigate('/contribute') },
+    { key: 'add', label: 'Add restroom', spoken: 'Add restroom', icon: 'plus', tone: 'amber', kind: 'link', onPress: () => router.navigate('/contribute') },
   ];
 
   const loading = nearby.state.status === 'loading';
