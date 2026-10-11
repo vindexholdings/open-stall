@@ -34,9 +34,11 @@ const ROWS = [
   row({ id: '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d01', name: 'Cody Library Restroom', address: '1 Library Way', lat: 44.5273, verification: 'verified', key: false, purchase: false, wheelchair: true, rating: 4.5, count: 12 }),
   row({ id: '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d02', name: 'Park Pavilion Restroom', lat: 44.53, verification: 'unverified' }),
   row({ id: '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d03', name: 'Corner Gas Station', address: '9 Main St', lat: 44.534, verification: 'verified', key: true, purchase: true, rating: 3, count: 4 }),
-  row({ id: '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d04', name: 'Far Trailhead Restroom', lat: 44.55, verification: 'unverified', wheelchair: true }),
+  row({ id: '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d04', name: 'Far Trailhead Restroom', lat: 44.538, verification: 'unverified', wheelchair: true }),
+  // beyond the 1 mile default radius from HERE (about 2.3 mi), so it appears only after choosing a farther distance
+  row({ id: '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d05', name: 'Distant Overlook Restroom', lat: 44.56, verification: 'unverified' }),
 ];
-const ORDER = ROWS.map((r) => r.name);
+const ORDER = ROWS.slice(0, 4).map((r) => r.name);
 let mode = 'ok'; // ok | error | empty | network
 const requests = [];
 const mock = createServer(async (req, res) => {
@@ -87,8 +89,8 @@ let passed = 0;
 const external = [];
 const check = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${ok ? '' : `  ${detail}`}`); if (ok) passed++; else failures++; };
 const browser = await chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--disable-gpu', '--no-proxy-server'] });
-const newPage = async ({ width = 390, height = 844, geolocation = true } = {}) => {
-  const ctx = await browser.newContext({ viewport: { width, height }, ...(geolocation ? { permissions: ['geolocation'], geolocation: HERE } : {}) });
+const newPage = async ({ width = 390, height = 844, geolocation = true, at = HERE } = {}) => {
+  const ctx = await browser.newContext({ viewport: { width, height }, ...(geolocation ? { permissions: ['geolocation'], geolocation: at } : {}) });
   await ctx.route('**/*', (route) => {
     const url = new URL(route.request().url());
     if (url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.protocol === 'data:') return route.continue();
@@ -101,6 +103,9 @@ const newPage = async ({ width = 390, height = 844, geolocation = true } = {}) =
 };
 const text = (page, t) => page.getByText(t, { exact: false }).filter({ visible: true }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
 const gone = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'hidden', timeout: 4000 }).then(() => true, () => false);
+/** The filter sheet slides in and out, so wait for the dialog to be (in)active instead of reading it at once. */
+const dialogOpen = (page) => page.getByRole('dialog', { name: 'Filters' }).waitFor({ state: 'visible' }).then(() => true, () => false);
+const dialogClosed = (page) => page.getByRole('dialog').waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false);
 const button = (page, name) => page.getByRole('button', { name, exact: true });
 const cardNames = (page) => page.locator('[role="listitem"] [role="heading"]').allInnerTexts();
 /** Tab until the focused element's accessible name includes `needle`. Returns whether it got there. */
@@ -111,6 +116,11 @@ async function tabTo(page, needle, max = 60) {
     if (n.includes(needle)) return true;
   }
   return false;
+}
+async function findNearestAny(page) {
+  await page.goto(`${base}/`);
+  await button(page, 'Find Nearest Restroom').click();
+  return true;
 }
 async function findNearest(page) {
   await page.goto(`${base}/`);
@@ -153,7 +163,7 @@ try {
     check((await listArea.getByText('Key required', { exact: true }).count()) === 1 && (await listArea.getByText('Wheelchair accessible', { exact: true }).count()) === 2, 'unknown facts are not shown as negatives');
     const link = page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ });
     const label = await link.getAttribute('aria-label');
-    check(/Nearest\. Cody Library Restroom\. Verified Sep 2026\. .*(ft|mi), ~\d+ min walk/.test(label ?? ''), 'a card has one meaningful spoken name', label ?? '');
+    check(/Nearest\. Cody Library Restroom\. Verified Sep 2026\. .*(ft|mi) straight-line/.test(label ?? '') && !/min walk/.test(label ?? ''), 'a card has one meaningful spoken name (straight-line distance, no invented walking time)', label ?? '');
     check((await page.getByRole('radio', { name: 'List' }).getAttribute('aria-checked')) === 'true', 'List is the default view on a phone');
     await page.screenshot({ path: join(SHOTS, 'narrow-2-list.png') });
 
@@ -178,67 +188,102 @@ try {
     await ctx.close();
   }
 
-  // 3. Filters (narrow)
+  // 3. Filters (narrow): a modal sheet with a draft, Apply, Clear and Cancel (D3)
   {
     const { ctx, page } = await newPage();
     await findNearest(page);
-    const toggle = page.getByRole('button', { name: 'Show filters' });
-    check((await toggle.getAttribute('aria-expanded')) === 'false', 'the filter toggle reports collapsed');
-    await toggle.click();
-    check((await page.getByRole('button', { name: 'Hide filters' }).getAttribute('aria-expanded')) === 'true', 'the filter toggle reports expanded');
+    const opener = page.getByRole('button', { name: 'Show filters' });
+    check((await opener.getAttribute('aria-haspopup')) === 'dialog' && (await page.getByRole('dialog').count()) === 0, 'the Filters button opens a dialog (none is open yet)');
+    await opener.click();
+    const dlg = page.getByRole('dialog', { name: 'Filters' });
+    check(await dialogOpen(page) && (await dlg.getAttribute('aria-modal')) === 'true', 'the filter sheet is a modal dialog named Filters');
+    check(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')), 'focus moves into the dialog when it opens');
+    check(await dlg.getByRole('heading', { name: 'Filters', level: 2 }).isVisible(), 'the dialog has a visible Filters title');
     await page.screenshot({ path: join(SHOTS, 'narrow-4-filters.png') });
-    await page.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
-    check(await gone(page, 'Park Pavilion Restroom'), 'Verified only hides unverified restrooms');
-    check(JSON.stringify(await cardNames(page)) === JSON.stringify(['Cody Library Restroom', 'Corner Gas Station']), 'the remaining results keep distance order');
-    await page.getByRole('button', { name: 'Hide filters' }).click();
-    check(await button(page, 'Remove filter: Verified only').first().isVisible(), 'a collapsed filter panel still shows the active filter');
-    check(await text(page, '2 restrooms nearby, filtered'), 'the header says results are filtered');
-    await button(page, 'Remove filter: Verified only').click();
-    check(await text(page, 'Park Pavilion Restroom'), 'removing the active-filter chip restores results');
-    // filter that matches nothing -> recoverable empty state
-    await page.getByRole('button', { name: 'Show filters' }).click();
-    await page.getByRole('checkbox', { name: 'Baby changing', exact: true }).click();
+    // Tab stays inside the dialog
+    let escaped = false;
+    for (let i = 0; i < 40; i++) { await page.keyboard.press('Tab'); if (!(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')))) { escaped = true; break; } }
+    check(!escaped, 'keyboard focus stays inside the open dialog (40 Tab presses)');
+    // draft: Cancel discards
+    await dlg.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
+    check((await dlg.getByRole('checkbox', { name: 'Verified only', exact: true }).getAttribute('aria-checked')) === 'true' && (await cardNames(page)).length === 4, 'choosing a filter in the sheet is a draft: the list behind it has not changed');
+    await dlg.getByRole('button', { name: 'Cancel and close filters' }).click();
+    check(await dialogClosed(page) && (await cardNames(page)).length === 4 && (await button(page, 'Remove filter: Verified only').count()) === 0, 'Cancel closes the sheet and discards the draft');
+    check(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Show filters'), 'focus returns to the Filters button after Cancel');
+    // draft: Escape discards, and a reopened sheet starts from the applied filters
+    await opener.click();
+    await dialogOpen(page);
+    await dlg.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
+    await page.keyboard.press('Escape');
+    check(await dialogClosed(page) && (await cardNames(page)).length === 4, 'Escape closes the sheet and discards the draft');
+    check(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Show filters'), 'focus returns to the Filters button after Escape');
+    await opener.click();
+    await dialogOpen(page);
+    check((await dlg.getByRole('checkbox', { name: 'Verified only', exact: true }).getAttribute('aria-checked')) === 'false', 'a reopened sheet shows the applied filters, not the discarded draft');
+    // Apply commits the whole draft at once
+    await dlg.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
+    await dlg.getByRole('checkbox', { name: 'Wheelchair accessible', exact: true }).click();
+    check((await cardNames(page)).length === 4, 'nothing is applied until Apply');
+    await dlg.getByRole('button', { name: 'Apply filters' }).click();
+    check(await dialogClosed(page) && JSON.stringify(await cardNames(page)) === JSON.stringify(['Cody Library Restroom']), 'Apply commits every draft choice together and closes the sheet', JSON.stringify(await cardNames(page)));
+    check(await text(page, '1 restroom nearby, filtered') && await button(page, 'Remove filter: Verified only').first().isVisible() && await button(page, 'Remove filter: Wheelchair accessible').first().isVisible(), 'applied filters stay visible as chips and the header says results are filtered');
+    check((await page.getByRole('button', { name: 'Show filters, 2 active' }).count()) === 1, 'the Filters button states how many filters are active');
+    // selections survive reopening; Clear resets the draft visibly and Apply commits it
+    await page.getByRole('button', { name: 'Show filters, 2 active' }).click();
+    await dialogOpen(page);
+    check((await dlg.getByRole('checkbox', { name: 'Verified only', exact: true }).getAttribute('aria-checked')) === 'true' && (await dlg.getByRole('checkbox', { name: 'Wheelchair accessible', exact: true }).getAttribute('aria-checked')) === 'true', 'applied selections are preserved when the sheet is reopened');
+    await dlg.getByRole('button', { name: 'Clear', exact: true }).click();
+    check((await dlg.getByRole('checkbox', { name: 'Verified only', exact: true }).getAttribute('aria-checked')) === 'false' && (await cardNames(page)).length === 1, 'Clear visibly resets the draft but changes nothing until Apply');
+    await dlg.getByRole('button', { name: 'Apply filters' }).click();
+    await dialogClosed(page);
+    check((await cardNames(page)).length === 4 && (await button(page, 'Remove filter: Verified only').count()) === 0, 'Apply after Clear commits the reset');
+    // a filter with no matches -> recoverable empty state; the outside Clear all stays obvious
+    await opener.click();
+    await dialogOpen(page);
+    await dlg.getByRole('checkbox', { name: 'Baby changing', exact: true }).click();
+    await dlg.getByRole('button', { name: 'Apply filters' }).click();
+    await dialogClosed(page);
     check(await text(page, 'No restrooms match your filters'), 'a filter with no matches explains why the list is empty');
     await button(page, 'Clear all filters').first().click();
-    check(await text(page, 'Cody Library Restroom') && (await cardNames(page)).length === 4, 'Clear all filters recovers the full list');
-    await page.getByRole('checkbox', { name: 'Wheelchair accessible', exact: true }).click();
-    check(JSON.stringify(await cardNames(page)) === JSON.stringify(['Cody Library Restroom', 'Far Trailhead Restroom']), 'an accessibility filter matches only restrooms known to be accessible');
+    check(await text(page, 'Cody Library Restroom') && (await cardNames(page)).length === 4, 'Clear all filters (outside the sheet) recovers the full list');
+    // the chips remove one filter at a time
+    await opener.click();
+    await dialogOpen(page);
+    await dlg.getByRole('checkbox', { name: 'Verified only', exact: true }).click();
+    await dlg.getByRole('button', { name: 'Apply filters' }).click();
+    await dialogClosed(page);
+    await button(page, 'Remove filter: Verified only').click();
+    check(await text(page, 'Park Pavilion Restroom'), 'removing the active-filter chip restores results');
 
-    // R1 corrections: action semantics, radio-group keyboard behavior, purchase wording
-    const clear = page.getByRole('button', { name: 'Clear all filters' });
-    check((await clear.count()) === 1 && (await clear.getAttribute('aria-checked')) === null, 'Clear all is a button with no checked state');
-    const hide = page.getByRole('button', { name: 'Hide filters' });
-    check((await hide.getAttribute('aria-checked')) === null && (await page.getByRole('checkbox', { name: /filters/i }).count()) === 0, 'the filters disclosure is a button, not a checkbox');
-    await hide.focus();
-    await page.keyboard.press('Enter');
-    check((await page.getByRole('button', { name: /Show filters/ }).getAttribute('aria-expanded')) === 'false', 'Enter collapses the disclosure and updates aria-expanded');
-    await page.keyboard.press('Space');
-    check((await page.getByRole('button', { name: 'Hide filters' }).getAttribute('aria-expanded')) === 'true', 'Space expands the disclosure and updates aria-expanded');
-    check((await page.locator('[role="radio"][aria-selected]').count()) === 0, 'no radio exposes the extraneous aria-selected');
-
-    const distance = page.getByRole('radiogroup', { name: 'Distance' });
+    // radio groups keep their keyboard behavior inside the sheet
+    await opener.click();
+    await dialogOpen(page);
+    const distance = dlg.getByRole('radiogroup', { name: 'Distance' });
     const radios = distance.getByRole('radio');
     const tabStops = async () => radios.evaluateAll((els) => els.filter((e) => e.tabIndex === 0).map((e) => e.getAttribute('aria-label')));
     const checked = async () => radios.evaluateAll((els) => els.filter((e) => e.getAttribute('aria-checked') === 'true').map((e) => e.getAttribute('aria-label')));
+    check(JSON.stringify(await checked()) === JSON.stringify(['1 mi']), 'the default distance is 1 mile', JSON.stringify(await checked()));
     check(JSON.stringify(await tabStops()) === JSON.stringify(await checked()) && (await tabStops()).length === 1, 'a radio group has a single tab stop on the selected radio', JSON.stringify(await tabStops()));
-    const before = (await checked())[0];
-    await radios.filter({ has: page.getByText(before, { exact: true }) }).first().focus();
-    await page.keyboard.press('ArrowRight');
-    const afterRight = await checked();
-    check(afterRight.length === 1 && afterRight[0] !== before, 'ArrowRight moves selection to the next radio', `${before} -> ${afterRight[0]}`);
-    check((await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === afterRight[0], 'focus follows the arrow-key selection');
-    await page.keyboard.press('ArrowLeft');
-    check(JSON.stringify(await checked()) === JSON.stringify([before]), 'ArrowLeft moves back');
+    check(JSON.stringify(await radios.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))) === JSON.stringify(['1 mi', '2 mi', '5 mi', '10 mi', '25 mi']), 'every explicit distance choice is still offered');
     await radios.first().focus();
+    await page.keyboard.press('ArrowRight');
+    check(JSON.stringify(await checked()) === JSON.stringify(['2 mi']) && (await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === '2 mi', 'ArrowRight moves selection and focus to the next radio');
     await page.keyboard.press('ArrowLeft');
-    check((await checked())[0] === (await radios.last().getAttribute('aria-label')), 'arrow keys wrap from the first radio to the last');
-    await page.keyboard.press('Tab');
-    check(!(await page.evaluate(() => !!document.activeElement?.closest('[role="radiogroup"][aria-label="Distance"]'))), 'Tab leaves the radio group after one stop');
+    await page.keyboard.press('ArrowLeft');
+    check(JSON.stringify(await checked()) === JSON.stringify(['25 mi']), 'arrow keys wrap from the first radio to the last');
+    await dlg.getByRole('button', { name: 'Cancel and close filters' }).click();
+    await dialogClosed(page);
 
-    // the purchase filter never claims a restroom is free
-    const purchase = page.getByRole('radiogroup', { name: 'Purchase' });
-    check((await purchase.getByRole('radio', { name: 'No purchase needed' }).count()) === 1 && (await purchase.getByText(/^Free$/).count()) === 0, 'the purchase filter says "No purchase needed", not "Free"');
-    await purchase.getByRole('radio', { name: 'No purchase needed' }).click();
+    // Key and Purchase: Any / Required / Not required, with context in the group name
+    await opener.click();
+    await dialogOpen(page);
+    const keyGroup = dlg.getByRole('radiogroup', { name: 'Key needed' });
+    const purchase = dlg.getByRole('radiogroup', { name: 'Purchase needed' });
+    check(JSON.stringify(await keyGroup.getByRole('radio').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))) === JSON.stringify(['Any', 'Required', 'Not required']), 'Key offers Any / Required / Not required');
+    check(JSON.stringify(await purchase.getByRole('radio').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))) === JSON.stringify(['Any', 'Required', 'Not required']) && (await purchase.getByText(/^Free$/).count()) === 0, 'Purchase offers Any / Required / Not required and never says "Free"');
+    await purchase.getByRole('radio', { name: 'Not required' }).click();
+    await dlg.getByRole('button', { name: 'Apply filters' }).click();
+    await dialogClosed(page);
     check(await text(page, 'No purchase required') && (await page.getByText('Free to use').count()) === 0, 'the active purchase chip reads "No purchase required"');
     await ctx.close();
   }
@@ -330,7 +375,7 @@ try {
     mode = 'empty';
     await e.page.goto(`${base}/`);
     await button(e.page, 'Find Nearest Restroom').click();
-    check(await text(e.page, 'No restrooms found nearby yet'), 'an empty area is explained');
+    check(await text(e.page, 'No restrooms within 1 mi yet') && await button(e.page, 'Search within 2 mi').isVisible(), 'an empty area is explained and offers a farther search');
     check((await button(e.page, 'Check again').count()) === 1, 'the empty state offers a next step');
     await e.page.screenshot({ path: join(SHOTS, 'narrow-6-empty.png') });
     await e.ctx.close();
@@ -355,7 +400,7 @@ try {
     check(await findNearest(page), 'dashboard: results appear after granting location');
     const hero = page.getByRole('region', { name: 'Nearest restroom' });
     const heroText = (await hero.innerText()).replace(/\s+/g, ' ');
-    check(heroText.includes('Cody Library Restroom') && /\d+(\.\d)? (ft|mi)/.test(heroText) && /~\d+ min walk/.test(heroText), 'dashboard: the nearest card leads with the name, a distance and a walking estimate', heroText);
+    check(heroText.includes('Cody Library Restroom') && /\d+(\.\d+)? (ft|mi)/.test(heroText) && /straight-line/.test(heroText) && !/min walk/.test(heroText), 'dashboard: the nearest card leads with the name and a straight-line distance (no invented walking time)', heroText);
     check((await cardNames(page))[0] === 'Cody Library Restroom' && heroText.includes('Verified'), 'dashboard: the nearest card is the first (distance-first) result and shows its real verification status');
     check(heroText.includes('No key needed') && !/\bNo\b(?! key| purchase)/.test(heroText), 'dashboard: the card lists known facts only and never an unknown as a negative', heroText);
     const hb = await hero.getByRole('button', { name: /^Directions to / }).boundingBox();
@@ -374,12 +419,12 @@ try {
     const actionNames = (await group.getByRole('button').allInnerTexts()).concat(await group.getByRole('link').allInnerTexts()).map((t) => t.split('\n')[0]).sort();
     check(JSON.stringify(actionNames) === JSON.stringify(['Add restroom', 'Favorites', 'Map']), 'dashboard: three compact actions with short visible labels that map to existing features', JSON.stringify(actionNames));
     check((await page.getByText('Sign in to', { exact: false }).count()) === 0 && (await page.getByText('points', { exact: false }).count()) === 0 && (await page.getByText('badge', { exact: false }).count()) === 0, 'dashboard: public discovery stays signed out and shows no fake balance, badge or reward');
-    // The Filters button sits in the search row, discloses the existing panel and exposes its state
+    // The Filters button sits in the search row and opens the filter dialog
     const filtersTile = page.getByRole('button', { name: 'Show filters', exact: true });
-    check((await filtersTile.getAttribute('aria-expanded')) === 'false', 'dashboard: the Filters button starts collapsed');
     await filtersTile.click();
-    check((await page.getByRole('button', { name: 'Hide filters', exact: true }).getAttribute('aria-expanded')) === 'true' && await text(page, 'Distance'), 'dashboard: the Filters button opens the existing filter panel and says it is expanded');
-    await page.getByRole('button', { name: 'Hide filters', exact: true }).click();
+    check(await dialogOpen(page) && await text(page, 'Distance'), 'dashboard: the Filters button opens the filter dialog');
+    await page.keyboard.press('Escape');
+    await dialogClosed(page);
     // Show map / Show list
     await group.getByRole('button', { name: 'Show map', exact: true }).click();
     check(await page.getByRole('region', { name: /Map of nearby restrooms/ }).isVisible() && (await page.getByRole('radio', { name: 'Map' }).getAttribute('aria-checked')) === 'true', 'dashboard: Show map switches to the map and keeps the List | Map control in step');
@@ -516,6 +561,83 @@ try {
     await findNearest(nar.page);
     check(!(await nar.page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)), 'D2: no horizontal scrolling at 320 px wide');
     await nar.ctx.close();
+  }
+
+  // 11. D3: distance default and recovery, straight-line wording, history-aware Back
+  {
+    const FAR = { latitude: 44.5805, longitude: -109.0565 }; // about 1.4 mi from the only nearby restroom, so nothing is within 1 mi
+    const far = await newPage({ at: FAR });
+    await findNearestAny(far.page);
+    check(await text(far.page, 'No restrooms within 1 mi yet') && await text(far.page, 'straight-line distance'), 'D3: with nothing within the 1 mile default, the empty state says how far was searched (straight-line)');
+    await button(far.page, 'Search within 2 mi').click();
+    check(await text(far.page, 'Distant Overlook Restroom') && await button(far.page, 'Remove filter: Within 2 mi').isVisible(), 'D3: "Search within 2 mi" shows the farther restroom and keeps the choice visible and removable');
+    check(await text(far.page, 'Distances are straight-line from you, not walking routes.'), 'D3: the list says distances are straight-line, not walking routes');
+    await far.ctx.close();
+    const chain = await newPage();
+    mode = 'empty';
+    await chain.page.goto(`${base}/`);
+    await button(chain.page, 'Find Nearest Restroom').click();
+    for (const mi of [2, 5, 10, 25]) {
+      await button(chain.page, `Search within ${mi} mi`).click();
+    }
+    check(await text(chain.page, 'No restrooms within 25 mi yet') && (await chain.page.getByRole('button', { name: /^Search within/ }).count()) === 0, 'D3: after the farthest choice there is no further "Search within" (no dead end loop)');
+    mode = 'ok';
+    await chain.ctx.close();
+
+    const { ctx, page } = await newPage();
+    await findNearest(page);
+    const body = await page.evaluate(() => document.body.innerText);
+    check(!/min (walk|bike|drive)/i.test(body) && !/~\d+ min/.test(body), 'D3: no invented walking, biking or driving minutes anywhere on the home screen');
+    check(await text(page, 'straight-line'), 'D3: the featured card labels its distance as straight-line');
+    // finer sub-mile display
+    check(/\b(\d+ ft|0\.\d+ mi)\b/.test(body), 'D3: sub-mile distances use feet or hundredths of a mile', body.slice(0, 200));
+    // choose a farther distance, then come back from a detail page: the choice and the search survive
+    await page.getByRole('button', { name: 'Show filters', exact: true }).click();
+    await dialogOpen(page);
+    await page.getByRole('dialog').getByRole('radio', { name: '5 mi', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Apply filters' }).click();
+    await dialogClosed(page);
+    check(await text(page, '5 restrooms nearby, filtered') && await button(page, 'Remove filter: Within 5 mi').isVisible(), 'D3: an explicit 5 mi choice is honored and shown as a removable filter');
+    await page.getByLabel('Search these restrooms', { exact: true }).fill('library');
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
+    check(await text(page, 'Features & Access') && (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1, 'D3: a restroom opened from the list has one visible Back control');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    check(new URL(page.url()).pathname === '/' && (await page.getByLabel('Search these restrooms', { exact: true }).inputValue()) === 'library' && await button(page, 'Remove filter: Within 5 mi').isVisible(), 'D3: Back returns to the actual previous screen with the search and the distance choice intact');
+    // browser back does the same
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
+    await text(page, 'Features & Access');
+    await page.goBack();
+    check(new URL(page.url()).pathname === '/' && (await page.getByLabel('Search these restrooms', { exact: true }).inputValue()) === 'library', 'D3: the browser Back button returns to the same screen with the search intact');
+    // multi-step push/pop: home -> details -> report -> Back -> details -> Back -> home
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
+    await text(page, 'Features & Access');
+    await page.getByRole('button', { name: 'Report a problem' }).click();
+    check(/\/report/.test(page.url()) && (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1, 'D3: a pushed flow (report) has a visible Back');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    check(/\/location\//.test(page.url()) && await text(page, 'Features & Access'), 'D3: Back from the report flow returns to the restroom');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    check(new URL(page.url()).pathname === '/' && (await page.getByLabel('Search these restrooms', { exact: true }).inputValue()) === 'library', 'D3: a second Back returns to the nearby list, search intact');
+    // Favorites and Add restroom, reached from the quick actions
+    await page.getByLabel('Search these restrooms', { exact: true }).fill('');
+    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: /^Favorites/ }).click();
+    check(/\/favorites/.test(page.url()) && (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1, 'D3: Favorites, opened from Home, has Back');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    check(new URL(page.url()).pathname === '/' && await button(page, 'Remove filter: Within 5 mi').isVisible(), 'D3: Back from Favorites returns Home with the filters intact');
+    await page.getByRole('group', { name: 'Quick actions' }).getByRole('link', { name: 'Add restroom', exact: true }).click();
+    check(/\/contribute/.test(page.url()) && (await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1, 'D3: Add restroom has Back');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    check(new URL(page.url()).pathname === '/', 'D3: Back from Add restroom returns Home');
+    await page.screenshot({ path: join(SHOTS, 'narrow-d3-back-home.png') });
+    await ctx.close();
+    // a direct link has no history: the control is named for where it goes and is never labeled Back
+    const direct = await newPage();
+    await direct.page.goto(`${base}/location/${ROWS[0].id}`);
+    check(await text(direct.page, 'Features & Access'), 'D3: a direct link opens the restroom');
+    check((await direct.page.getByRole('button', { name: 'Back', exact: true }).count()) === 0 && (await direct.page.getByRole('button', { name: 'Go to nearby restrooms' }).count()) === 1, 'D3: with no history the control is "Nearby restrooms", not "Back"');
+    await direct.page.getByRole('button', { name: 'Go to nearby restrooms' }).click();
+    check(new URL(direct.page.url()).pathname === '/', 'D3: the named safe destination opens the nearby screen');
+    await direct.page.screenshot({ path: join(SHOTS, 'narrow-d3-direct-link.png') }).catch(() => {});
+    await direct.ctx.close();
   }
 
   // 8. Privacy and public access

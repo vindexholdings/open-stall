@@ -9,7 +9,7 @@ import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
  * carries the meaning, so icons are hidden from assistive technology.
  */
 export type IconName =
-  | 'search' | 'pin' | 'list' | 'map' | 'filter' | 'heart' | 'user' | 'plus' | 'check' | 'close' | 'info' | 'alert' | 'help' | 'chevron' | 'navigate' | 'compass' | 'gear' | 'medal';
+  | 'search' | 'pin' | 'list' | 'map' | 'filter' | 'heart' | 'user' | 'plus' | 'check' | 'close' | 'info' | 'alert' | 'help' | 'chevron' | 'navigate' | 'compass' | 'gear' | 'medal' | 'star' | 'clock' | 'back';
 
 type Props = { name: IconName; size?: number; color?: string; /** Color of cut-outs (the hole in a pin). Defaults to the surface color. */ inner?: string };
 
@@ -91,6 +91,23 @@ export function Icon({ name, size = 24, color = colors.text, inner = colors.surf
       break;
     case 'chevron':
       body = <View style={{ position: 'absolute', left: 6.5 * u, top: 7 * u, width: 9 * u, height: 9 * u, borderRightWidth: w, borderTopWidth: w, borderColor: color, transform: [{ rotate: '45deg' }] }} />;
+      break;
+    case 'back':
+      body = <View style={{ position: 'absolute', left: 8.5 * u, top: 7 * u, width: 9 * u, height: 9 * u, borderLeftWidth: w, borderBottomWidth: w, borderColor: color, transform: [{ rotate: '45deg' }] }} />;
+      break;
+    case 'star':
+      // an eight-point star: two squares, one turned 45 degrees
+      body = (<>
+        <View style={{ position: 'absolute', left: 5.5 * u, top: 5.5 * u, width: 13 * u, height: 13 * u, borderRadius: 1.5 * u, backgroundColor: color }} />
+        <View style={{ position: 'absolute', left: 5.5 * u, top: 5.5 * u, width: 13 * u, height: 13 * u, borderRadius: 1.5 * u, backgroundColor: color, transform: [{ rotate: '45deg' }] }} />
+      </>);
+      break;
+    case 'clock':
+      body = (<>
+        <View style={ring(2, 2, 20)} />
+        <View style={{ position: 'absolute', left: 11 * u, top: 6.5 * u, width: w, height: 6.5 * u, borderRadius: w, backgroundColor: color }} />
+        <View style={{ position: 'absolute', left: 11 * u, top: 11.2 * u, width: 5 * u, height: w, borderRadius: w, backgroundColor: color }} />
+      </>);
       break;
     case 'navigate':
       body = <View style={{ position: 'absolute', left: 4 * u, top: 3 * u, width: 0, height: 0, borderLeftWidth: 8 * u, borderRightWidth: 8 * u, borderBottomWidth: 18 * u, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color, transform: [{ rotate: '45deg' }, { translateX: 2 * u }] }} />;

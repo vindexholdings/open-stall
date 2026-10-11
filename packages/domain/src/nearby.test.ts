@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { distanceMeters } from './geo';
-import { boundingBox, estimateTravelMinutes, formatDistance, nearestVerifiedContext, rankNearby } from './nearby';
+import { boundingBox, DEFAULT_RADIUS_METERS, estimateTravelMinutes, formatDistance, nearestVerifiedContext, rankNearby } from './nearby';
 import { toPublicLocation, type PublicLocation } from './publicLocation';
 
 // Synthetic fixtures: exist only in memory inside tests.
@@ -55,13 +55,28 @@ describe('boundingBox', () => {
   });
 });
 
-describe('formatting and ETA', () => {
-  it('formats US distances', () => {
+describe('formatting (straight-line distance)', () => {
+  it('formats US distances: feet under 0.2 mi, hundredths of a mile under 1 mi, then tenths', () => {
     expect(formatDistance(50)).toBe('160 ft'); // 164 ft rounded to 10
+    expect(formatDistance(10)).toBe('30 ft');
+    expect(formatDistance(300)).toBe('980 ft'); // 984 ft; still under 0.2 mi (322 m)
+    expect(formatDistance(322)).toBe('0.2 mi'); // 0.2 mi boundary
+    expect(formatDistance(560)).toBe('0.35 mi');
     expect(formatDistance(800)).toBe('0.5 mi');
+    expect(formatDistance(1000)).toBe('0.6 mi');
+    expect(formatDistance(1600)).toBe('1.0 mi'); // 0.994 mi rounds up to the 1 mi step and then uses tenths
+    expect(formatDistance(1609.344)).toBe('1.0 mi');
+    expect(formatDistance(2300)).toBe('1.4 mi');
     expect(formatDistance(20_000)).toBe('12 mi');
   });
-  it('estimates at least one minute', () => {
+  it('never rounds up into a false whole mile or down to zero', () => {
+    expect(formatDistance(1)).toBe('10 ft');
+    expect(formatDistance(1560)).toBe('0.95 mi');
+  });
+  it('has a walking-friendly default radius of one mile', () => {
+    expect(DEFAULT_RADIUS_METERS).toBe(1609);
+  });
+  it('keeps the straight-line speed helper (not shown in the app)', () => {
     expect(estimateTravelMinutes(10, 'walk')).toBe(1);
     expect(estimateTravelMinutes(1400, 'walk')).toBe(17);
   });

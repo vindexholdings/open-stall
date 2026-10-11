@@ -2,34 +2,40 @@ import type { PublicLocation } from './publicLocation';
 
 export type FactValue = 'yes' | 'no' | 'unknown';
 
-export type Fact = { key: string; label: string; value: FactValue; text: string };
+/**
+ * One fact about a restroom. `label` is a feature-specific phrase for THIS value ("No key needed", "Hot water available",
+ * "Fee not reported"), so a row reads on its own without a repeated Yes/No column. `value` keeps the three states distinct
+ * (known present, confirmed absent, unknown) so the UI can draw a check, a cross or a question mark next to the words.
+ */
+export type Fact = { key: string; value: FactValue; label: string };
 
-const toValue = (b: boolean | null): FactValue => (b === null ? 'unknown' : b ? 'yes' : 'no');
-const word: Record<FactValue, string> = { yes: 'Yes', no: 'No', unknown: 'Not reported' };
+const toValue = (b: boolean | null | undefined): FactValue => (b === null || b === undefined ? 'unknown' : b ? 'yes' : 'no');
 
-const fact = (key: string, label: string, b: boolean | null): Fact => {
+/** [present, absent, unknown] phrases. Absent is used ONLY when the underlying value is false, never when it is null. */
+const fact = (key: string, b: boolean | null | undefined, phrases: readonly [string, string, string]): Fact => {
   const value = toValue(b);
-  return { key, label, value, text: word[value] };
+  return { key, value, label: value === 'yes' ? phrases[0] : value === 'no' ? phrases[1] : phrases[2] };
 };
 
 /**
- * Access facts shown first on a location (key, purchase, accessibility), then amenities.
- * Unknown is displayed as "Not reported" and is never presented as "No".
+ * What the detail page lists under "Features & Access": `access` (key, purchase, fee, wheelchair, gender-neutral), then
+ * `amenities`, then `secondary` (lower emphasis, still shown). Unknown is its own phrase and never reads as "No". A
+ * purchase that is not required says nothing about a usage fee, so fee is its own fact.
  */
-export function describeFacts(l: PublicLocation): { access: Fact[]; amenities: Fact[] } {
+export function describeFacts(l: PublicLocation): { access: Fact[]; amenities: Fact[]; secondary: Fact[] } {
   return {
     access: [
-      fact('key', 'Key required', l.keyRequired),
-      fact('purchase', 'Purchase required', l.purchaseRequired),
-      fact('fee', 'Fee to use', l.feeRequired),
-      fact('wheelchair', 'Wheelchair accessible', l.wheelchairAccessible),
-      fact('genderNeutral', 'Gender-neutral', l.genderNeutral),
+      fact('key', l.keyRequired, ['Key required', 'No key needed', 'Key requirement not reported']),
+      fact('purchase', l.purchaseRequired, ['Purchase required', 'No purchase required', 'Purchase requirement not reported']),
+      fact('fee', l.feeRequired, ['Fee to use', 'No fee to use', 'Fee not reported']),
+      fact('wheelchair', l.wheelchairAccessible, ['Wheelchair accessible', 'Not wheelchair accessible', 'Wheelchair access not reported']),
+      fact('genderNeutral', l.genderNeutral, ['Gender-neutral', 'Not gender-neutral', 'Gender-neutral not reported']),
     ],
     amenities: [
-      fact('babyChanging', 'Baby changing', l.babyChanging),
-      fact('hotWater', 'Hot water', l.hasHotWater),
-      fact('coldWater', 'Cold water', l.hasColdWater),
+      fact('babyChanging', l.babyChanging, ['Baby changing available', 'No baby changing', 'Baby changing not reported']),
+      fact('hotWater', l.hasHotWater, ['Hot water available', 'No hot water', 'Hot water not reported']),
     ],
+    secondary: [fact('coldWater', l.hasColdWater, ['Cold water available', 'No cold water', 'Cold water not reported'])],
   };
 }
 

@@ -15,7 +15,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <StatusBar style="dark" />
-      <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <MainNav {...(props as unknown as MainNavProps)} />}>
+      <Tabs backBehavior="history" screenOptions={{ headerShown: false }} tabBar={(props) => <MainNav {...(props as unknown as MainNavProps)} />}>
         <Tabs.Screen name="index" options={{ title: 'Nearby', tabBarAccessibilityLabel: 'Nearby restrooms' }} />
         <Tabs.Screen name="favorites" options={{ title: 'Favorites' }} />
         <Tabs.Screen name="location/[id]" options={{ href: null, title: 'Restroom' }} />

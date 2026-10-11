@@ -5,13 +5,38 @@ import type { PublicLocation } from './publicLocation';
 const loc = { keyRequired: true, purchaseRequired: false, wheelchairAccessible: null, feeRequired: true } as PublicLocation;
 
 describe('describeFacts', () => {
-  it('distinguishes yes, no and not reported', () => {
+  it('uses feature-specific phrases and keeps present, absent and unknown distinct', () => {
     const { access } = describeFacts(loc);
-    const by = Object.fromEntries(access.map((f) => [f.key, f.text]));
-    expect(by.key).toBe('Yes');
-    expect(by.purchase).toBe('No');
-    expect(by.wheelchair).toBe('Not reported');
-    expect(by.fee).toBe('Yes');
+    const by = Object.fromEntries(access.map((f) => [f.key, f]));
+    expect(by.key).toMatchObject({ value: 'yes', label: 'Key required' });
+    expect(by.purchase).toMatchObject({ value: 'no', label: 'No purchase required' });
+    expect(by.wheelchair).toMatchObject({ value: 'unknown', label: 'Wheelchair access not reported' });
+    expect(by.fee).toMatchObject({ value: 'yes', label: 'Fee to use' });
+  });
+  it('never turns an unknown into a negative: "no" phrases appear ONLY for a value of false', () => {
+    const unknowns = describeFacts({} as unknown as PublicLocation);
+    const all = [...unknowns.access, ...unknowns.amenities, ...unknowns.secondary];
+    expect(all.every((f) => f.value === 'unknown')).toBe(true);
+    expect(all.map((f) => f.label)).toEqual([
+      'Key requirement not reported', 'Purchase requirement not reported', 'Fee not reported', 'Wheelchair access not reported',
+      'Gender-neutral not reported', 'Baby changing not reported', 'Hot water not reported', 'Cold water not reported',
+    ]);
+    const none = describeFacts({ keyRequired: false, purchaseRequired: false, feeRequired: false, wheelchairAccessible: false, genderNeutral: false, babyChanging: false, hasHotWater: false, hasColdWater: false } as PublicLocation);
+    expect([...none.access, ...none.amenities, ...none.secondary].map((f) => f.label)).toEqual([
+      'No key needed', 'No purchase required', 'No fee to use', 'Not wheelchair accessible', 'Not gender-neutral', 'No baby changing', 'No hot water', 'No cold water',
+    ]);
+  });
+  it('keeps purchase and fee separate: no purchase required says nothing about a fee', () => {
+    const { access } = describeFacts({ purchaseRequired: false, feeRequired: null } as PublicLocation);
+    const by = Object.fromEntries(access.map((f) => [f.key, f]));
+    expect(by.purchase?.label).toBe('No purchase required');
+    expect(by.fee).toMatchObject({ value: 'unknown', label: 'Fee not reported' });
+  });
+  it('puts cold water in the secondary group, still shown', () => {
+    const d = describeFacts({ hasColdWater: true } as PublicLocation);
+    expect(d.secondary.map((f) => f.key)).toEqual(['coldWater']);
+    expect(d.secondary[0]).toMatchObject({ value: 'yes', label: 'Cold water available' });
+    expect(d.amenities.map((f) => f.key)).toEqual(['babyChanging', 'hotWater']);
   });
 });
 

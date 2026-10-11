@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilters, searchLocations, clearFilter, countActiveFilters, DEFAULT_FILTERS, describeActiveFilters, resultsSummary, type LocationFilters } from './filters';
+import { applyFilters, searchLocations, clearFilter, countActiveFilters, DEFAULT_FILTERS, describeActiveFilters, nextWiderRadius, RADIUS_CHOICES_MILES, radiusLabel, radiusMetersForMiles, resultsSummary, type LocationFilters } from './filters';
 import type { NearbyLocation } from './nearby';
 
 // Synthetic, in-memory fixtures only.
@@ -140,5 +140,28 @@ describe('searchLocations', () => {
   });
   it('finds nothing it was not given (no lookup, no invented places)', () => {
     expect(searchLocations(rows, 'seattle')).toEqual([]);
+  });
+});
+
+describe('distance choices (D3)', () => {
+  it('defaults to a walking-friendly 1 mile and keeps every explicit farther choice', () => {
+    expect(DEFAULT_FILTERS.radiusMeters).toBe(1609);
+    expect(RADIUS_CHOICES_MILES).toEqual([1, 2, 5, 10, 25]);
+    expect(countActiveFilters(DEFAULT_FILTERS)).toBe(0);
+    // an explicit 5 mi choice is a visible, removable filter now that it is not the default
+    const five = { ...DEFAULT_FILTERS, radiusMeters: radiusMetersForMiles(5) };
+    expect(describeActiveFilters(five).map((a) => a.label)).toEqual(['Within 5 mi']);
+    expect(clearFilter(five, 'radius').radiusMeters).toBe(1609);
+  });
+  it('offers the next farther choice for empty results, and none past the farthest', () => {
+    expect(nextWiderRadius(1609)).toEqual({ meters: radiusMetersForMiles(2), miles: 2 });
+    expect(nextWiderRadius(radiusMetersForMiles(2))?.miles).toBe(5);
+    expect(nextWiderRadius(radiusMetersForMiles(10))?.miles).toBe(25);
+    expect(nextWiderRadius(radiusMetersForMiles(25))).toBeNull();
+    expect(nextWiderRadius(4000)?.miles).toBe(5); // a value between choices moves to the next farther one
+  });
+  it('states the radius the way the chips do', () => {
+    expect(radiusLabel(1609)).toBe('1 mi');
+    expect(radiusLabel(radiusMetersForMiles(0.5))).toBe('0.5 mi');
   });
 });

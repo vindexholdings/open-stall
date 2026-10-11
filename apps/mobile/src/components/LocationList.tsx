@@ -9,11 +9,10 @@ export type LocationListItem = {
   id: string;
   name: string;
   subtitle?: string;
-  /** Combined label, e.g. "0.3 mi · ~4 min walk". Used when `distance` is not provided (Favorites). */
+  /** Combined label, e.g. "0.35 mi straight-line". Used when `distance` is not provided (Favorites). */
   distanceLabel?: string;
-  /** Prominent distance (e.g. "0.3 mi") and secondary travel estimate (e.g. "~4 min walk"). */
+  /** Prominent straight-line distance (e.g. "0.35 mi"). It is never shown as a walking or driving time. */
   distance?: string;
-  travel?: string;
   badge: Badge;
   /** Known facts only (see quickFacts); unknown facts are never listed as negatives. */
   facts?: string[];
@@ -37,7 +36,7 @@ function Card({ item, onSelect, onDirections }: { item: LocationListItem; onSele
     item.tag,
     item.name,
     item.badge.label,
-    item.distance ? `${item.distance}, ${item.travel ?? ''}`.replace(/, $/, '') : item.distanceLabel,
+    item.distance ? `${item.distance} straight-line` : item.distanceLabel,
     item.subtitle,
     item.facts?.join(', '),
     item.ratingText ?? 'Not rated yet',
@@ -65,7 +64,6 @@ function Card({ item, onSelect, onDirections }: { item: LocationListItem; onSele
                 <Icon name="pin" size={14} color={tiles.blue.fg} inner={tiles.blue.bg} />
                 <Text style={styles.distance}>{item.distance}</Text>
               </View>
-              {item.travel ? <Text style={styles.travel}>{item.travel}</Text> : null}
             </View>
           ) : item.distanceLabel ? (
             <Text style={styles.distanceInline}>{item.distanceLabel}</Text>
@@ -73,7 +71,10 @@ function Card({ item, onSelect, onDirections }: { item: LocationListItem; onSele
         </View>
         <View style={styles.meta}>
           <VerificationBadge badge={item.badge} />
-          <Text style={[styles.rating, !item.ratingText && styles.unrated]}>{item.ratingText ?? 'Not rated yet'}</Text>
+          <View style={styles.ratingLine}>
+            {item.ratingText ? <Icon name="star" size={14} color={colors.text} /> : null}
+            <Text style={[styles.rating, !item.ratingText && styles.unrated]}>{item.ratingText ?? 'Not rated yet'}</Text>
+          </View>
         </View>
         {item.subtitle ? <Text style={styles.subtitle}>{item.subtitle}</Text> : null}
         {item.facts && item.facts.length > 0 ? (
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
   distanceBlock: { alignItems: 'flex-end' },
   distancePill: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: tiles.blue.bg, borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
   distance: { ...typography.heading, fontSize: 17, lineHeight: 22, color: colors.primaryStrong },
-  travel: { ...typography.label, fontWeight: '400', color: colors.textMuted },
+  ratingLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   distanceInline: { ...typography.label, color: colors.primaryStrong },
   meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.sm, rowGap: spacing.xs },
   subtitle: { ...typography.label, fontWeight: '400', color: colors.textMuted },

@@ -75,6 +75,25 @@ export type ActiveFilter = { key: string; label: string };
 
 const METERS_PER_MILE = 1609.344;
 
+/** The explicit distance choices, in miles. 1 mile is the walking-friendly default; farther choices stay available. */
+export const RADIUS_CHOICES_MILES: readonly number[] = [1, 2, 5, 10, 25];
+export const radiusMetersForMiles = (miles: number): number => miles * METERS_PER_MILE;
+const sameRadius = (a: number, b: number): boolean => Math.round(a) === Math.round(b);
+
+/**
+ * The next farther explicit choice after `current`, or null when `current` is already the farthest. A radius that is not one of
+ * the choices (an older value) moves to the first choice that is strictly farther. Used by the empty-result "Search within ..." action.
+ */
+export function nextWiderRadius(current: number): { meters: number; miles: number } | null {
+  const next = RADIUS_CHOICES_MILES.find((mi) => radiusMetersForMiles(mi) > current && !sameRadius(radiusMetersForMiles(mi), current));
+  return next === undefined ? null : { meters: radiusMetersForMiles(next), miles: next };
+}
+
+/** "1 mi" or "0.5 mi": the radius as the filter chips and the empty state state it. */
+export function radiusLabel(meters: number): string {
+  return `${Math.round((meters / METERS_PER_MILE) * 10) / 10} mi`;
+}
+
 /**
  * Human-readable list of the filters currently narrowing results, in a stable order. Drives the
  * visible summary chips (so a hidden filter panel never hides why the list is short) and the
@@ -83,8 +102,7 @@ const METERS_PER_MILE = 1609.344;
 export function describeActiveFilters(f: LocationFilters): ActiveFilter[] {
   const out: ActiveFilter[] = [];
   if (f.radiusMeters !== DEFAULT_FILTERS.radiusMeters) {
-    const mi = Math.round((f.radiusMeters / METERS_PER_MILE) * 10) / 10;
-    out.push({ key: 'radius', label: `Within ${mi} mi` });
+    out.push({ key: 'radius', label: `Within ${radiusLabel(f.radiusMeters)}` });
   }
   if (f.verifiedOnly) out.push({ key: 'verifiedOnly', label: 'Verified only' });
   if (f.minRating !== null) out.push({ key: 'minRating', label: `Rating ${f.minRating}+` });

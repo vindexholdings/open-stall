@@ -3,13 +3,11 @@ import {
   communityRatingDetail,
   describeFacts,
   distanceMeters,
-  estimateTravelMinutes,
   factMark,
   formatDistance,
   hoursLabel,
   parseLocationId,
   provenanceNotes,
-  quickFacts,
   UNVERIFIED_EXPLANATION,
   verificationBadge,
   type Fact,
@@ -36,27 +34,28 @@ import { useUserLocation } from '../../location/useUserLocation';
 
 type Load = { id: string; status: 'ready'; location: PublicLocation; fromCache: boolean } | { id: string; status: 'missing' | 'error' };
 
-/** One fact: label, then a symbol + word. Unknown is "? Not reported" and never reads as "No". */
-function FactRow({ fact }: { fact: Fact }) {
+/**
+ * One feature, written for this restroom's own value ("No key needed", "Hot water available", "Fee not reported"). The
+ * mark shows the three states apart: a check (known present), a cross (confirmed absent), a question mark (not reported).
+ * The words carry the state, so there is no repeated Yes/No column and nothing relies on color or symbol alone.
+ */
+function FeatureRow({ fact, muted = false }: { fact: Fact; muted?: boolean }) {
   const mark = factMark(fact.value);
+  const quiet = muted || fact.value === 'unknown';
   return (
-    <View role="listitem" style={styles.factRow} accessible accessibilityLabel={`${fact.label}: ${fact.text}`}>
-      <Text style={styles.factLabel}>{fact.label}</Text>
-      <View style={styles.factMark}>
-        <Icon name={mark.icon} size={16} color={fact.value === 'unknown' ? colors.textMuted : colors.text} inner={colors.surface} />
-        <Text style={[styles.factValue, fact.value === 'unknown' && styles.unknown]}>{mark.text}</Text>
-      </View>
+    <View role="listitem" style={styles.featureRow} accessible accessibilityLabel={fact.label}>
+      <Icon name={mark.icon} size={18} color={fact.value === 'unknown' ? colors.textMuted : colors.text} inner={colors.surface} />
+      <Text style={[styles.featureText, quiet && styles.unknown]}>{fact.label}</Text>
     </View>
   );
 }
 
-function FactList({ label, facts, children }: { label: string; facts: Fact[]; children?: React.ReactNode }) {
+function FeatureList({ label, facts, muted = false }: { label: string; facts: Fact[]; muted?: boolean }) {
   return (
-    <View role="list" aria-label={label} style={styles.facts}>
+    <View role="list" aria-label={label} style={styles.features}>
       {facts.map((f) => (
-        <FactRow key={f.key} fact={f} />
+        <FeatureRow key={f.key} fact={f} muted={muted} />
       ))}
-      {children}
     </View>
   );
 }
@@ -95,7 +94,7 @@ export default function LocationDetail() {
 
   if (!id) {
     return (
-      <Screen moveFocus title="Restroom">
+      <Screen back="pushed" moveFocus title="Restroom">
         <StatusBanner tone="danger" urgent title="This restroom link isn’t valid." message="Check the link, or search for a restroom near you.">
           {backToSearch}
         </StatusBanner>
@@ -104,21 +103,21 @@ export default function LocationDetail() {
   }
   if (!locationSource) {
     return (
-      <Screen moveFocus title="Restroom">
+      <Screen back="pushed" moveFocus title="Restroom">
         <StatusBanner tone="info" title="Restroom data isn’t connected in this build.">{backToSearch}</StatusBanner>
       </Screen>
     );
   }
   if (!current) {
     return (
-      <Screen moveFocus title="Restroom">
+      <Screen back="pushed" moveFocus title="Restroom">
         <StatusBanner tone="info" title="Loading restroom details…" />
       </Screen>
     );
   }
   if (current.status === 'missing') {
     return (
-      <Screen moveFocus title="Restroom">
+      <Screen back="pushed" moveFocus title="Restroom">
         <StatusBanner tone="warning" title="This restroom isn’t available." message="It may have been removed or hasn’t been confirmed yet.">
           {backToSearch}
         </StatusBanner>
@@ -127,7 +126,7 @@ export default function LocationDetail() {
   }
   if (current.status === 'error') {
     return (
-      <Screen moveFocus title="Restroom">
+      <Screen back="pushed" moveFocus title="Restroom">
         <StatusBanner tone="danger" urgent title="We couldn’t load this restroom." message="Check your connection and try again.">
           <PrimaryButton label="Try again" onPress={() => setAttempt((n) => n + 1)} />
           {backToSearch}
@@ -140,10 +139,9 @@ export default function LocationDetail() {
   const l = current.location;
   const origin = access.kind === 'ready' ? access.coordinates : null;
   const meters = origin ? distanceMeters(origin, l.coordinates) : null;
-  const { access: accessFacts, amenities } = describeFacts(l);
+  const { access: accessFacts, amenities, secondary } = describeFacts(l);
   const hours = hoursLabel(l.openingHours);
   const rating = communityRatingDetail(l.averageRating, l.ratingCount);
-  const highlights = quickFacts(l);
   const navigate = (provider: NavigationProvider) => {
     const url = buildNavigationUrl(provider, l.coordinates, mode);
     if (url) void Linking.openURL(url);
@@ -154,41 +152,32 @@ export default function LocationDetail() {
     <View style={styles.summary}>
       {address ? <Text style={styles.body}>{address}</Text> : null}
       {meters !== null ? (
-        <Text style={styles.strong} accessibilityLiveRegion="polite">
-          {formatDistance(meters)} · ~{estimateTravelMinutes(meters, 'walk')} min walk · ~{estimateTravelMinutes(meters, 'bike')} min bike · ~
-          {estimateTravelMinutes(meters, 'drive')} min drive
-        </Text>
+        <View style={styles.iconLine} accessible accessibilityLabel={`${formatDistance(meters)} away, straight-line distance`} accessibilityLiveRegion="polite">
+          <Icon name="pin" size={18} color={colors.primaryStrong} inner={colors.background} />
+          <Text style={styles.strong}>{formatDistance(meters)}</Text>
+          <Text style={styles.body}>straight-line</Text>
+        </View>
       ) : null}
       <View style={styles.badges}>
         <VerificationBadge badge={verificationBadge(l)} />
-        <Text style={rating.hasRatings ? styles.rating : styles.ratingNone}>{rating.headline}</Text>
-      </View>
-      {highlights.length > 0 ? (
-        <View role="list" aria-label="Quick facts" style={styles.highlights}>
-          {highlights.map((h) => (
-            <Text key={h} role="listitem" style={styles.highlight}>
-              {h}
-            </Text>
-          ))}
+        <View style={styles.iconLine}>
+          {rating.hasRatings ? <Icon name="star" size={16} color={colors.text} /> : null}
+          <Text style={rating.hasRatings ? styles.rating : styles.ratingNone}>{rating.headline}</Text>
         </View>
-      ) : null}
+      </View>
     </View>
   );
 
   const main = (
     <>
-      <Section title="Access">
-        <FactList label="Access facts" facts={accessFacts}>
-          <View role="listitem" style={styles.factRow} accessible accessibilityLabel={`Hours: ${hours.text}`}>
-            <Text style={styles.factLabel}>Hours</Text>
-            <Text style={[styles.hours, !hours.reported && styles.unknown]}>{hours.reported ? hours.text : `? ${hours.text}`}</Text>
-          </View>
-        </FactList>
+      <Section title="Features & Access">
+        <View style={styles.iconLine} accessible accessibilityLabel={`Hours: ${hours.text}`}>
+          <Icon name={hours.reported ? 'clock' : 'help'} size={18} color={hours.reported ? colors.text : colors.textMuted} inner={colors.surface} />
+          <Text style={[styles.hours, !hours.reported && styles.unknown]}>{hours.reported ? `Hours: ${hours.text}` : 'Hours not reported'}</Text>
+        </View>
+        <FeatureList label="Access and features" facts={[...accessFacts, ...amenities]} />
+        <FeatureList label="Other details" facts={secondary} muted />
         {l.accessLocation ? <Text style={styles.body}>Where: {l.accessLocation}</Text> : null}
-      </Section>
-
-      <Section title="Amenities">
-        <FactList label="Amenities" facts={amenities} />
       </Section>
 
       <Section title="About these details" hint={rating.note}>
@@ -224,7 +213,7 @@ export default function LocationDetail() {
   );
 
   return (
-    <Screen moveFocus title={l.name}>
+    <Screen back="pushed" moveFocus title={l.name}>
       {current.fromCache ? (
         <StatusBanner tone="warning" title="Offline: showing saved details" message="These details may be out of date." />
       ) : null}
@@ -255,15 +244,12 @@ const styles = StyleSheet.create({
   badges: { gap: spacing.xs },
   rating: { ...typography.body, color: colors.text },
   ratingNone: { ...typography.body, color: colors.textMuted },
-  highlights: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  highlight: { ...typography.label, color: colors.text, backgroundColor: colors.surfaceMuted, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: 999, overflow: 'hidden' },
-  facts: { gap: spacing.xs },
-  factRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md, minHeight: 32 },
-  factLabel: { ...typography.body, color: colors.text, flex: 1 },
-  factMark: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  factValue: { ...typography.label, color: colors.text },
+  iconLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs + 2, flexWrap: 'wrap' },
+  features: { gap: spacing.xs },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 32 },
+  featureText: { ...typography.body, color: colors.text, flex: 1 },
   unknown: { color: colors.textMuted, fontWeight: '400' },
-  hours: { ...typography.body, color: colors.text, flex: 2, textAlign: 'right' },
+  hours: { ...typography.body, color: colors.text, flex: 1 },
   note: { ...typography.body, color: colors.textMuted },
   wideRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.lg },
   wideMain: { flex: 3, gap: spacing.md },

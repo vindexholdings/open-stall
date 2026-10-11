@@ -47,7 +47,7 @@ export default function SignInScreen() {
 
   if (status === 'unavailable' || !client) {
     return (
-      <Screen moveFocus title="Sign in" form>
+      <Screen back="pushed" moveFocus title="Sign in" form>
         <StatusBanner tone="info" title="Accounts aren’t available in this build." message="You can still find restrooms without signing in.">
           <SecondaryButton label="Back to restrooms" onPress={() => router.replace('/')} />
         </StatusBanner>
@@ -110,7 +110,7 @@ export default function SignInScreen() {
     );
 
   return (
-    <Screen moveFocus title={mode === 'sign-in' ? 'Sign in' : 'Create account'} form>
+    <Screen back="pushed" moveFocus title={mode === 'sign-in' ? 'Sign in' : 'Create account'} form>
       <Text style={styles.body}>
         An account lets you save favorites and contribute. You never need one to find a restroom.
       </Text>

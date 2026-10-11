@@ -1,5 +1,6 @@
 import type { VerificationBadge as Badge } from '@open-stall/domain';
 import { colors, radii, shadows, spacing, tiles, touchTarget, typography, type TileTone } from '@open-stall/ui';
+import type { Ref } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Icon, type IconName } from './Icon';
 import { VerificationBadge } from './VerificationBadge';
@@ -10,9 +11,9 @@ import { enterActivates, useFocusStyle } from './focus';
 export type NearestRestroom = {
   id: string;
   name: string;
-  /** "0.3 mi" and "~4 min walk": the same truthful, distance-first values the list uses. */
+  /** "0.35 mi", with a note that it is a straight-line distance (not a route), so it is never mistaken for walking time. */
   distance: string;
-  travel: string;
+  distanceNote: string;
   badge: Badge;
   /** Known facts only (never an unknown shown as a negative). */
   facts: string[];
@@ -55,7 +56,7 @@ export function NearestCard({ item, onDirections, onOpen, narrowed = false }: { 
         </View>
         <View style={styles.heroDistanceBlock}>
           <Text style={styles.heroDistance}>{item.distance}</Text>
-          <Text style={styles.heroTravel}>{item.travel}</Text>
+          <Text style={styles.heroTravel}>{item.distanceNote}</Text>
         </View>
       </View>
       <View style={styles.heroMeta}>
@@ -133,8 +134,10 @@ export function QuickActions({ actions }: { actions: QuickAction[] }) {
  * One row: a labeled search over the restrooms already loaded (local only; it never looks anything up) and the Filters
  * button. The input's accessible name is "Search these restrooms"; the placeholder says what it searches.
  */
-export function SearchBar({ value, onChange, filtersOpen, activeFilters, onToggleFilters }: {
-  value: string; onChange: (next: string) => void; filtersOpen: boolean; activeFilters: number; onToggleFilters: () => void;
+export function SearchBar({ value, onChange, activeFilters, onOpenFilters, buttonRef }: {
+  value: string; onChange: (next: string) => void; activeFilters: number; onOpenFilters: () => void;
+  /** The Filters button, so focus can return to it when the filter sheet closes (native screen readers). */
+  buttonRef?: Ref<View>;
 }) {
   const inputFocus = useFocusStyle();
   const btnFocus = useFocusStyle();
@@ -162,15 +165,17 @@ export function SearchBar({ value, onChange, filtersOpen, activeFilters, onToggl
         ) : null}
       </View>
       <Pressable
+        ref={buttonRef}
         accessibilityRole="button"
-        aria-expanded={filtersOpen}
-        accessibilityLabel={filtersOpen ? 'Hide filters' : activeFilters ? `Show filters, ${activeFilters} active` : 'Show filters'}
-        onPress={onToggleFilters}
+        aria-haspopup="dialog"
+        accessibilityLabel={activeFilters ? `Show filters, ${activeFilters} active` : 'Show filters'}
+        accessibilityHint="Opens the filter choices."
+        onPress={onOpenFilters}
         {...btnFocus.handlers}
-        style={({ pressed }) => [styles.filterBtn, filtersOpen && styles.filterBtnOn, pressed && styles.dim, btnFocus.style]}
+        style={({ pressed }) => [styles.filterBtn, activeFilters > 0 && styles.filterBtnOn, pressed && styles.dim, btnFocus.style]}
       >
-        <Icon name="filter" size={20} color={filtersOpen ? colors.onPrimaryStrong : tiles.teal.fg} inner={filtersOpen ? colors.primaryStrong : colors.surface} />
-        <Text style={[styles.filterText, filtersOpen && styles.filterTextOn]}>{activeFilters ? `Filters (${activeFilters})` : 'Filters'}</Text>
+        <Icon name="filter" size={20} color={activeFilters > 0 ? colors.onPrimaryStrong : tiles.teal.fg} inner={activeFilters > 0 ? colors.primaryStrong : colors.surface} />
+        <Text style={[styles.filterText, activeFilters > 0 && styles.filterTextOn]}>{activeFilters ? `Filters (${activeFilters})` : 'Filters'}</Text>
       </Pressable>
     </View>
   );

@@ -1,5 +1,5 @@
 import {
-  FREE_FAVORITES_LIMIT, distanceMeters, estimateTravelMinutes, formatDistance, verificationBadge, type PublicLocation,
+  FREE_FAVORITES_LIMIT, distanceMeters, formatDistance, verificationBadge, type PublicLocation,
 } from '@open-stall/domain';
 import { colors, spacing, typography } from '@open-stall/ui';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -63,7 +63,7 @@ function FavoritesList() {
             name: l.name,
             badge: verificationBadge(l),
             subtitle: [l.addressLine, l.city].filter(Boolean).join(', ') || undefined,
-            distanceLabel: m === null ? undefined : `${formatDistance(m)} · ~${estimateTravelMinutes(m, 'walk')} min walk`,
+            distanceLabel: m === null ? undefined : `${formatDistance(m)} straight-line`,
           };
         })}
       />
@@ -73,7 +73,7 @@ function FavoritesList() {
 
 export default function FavoritesScreen() {
   return (
-    <Screen title="Favorites" form>
+    <Screen back="history" title="Favorites" form>
       <RequireAuth reason="Sign in to save favorite restrooms and see them on all your devices." next="/favorites">
         <FavoritesList />
       </RequireAuth>

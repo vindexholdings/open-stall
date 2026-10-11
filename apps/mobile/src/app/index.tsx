@@ -3,9 +3,10 @@ import {
   communityRatingText,
   countActiveFilters,
   DEFAULT_FILTERS,
-  estimateTravelMinutes,
   formatDistance,
   nearestVerifiedContext,
+  nextWiderRadius,
+  radiusLabel,
   quickFacts,
   resultsSummary,
   searchLocations,
@@ -16,9 +17,9 @@ import {
 } from '@open-stall/domain';
 import { colors, layout, layoutFor, radii, spacing, touchTarget, typography } from '@open-stall/ui';
 import { getDiscoverySession, saveDiscoverySession, type ResultsView } from '../state/discoverySession';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
+import { AccessibilityInfo, findNodeHandle, Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { usePreferences } from '../account/preferences';
 import { NearestCard, QuickActions, SearchBar, VipPreview, type QuickAction } from '../components/Dashboard';
 import { enterActivates, useFocusStyle } from '../components/focus';
@@ -56,6 +57,21 @@ function VerifiedHint({ id, name, distance, onOpen }: { id: string; name: string
   );
 }
 
+/** Nothing within the chosen distance: say how far was searched and offer the next farther choice (never a silent change). */
+function NoneNearby({ radiusMeters, onWiden, onRetry }: { radiusMeters: number; onWiden: (meters: number) => void; onRetry: () => void }) {
+  const wider = nextWiderRadius(radiusMeters);
+  return (
+    <StatusBanner
+      tone="info"
+      title={`No restrooms within ${radiusLabel(radiusMeters)} yet`}
+      message={wider ? `Open Stall doesn’t list a public restroom within ${radiusLabel(radiusMeters)} of you (straight-line distance). You can search farther.` : 'Open Stall doesn’t list a public restroom within the farthest distance yet.'}
+    >
+      {wider ? <PrimaryButton label={`Search within ${wider.miles} mi`} onPress={() => onWiden(wider.meters)} /> : null}
+      <SecondaryButton label="Check again" onPress={onRetry} />
+    </StatusBanner>
+  );
+}
+
 export default function NearbyScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -76,7 +92,18 @@ export default function NearbyScreen() {
     saveDiscoverySession({ query: next });
     setQueryState(next);
   }, []);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpenState] = useState(false);
+  const filterButton = useRef<View>(null);
+  const setFiltersOpen = useCallback((next: boolean) => {
+    setFiltersOpenState(next);
+    // Native screen readers do not restore focus after a modal closes; put it back on the Filters button. (The web dialog does this itself.)
+    if (!next && Platform.OS !== 'web') {
+      setTimeout(() => {
+        const node = findNodeHandle(filterButton.current);
+        if (node) AccessibilityInfo.setAccessibilityFocus(node);
+      }, 300);
+    }
+  }, []);
   const { prefs } = usePreferences();
   const [filters, setFiltersState] = useState<LocationFilters>(() => getDiscoverySession().filters);
   const setFilters = useCallback((next: LocationFilters) => {
@@ -120,7 +147,6 @@ export default function NearbyScreen() {
         badge: verificationBadge(l),
         subtitle: [l.addressLine, l.city].filter(Boolean).join(', ') || undefined,
         distance: formatDistance(l.distanceMeters),
-        travel: `~${estimateTravelMinutes(l.distanceMeters, 'walk')} min walk`,
         facts: quickFacts(l),
         ratingText: communityRatingText(l.averageRating, l.ratingCount) ?? undefined,
         tag: i === 0 ? 'Nearest' : undefined,
@@ -134,7 +160,7 @@ export default function NearbyScreen() {
         id: nearest.id,
         name: nearest.name,
         distance: formatDistance(nearest.distanceMeters),
-        travel: `~${estimateTravelMinutes(nearest.distanceMeters, 'walk')} min walk`,
+        distanceNote: 'straight-line',
         badge: verificationBadge(nearest),
         facts: quickFacts(nearest),
         subtitle: [nearest.addressLine, nearest.city].filter(Boolean).join(', ') || undefined,
@@ -189,9 +215,7 @@ export default function NearbyScreen() {
           <SecondaryButton label="Clear all filters" onPress={() => setFilters(DEFAULT_FILTERS)} />
         </StatusBanner>
       ) : (
-        <StatusBanner tone="info" title="No restrooms found nearby yet" message="Open Stall doesn’t list a public restroom within this distance yet.">
-          <SecondaryButton label="Check again" onPress={nearby.refresh} />
-        </StatusBanner>
+        <NoneNearby radiusMeters={filters.radiusMeters} onWiden={(meters) => setFilters({ ...filters, radiusMeters: meters })} onRetry={nearby.refresh} />
       )
     ) : null;
 
@@ -218,6 +242,7 @@ export default function NearbyScreen() {
       >
         {loading ? 'Searching…' : searching ? (results.length === 0 ? `No restrooms match “${query.trim()}”` : `${results.length} ${results.length === 1 ? 'restroom matches' : 'restrooms match'} “${query.trim()}”`) : resultsSummary(results.length, activeFilters)}
       </Text>
+      {results.length > 0 ? <Text style={styles.disclosure}>Distances are straight-line from you, not walking routes.</Text> : null}
       {verifiedHint && results.length > 0 ? (
         <VerifiedHint id={verifiedHint.id} name={verifiedHint.name} distance={formatDistance(verifiedHint.distanceMeters)} onOpen={openLocation} />
       ) : null}
@@ -231,8 +256,8 @@ export default function NearbyScreen() {
     <>
       {origin ? (
         <>
-          <SearchBar value={query} onChange={setQuery} filtersOpen={filtersOpen} activeFilters={activeFilters} onToggleFilters={() => setFiltersOpen((v) => !v)} />
-          <FilterPanel filters={filters} onChange={setFilters} open={filtersOpen} onOpenChange={setFiltersOpen} hideToggle />
+          <SearchBar value={query} onChange={setQuery} activeFilters={activeFilters} onOpenFilters={() => setFiltersOpen(true)} buttonRef={filterButton} />
+          <FilterPanel filters={filters} onChange={setFilters} open={filtersOpen} onOpenChange={setFiltersOpen} />
         </>
       ) : null}
       {origin && nearestItem ? <NearestCard item={nearestItem} onDirections={directions} onOpen={openLocation} narrowed={searching || activeFilters > 0} /> : null}
@@ -272,6 +297,7 @@ export default function NearbyScreen() {
 
 const styles = StyleSheet.create({
   summary: { ...typography.label, fontSize: 15, lineHeight: 20, color: colors.text },
+  disclosure: { ...typography.label, fontWeight: '400', color: colors.textMuted },
   hint: {
     minHeight: touchTarget.min,
     justifyContent: 'center',
