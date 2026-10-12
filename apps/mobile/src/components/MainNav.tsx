@@ -1,5 +1,5 @@
 import { colors, radii, tiles, touchTarget, typography } from '@open-stall/ui';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,10 +65,10 @@ export function MainNav({ state, descriptors, navigation }: MainNavProps) {
 }
 
 /** One navigation link. The focus ring is applied from focus state (like every other control), not only from :focus-visible. */
-function NavLink({ href, spoken, current, style, children }: { href: string; spoken: string; current: boolean; style: unknown; children: ReactNode }) {
+function NavLink({ href, spoken, current, style, children, push = false }: { href: string; spoken: string; current: boolean; style: unknown; children: ReactNode; push?: boolean }) {
   const focus = useFocusStyle();
   return (
-    <Link href={href} asChild>
+    <Link href={href} push={push} asChild>
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={spoken}
@@ -80,6 +80,45 @@ function NavLink({ href, spoken, current, style, children }: { href: string; spo
         {children}
       </Pressable>
     </Link>
+  );
+}
+
+
+const ITEMS: { name: string; label: string; spoken: string }[] = [
+  { name: 'index', label: 'Nearby', spoken: 'Nearby restrooms' },
+  { name: 'favorites', label: 'Favorites', spoken: 'Favorites' },
+  { name: 'account', label: 'Account', spoken: 'Account' },
+  { name: 'settings', label: 'Settings', spoken: 'Settings' },
+];
+
+/**
+ * The same four destinations, shown under a screen that was OPENED from another (a restroom, a form, sign-in). Each link PUSHES
+ * its destination, so Back returns to this screen; nothing is highlighted because no main destination is the current one.
+ */
+export function PushedNav() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web';
+  return (
+    <View {...(isWeb ? { role: 'navigation', 'aria-label': 'Main' } : {})} style={[styles.bar, { paddingBottom: insets.bottom }]}>
+      {ITEMS.map((it) => {
+        const content = (
+          <>
+            <View style={styles.pill}><Icon name={ICON[it.name] ?? 'pin'} size={22} color={colors.textMuted} inner={colors.surface} /></View>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.label, { color: colors.textMuted }]}>{it.label}</Text>
+          </>
+        );
+        return isWeb ? (
+          <NavLink key={it.name} href={HREF[it.name]!} spoken={it.spoken} current={false} style={styles.item} push>
+            {content}
+          </NavLink>
+        ) : (
+          <Pressable key={it.name} accessibilityRole="button" accessibilityLabel={it.spoken} onPress={() => router.push(HREF[it.name] as never)} style={styles.item}>
+            {content}
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 

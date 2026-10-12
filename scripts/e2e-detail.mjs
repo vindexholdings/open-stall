@@ -288,6 +288,8 @@ try {
     await button(page, 'Sign in').click();
     check(await text(page, 'What’s wrong with'), 'after sign-in the user lands on the report form for that restroom');
     check(page.url().includes('/report'), 'the report URL is preserved', page.url());
+    await button(page, 'Back').click();
+    check(page.url().includes('/location/') && await text(page, 'Cody Library Restroom'), 'D3: Back from the report form after signing in returns to the restroom, not to a stale sign-in or report prompt', page.url());
     await page.goto(`${base}/location/${RICH}`);
     await button(page, 'Suggest a correction').click();
     check(page.url().includes('/contribute') && page.url().includes(RICH), 'Suggest a correction opens the correction form for this restroom', page.url());

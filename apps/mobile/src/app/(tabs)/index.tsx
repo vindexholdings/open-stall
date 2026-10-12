@@ -16,25 +16,25 @@ import {
   type LocationFilters,
 } from '@open-stall/domain';
 import { colors, layout, layoutFor, radii, spacing, touchTarget, typography } from '@open-stall/ui';
-import { getDiscoverySession, saveDiscoverySession, type ResultsView } from '../state/discoverySession';
+import { getDiscoverySession, saveDiscoverySession, type ResultsView } from '../../state/discoverySession';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { AccessibilityInfo, findNodeHandle, Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
-import { usePreferences } from '../account/preferences';
-import { NearestCard, QuickActions, SearchBar, VipPreview, type QuickAction } from '../components/Dashboard';
-import { enterActivates, useFocusStyle } from '../components/focus';
-import { FilterPanel } from '../components/FilterPanel';
-import { LocationList, type LocationListItem } from '../components/LocationList';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { Screen } from '../components/Screen';
-import { SecondaryButton } from '../components/SecondaryButton';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { StatusBanner } from '../components/StatusBanner';
-import { locationSource } from '../data';
-import { LocationNotice } from '../location/LocationNotice';
-import { useNearbyLocations } from '../location/useNearbyLocations';
-import { useUserLocation } from '../location/useUserLocation';
-import { MapView, type MapMarker } from '../map';
+import { usePreferences } from '../../account/preferences';
+import { NearestCard, QuickActions, SearchBar, VipPreview, type QuickAction } from '../../components/Dashboard';
+import { enterActivates, useFocusStyle } from '../../components/focus';
+import { FilterPanel } from '../../components/FilterPanel';
+import { LocationList, type LocationListItem } from '../../components/LocationList';
+import { PrimaryButton } from '../../components/PrimaryButton';
+import { Screen } from '../../components/Screen';
+import { SecondaryButton } from '../../components/SecondaryButton';
+import { SegmentedControl } from '../../components/SegmentedControl';
+import { StatusBanner } from '../../components/StatusBanner';
+import { locationSource } from '../../data';
+import { LocationNotice } from '../../location/LocationNotice';
+import { useNearbyLocations } from '../../location/useNearbyLocations';
+import { useUserLocation } from '../../location/useUserLocation';
+import { MapView, type MapMarker } from '../../map';
 
 const VIEW_OPTIONS = [
   { value: 'list', label: 'List' },
@@ -94,6 +94,9 @@ export default function NearbyScreen() {
   }, []);
   const [filtersOpen, setFiltersOpenState] = useState(false);
   const filterButton = useRef<View>(null);
+  // Leaving this screen (a link, the browser or system Back) closes the filter dialog and discards its draft, so it can never be left
+  // open over another screen.
+  useFocusEffect(useCallback(() => () => setFiltersOpenState(false), []));
   const setFiltersOpen = useCallback((next: boolean) => {
     setFiltersOpenState(next);
     // Native screen readers do not restore focus after a modal closes; put it back on the Filters button. (The web dialog does this itself.)

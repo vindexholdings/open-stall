@@ -5,15 +5,15 @@ import { colors, spacing, typography } from '@open-stall/ui';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { listFavorites } from '../account/api';
-import { RequireAuth } from '../auth/RequireAuth';
-import { useAuth } from '../auth/AuthProvider';
-import { LocationList } from '../components/LocationList';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { Screen } from '../components/Screen';
-import { SecondaryButton } from '../components/SecondaryButton';
-import { StatusBanner } from '../components/StatusBanner';
-import { useUserLocation } from '../location/useUserLocation';
+import { listFavorites } from '../../account/api';
+import { RequireAuth } from '../../auth/RequireAuth';
+import { useAuth } from '../../auth/AuthProvider';
+import { LocationList } from '../../components/LocationList';
+import { PrimaryButton } from '../../components/PrimaryButton';
+import { Screen } from '../../components/Screen';
+import { SecondaryButton } from '../../components/SecondaryButton';
+import { StatusBanner } from '../../components/StatusBanner';
+import { useUserLocation } from '../../location/useUserLocation';
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; items: PublicLocation[] };
 

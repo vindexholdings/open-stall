@@ -1,6 +1,5 @@
 import { colors, spacing, touchTarget, typography } from '@open-stall/ui';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useRootNavigationState, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from './Icon';
 import { useFocusStyle } from './focus';
@@ -22,13 +21,10 @@ type Props = {
 export function BackBar({ mode }: Props) {
   const router = useRouter();
   const focus = useFocusStyle();
-  const [canGoBack, setCanGoBack] = useState(() => router.canGoBack());
-  // The screen stays mounted between visits, so re-read the history each time it comes into focus.
-  useFocusEffect(
-    useCallback(() => {
-      setCanGoBack(router.canGoBack());
-    }, [router]),
-  );
+  // Re-read the history on EVERY navigation-state change, not only when this screen gains focus: a screen that stays mounted
+  // (a stack entry underneath, or a tab) must never show a stale Back.
+  const rootState = useRootNavigationState();
+  const canGoBack = rootState?.key !== undefined && router.canGoBack();
   if (!canGoBack && mode === 'history') return null;
   const goBack = canGoBack;
   return (

@@ -3,15 +3,15 @@ import { colors, spacing, typography } from '@open-stall/ui';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { deleteAccount } from '../account/api';
-import { useAuth } from '../auth/AuthProvider';
-import { signOut } from '../auth/authService';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { Screen } from '../components/Screen';
-import { Section } from '../components/Section';
-import { SecondaryButton } from '../components/SecondaryButton';
-import { StatusBanner } from '../components/StatusBanner';
-import { TextField } from '../components/TextField';
+import { deleteAccount } from '../../account/api';
+import { useAuth } from '../../auth/AuthProvider';
+import { signOut } from '../../auth/authService';
+import { PrimaryButton } from '../../components/PrimaryButton';
+import { Screen } from '../../components/Screen';
+import { Section } from '../../components/Section';
+import { SecondaryButton } from '../../components/SecondaryButton';
+import { StatusBanner } from '../../components/StatusBanner';
+import { TextField } from '../../components/TextField';
 
 export default function AccountScreen() {
   const { status, email, client, rpc } = useAuth();

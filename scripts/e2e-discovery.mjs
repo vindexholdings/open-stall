@@ -640,6 +640,67 @@ try {
     await direct.ctx.close();
   }
 
+  // 12. D3 navigation history: repeated entries with different params, pushed main links, reload, dialog safety
+  {
+    const { ctx, page } = await newPage();
+    await findNearest(page);
+    const h1 = () => page.locator('[role="heading"][aria-level="1"]:visible').first().innerText();
+    const idOf = (url) => new URL(url).pathname.split('/').pop();
+    const A = ROWS[0].id; const B = ROWS[2].id;
+    // Home -> Details A -> Nearby (pushed) -> Details B -> Back -> Back  must return to Details A with its own id
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
+    await text(page, 'Features & Access');
+    check(idOf(page.url()) === A && (await h1()) === 'Cody Library Restroom', 'D3 history: Details A opens');
+    await page.getByRole('navigation', { name: 'Main' }).filter({ visible: true }).getByRole('link', { name: 'Nearby restrooms' }).click();
+    await text(page, 'Nearest restroom');
+    await page.getByRole('list').filter({ visible: true }).getByRole('link', { name: /Corner Gas Station/ }).click();
+    await text(page, 'Features & Access');
+    check(idOf(page.url()) === B && (await h1()) === 'Corner Gas Station', 'D3 history: Details B opens after a pushed Nearby');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await text(page, 'Nearest restroom');
+    check(new URL(page.url()).pathname === '/', 'D3 history: the first Back returns to the Nearby screen that opened B');
+    // that second Nearby screen has no Back (a main destination); use the system/browser Back for the next step
+    await page.goBack();
+    await text(page, 'Features & Access');
+    check(idOf(page.url()) === A && (await h1()) === 'Cody Library Restroom', 'D3 history: the second Back returns to Details A (its own screen and id, not Home)', `${page.url()} ${await h1()}`);
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await text(page, 'Nearest restroom');
+    check(new URL(page.url()).pathname === '/', 'D3 history: the third Back returns to the first Nearby screen');
+    // Details A -> Favorites (pushed) -> Back returns to Details A
+    await page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
+    await text(page, 'Features & Access');
+    await page.getByRole('navigation', { name: 'Main' }).filter({ visible: true }).getByRole('link', { name: 'Favorites' }).click();
+    await text(page, 'Sign in to save favorite restrooms');
+    check((await page.getByRole('button', { name: 'Back', exact: true }).count()) === 1, 'D3 history: Favorites pushed from Details shows Back');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await text(page, 'Features & Access');
+    check(idOf(page.url()) === A, 'D3 history: Back from a pushed Favorites returns to Details A');
+    // reload = no history: the control is named for where it goes
+    await page.reload();
+    await text(page, 'Features & Access');
+    check((await page.getByRole('button', { name: 'Back', exact: true }).count()) === 0 && (await page.getByRole('button', { name: 'Go to nearby restrooms' }).count()) === 1, 'D3 history: after a reload there is no history, so the control is "Nearby restrooms", never Back');
+    await ctx.close();
+    // the filter dialog never stays open over another screen
+    const d = await newPage();
+    await findNearest(d.page);
+    await d.page.getByRole('list').getByRole('link', { name: /Cody Library Restroom/ }).click();
+    await text(d.page, 'Features & Access');
+    await d.page.goBack();
+    await text(d.page, 'Nearest restroom');
+    await d.page.getByRole('button', { name: 'Show filters', exact: true }).click();
+    await dialogOpen(d.page);
+    await d.page.goForward();
+    await text(d.page, 'Features & Access');
+    check(await dialogClosed(d.page), 'D3 history: navigating away with the filter dialog open closes it (it is never left over another screen)');
+    // after a browser Forward the router rebuilds the state from the URL (no history): the named control is shown instead of Back
+    const leave = (await d.page.getByRole('button', { name: 'Back', exact: true }).count()) === 1 ? d.page.getByRole('button', { name: 'Back', exact: true }) : d.page.getByRole('button', { name: 'Go to nearby restrooms' });
+    await leave.click();
+    await text(d.page, 'Nearest restroom');
+    const usable = { dialogs: await d.page.getByRole('dialog').count(), search: await d.page.getByLabel('Search these restrooms', { exact: true }).isVisible().catch(() => 'err'), url: d.page.url() };
+    check(usable.dialogs === 0 && usable.search === true, 'D3 history: coming back shows Nearby with the dialog closed and the screen usable', JSON.stringify(usable));
+    await d.ctx.close();
+  }
+
   // 8. Privacy and public access
   {
     const nearby = requests.filter((r) => r.path === '/rest/v1/rpc/nearby_locations');

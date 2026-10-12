@@ -4,6 +4,7 @@ import { useCallback, useRef, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackBar } from './BackBar';
+import { PushedNav } from './MainNav';
 
 type Props = { title: string; subtitle?: string; children?: ReactNode; /** Forms and account pages: a narrower, easier-to-read column on large screens. */ form?: boolean;
   /**
@@ -44,6 +45,7 @@ export function Screen({ title, subtitle, children, form = false, moveFocus = fa
           {children}
         </View>
       </ScrollView>
+      {back === 'pushed' ? <PushedNav /> : null}
     </SafeAreaView>
   );
 }

@@ -1,9 +1,8 @@
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 import { enableScreens } from 'react-native-screens';
-import { Tabs } from 'expo-router/js-tabs';
 import { AuthProvider } from '../auth/AuthProvider';
-import { MainNav, type MainNavProps } from '../components/MainNav';
 import { installGlobalWebStyles } from '../web/globalStyles';
 
 installGlobalWebStyles();
@@ -11,22 +10,25 @@ installGlobalWebStyles();
 // behind the active screen). Enabled, inactive screens are display:none yet stay mounted, so their state is kept.
 if (Platform.OS === 'web') enableScreens(true);
 
+/**
+ * Root navigation (D3): a real stack. `(tabs)` is the main four-destination navigator; a restroom, the add/correct and report
+ * forms and sign-in are pushed on top of whatever opened them. Every push is its own history entry that keeps its own route
+ * AND parameters (Home -> Details A -> Favorites -> Details B -> Back -> Back returns to Details A), and on iOS and Android the
+ * native stack supplies the edge-swipe / system Back. URLs are unchanged: `(tabs)` is a group, not a path segment.
+ */
 export default function RootLayout() {
   return (
     <AuthProvider>
       <StatusBar style="dark" />
-      <Tabs backBehavior="history" screenOptions={{ headerShown: false }} tabBar={(props) => <MainNav {...(props as unknown as MainNavProps)} />}>
-        <Tabs.Screen name="index" options={{ title: 'Nearby', tabBarAccessibilityLabel: 'Nearby restrooms' }} />
-        <Tabs.Screen name="favorites" options={{ title: 'Favorites' }} />
-        <Tabs.Screen name="location/[id]" options={{ href: null, title: 'Restroom' }} />
-        <Tabs.Screen name="account" options={{ title: 'Account' }} />
-        <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
-        <Tabs.Screen name="contribute" options={{ href: null, title: 'Add restroom' }} />
-        <Tabs.Screen name="report" options={{ href: null, title: 'Report a problem' }} />
-        <Tabs.Screen name="auth/sign-in" options={{ href: null, title: 'Sign in' }} />
-        <Tabs.Screen name="auth/callback" options={{ href: null, title: 'Signing in' }} />
-        <Tabs.Screen name="auth/reset" options={{ href: null, title: 'Reset password' }} />
-      </Tabs>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="location/[id]" options={{ title: 'Restroom' }} />
+        <Stack.Screen name="contribute" options={{ title: 'Add restroom' }} />
+        <Stack.Screen name="report" options={{ title: 'Report a problem' }} />
+        <Stack.Screen name="auth/sign-in" options={{ title: 'Sign in' }} />
+        <Stack.Screen name="auth/callback" options={{ title: 'Signing in' }} />
+        <Stack.Screen name="auth/reset" options={{ title: 'Reset password' }} />
+      </Stack>
     </AuthProvider>
   );
 }

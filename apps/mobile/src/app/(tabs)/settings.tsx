@@ -2,13 +2,13 @@ import { TRANSPORT_MODES, validateDisplayName, type DisplayMode, type TransportM
 import { useRef, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { colors, typography } from '@open-stall/ui';
-import { usePreferences } from '../account/preferences';
-import { RadioGroup } from '../components/RadioGroup';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { Screen } from '../components/Screen';
-import { Section } from '../components/Section';
-import { StatusBanner } from '../components/StatusBanner';
-import { TextField } from '../components/TextField';
+import { usePreferences } from '../../account/preferences';
+import { RadioGroup } from '../../components/RadioGroup';
+import { PrimaryButton } from '../../components/PrimaryButton';
+import { Screen } from '../../components/Screen';
+import { Section } from '../../components/Section';
+import { StatusBanner } from '../../components/StatusBanner';
+import { TextField } from '../../components/TextField';
 
 const MODES: { key: DisplayMode; label: string; hint: string }[] = [
   { key: 'plain', label: 'Plain', hint: 'Straightforward wording.' },

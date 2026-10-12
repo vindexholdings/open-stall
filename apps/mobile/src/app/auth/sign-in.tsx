@@ -42,7 +42,8 @@ export default function SignInScreen() {
 
   // Already signed in (or just became signed in): leave this screen.
   useEffect(() => {
-    if (status === 'signed-in') router.replace(target as never);
+    // dismissTo pops back to the screen that asked for sign-in when it is in the history (so Back does not return to a stale sign-in prompt) and otherwise opens the target.
+    if (status === 'signed-in') router.dismissTo(target as never);
   }, [status, target, router]);
 
   if (status === 'unavailable' || !client) {
