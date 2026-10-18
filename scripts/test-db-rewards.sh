@@ -14,10 +14,11 @@
 #   scripts/test-db-rewards.sh                run isolation self-test, build, run every test in supabase/tests/rewards
 #   scripts/test-db-rewards.sh --isolation    only the isolation self-test
 #   scripts/test-db-rewards.sh --mutations    guard-removal mutation checks (each mutant is built from a COPY of the sources)
+#   scripts/test-db-rewards.sh --baseline-golden <file>   write the pre-P1 ACL snapshot (bootstrap + existing migrations only) as SQL
 set -euo pipefail
 
 MODE="${1:-run}"
-case "$MODE" in run|--isolation|--mutations) ;; *) echo "unknown option: $MODE" >&2; exit 64 ;; esac
+case "$MODE" in run|--isolation|--mutations|--baseline-golden) ;; *) echo "unknown option: $MODE" >&2; exit 64 ;; esac
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT=54329
 
@@ -56,7 +57,7 @@ run_as() { ${AS[@]+"${AS[@]}"} "${CLEAN_ENV[@]}" "$@"; }
 SOCK_ARGS=(-h "$WORK" -p "$PORT" -U postgres)
 psqlc() { run_as "$PSQL_BIN" -X -q "${SOCK_ARGS[@]}" -v ON_ERROR_STOP=1 "$@"; }
 # The psql command prefix handed to two-session scripts (the database name is appended by the caller).
-psql_prefix() { echo run_as "$PSQL_BIN" -X -q "${SOCK_ARGS[@]}" -v ON_ERROR_STOP=1 -d "$1"; }
+psql_prefix() { echo ${AS[@]+"${AS[@]}"} "${CLEAN_ENV[@]}" "$PSQL_BIN" -X -q "${SOCK_ARGS[@]}" -v ON_ERROR_STOP=1 -d "$1"; }
 
 cleanup() {
   if [ -f "$WORK/data/postmaster.pid" ]; then
@@ -137,6 +138,22 @@ run_one() {
   [ -z "${SHOW_LOG:-}" ] || cat "$log"
   return "$rc"
 }
+
+if [ "$MODE" = "--baseline-golden" ]; then
+  psqlc -d postgres -c "create database os_base" >/dev/null
+  psqlc -d os_base -f "$SRC/supabase/tests/bootstrap.sql" >/dev/null
+  for f in "$SRC"/supabase/migrations/*.sql; do psqlc -d os_base -f "$f" >/dev/null; done
+  cat > "$WORK/gen.sql" <<SQL
+\\i $SRC/supabase/tests/rewards/snapshot_fn.sql
+select 'create temp table _golden (kind text, name text, owner text, acl text, extra text);';
+select 'insert into _golden values' || E'\\n' || string_agg(format('(%L,%L,%L,%L,%L)', kind, name, owner, acl, extra), E',\\n' order by kind, name) || ';' from pg_temp.snap();
+SQL
+  chmod a+r "$WORK/gen.sql"
+  psqlc -d os_base -A -t -f "$WORK/gen.sql" > "$WORK/golden.sql"
+  [ -n "${2:-}" ] || { echo "usage: --baseline-golden <output file>" >&2; exit 64; }
+  cp "$WORK/golden.sql" "$2"
+  exit 0
+fi
 
 if [ "$MODE" = "run" ]; then
   build_template os_template "$SRC/supabase/rewards-wip"

@@ -58,9 +58,10 @@ create temp table _fn as
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'rewards' or (n.nspname = 'public' and p.proname = 'record_visit');
 select pg_temp.ok((select count(*) from _fn where nspname = 'rewards') = 13 and (select count(*) from _fn where nspname = 'public') = 1, 'exactly 13 rewards functions and 1 public function');
-select pg_temp.ok((select array_agg(proname::text order by proname) from _fn where prosecdef) = array['location_check','record_visit','record_visit_at'], 'only three SECURITY DEFINER functions exist (the writer, its wrapper and the read-only location helper)');
-select pg_temp.ok((select every(owner = 'reward_writer_owner') from _fn where proname in ('record_visit', 'record_visit_at'))
-                  and (select every(owner = current_user) from _fn where proname not in ('record_visit', 'record_visit_at')), 'the writer owns only the two record_visit functions; everything else is owned by the migration role');
+select pg_temp.ok((select array_agg(proname::text order by proname) from _fn where prosecdef) = array['check_visit_ledger_consistency','location_check','record_visit','record_visit_at'], 'only four SECURITY DEFINER functions exist (the writer, its wrapper, the deferred consistency check and the read-only location helper)');
+select pg_temp.ok((select every(owner = 'reward_writer_owner') from _fn where proname in ('record_visit', 'record_visit_at', 'check_visit_ledger_consistency'))
+                  and (select every(owner = current_user) from _fn where proname not in ('record_visit', 'record_visit_at', 'check_visit_ledger_consistency')),
+                  'the writer owns only record_visit, record_visit_at and the deferred consistency trigger function; everything else is owned by the migration role');
 select pg_temp.ok((select every(proconfig is not null and exists (select 1 from unnest(proconfig) c where c ~ '^search_path=("")?$|^search_path=pg_catalog$')) from _fn),
                   'every rewards function has a fixed search_path (empty, or pg_catalog for the pure zone check)');
 select pg_temp.ok((select every(proacl is not null) from _fn), 'no function keeps the default (PUBLIC) EXECUTE: every ACL is explicit');

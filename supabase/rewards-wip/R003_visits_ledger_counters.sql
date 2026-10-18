@@ -111,8 +111,10 @@ create trigger reward_ledger_insert_guard before insert on rewards.reward_ledger
 
 -- A visit and its ledger rows must agree at commit: an `awarded` outcome has exactly its ledger row and a ledger row
 -- exists only for an `awarded` outcome. Checked deferred, because the ledger rows are written before the visit row.
+-- SECURITY DEFINER (owned by the writer, see R004) is REQUIRED here: a deferred trigger runs at COMMIT as the session's
+-- current role, which for a client call is `authenticated` and has no access to this schema. (Found by the two-session tests.)
 create function rewards.check_visit_ledger_consistency() returns trigger
-language plpgsql set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
 declare v rewards.visits%rowtype; vid uuid; n_s integer; n_l integer;
 begin
   if tg_table_name = 'visits' then vid := new.id; else vid := new.visit_id; end if;

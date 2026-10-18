@@ -271,8 +271,8 @@ end $$;
 
 -- ---------------------------------------------------------------- ownership and privileges (enumerated, not inferred)
 -- Nothing in the rewards schema or the new public function is reachable by PUBLIC, anon or service_role. authenticated gets
--- EXECUTE on public.record_visit and nothing else. The writer owns ONLY the two record_visit functions; it gets CREATE on the two
--- schemas for the ownership transfers and loses it again immediately.
+-- EXECUTE on public.record_visit and nothing else. The writer owns ONLY the two record_visit functions and the deferred
+-- consistency trigger function; it gets CREATE on the two schemas for the ownership transfers and loses it again immediately.
 revoke all on function rewards.guard_append_only(), rewards.guard_truncate(), rewards.guard_settings_delete(),
   rewards.settings_history_trigger(), rewards.policy_versions_prospective(), rewards.ledger_insert_guard(),
   rewards.check_visit_ledger_consistency(), rewards.guard_counter_monotonic(), rewards.is_valid_time_zone(text),
@@ -304,6 +304,7 @@ grant create on schema rewards to reward_writer_owner;
 grant create on schema public to reward_writer_owner;
 alter function rewards.record_visit_at(timestamptz, uuid, double precision, double precision, text, double precision) owner to reward_writer_owner;
 alter function public.record_visit(uuid, double precision, double precision, text, double precision) owner to reward_writer_owner;
+alter function rewards.check_visit_ledger_consistency() owner to reward_writer_owner;
 revoke create on schema rewards from reward_writer_owner;
 revoke create on schema public from reward_writer_owner;
 grant execute on function public.record_visit(uuid, double precision, double precision, text, double precision) to authenticated;

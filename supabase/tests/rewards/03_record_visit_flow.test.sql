@@ -195,4 +195,16 @@ select pg_temp.visit_at('2026-10-24 15:03:00+00', :'uv', :'lv', 'bucket-key-0000
 select pg_temp.ok((select array_agg(distance_bucket order by occurred_at) from rewards.visits where user_id = :'uv') = array['within_50','within_100','within_150','within_50'], 'distance is stored only as a coarse bucket');
 select pg_temp.ok((select array_agg(accuracy_bucket order by occurred_at) from rewards.visits where user_id = :'uv') = array[null,'within_25','within_50','over_50'], 'accuracy is optional and stored only as a bucket');
 select pg_temp.ok((select array_agg(spendable_outcome order by occurred_at) from rewards.visits where user_id = :'uv') = array['awarded','awarded','awarded','awarded'], 'missing or poor accuracy never changes eligibility');
+-- ============================================================ the real client path: authenticated role, public wrapper, real clock
+-- (deferred triggers fire at COMMIT as the session role, so this path must be exercised as `authenticated`, not as the superuser)
+select pg_temp.mkuser(31) as uclient \gset
+select pg_temp.mkloc(49.0) as lclient \gset
+select pg_temp.as_user(:'uclient');
+set role authenticated;
+select public.record_visit(:'lclient', 49.0, -100, 'client-path-key-000001') as cr \gset
+select public.record_visit(:'lclient', 49.0, -100, 'client-path-key-000001') as cr2 \gset
+reset role;
+select pg_temp.ok(pg_temp.oc(:'cr'::jsonb) = 'awarded|awarded|5|5', 'an authenticated client calling public.record_visit is awarded (commit-time checks run as the writer)');
+select pg_temp.ok((:'cr2'::jsonb)->>'replayed' = 'true' and (:'cr2'::jsonb)->>'visit_id' = (:'cr'::jsonb)->>'visit_id', 'the client retry is a replay');
+select pg_temp.ok((select count(*) from rewards.visits where user_id = :'uclient') = 1 and (select count(*) from rewards.reward_ledger where user_id = :'uclient') = 2, 'the client call wrote one visit and two awards');
 select pg_temp.finish();
