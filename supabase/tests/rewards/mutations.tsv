@@ -1,0 +1,23 @@
+# name	marker (-- MUTABLE:<marker> begin/end in supabase/rewards-wip)	test file	expectation (kill | equivalent)
+prospective_policy	prospective_policy	03_record_visit_flow.test.sql	kill
+visits_append_only	visits_append_only	05_ledger_invariants.test.sql	kill
+ledger_append_only	ledger_append_only	05_ledger_invariants.test.sql	kill
+truncate_guard	truncate_guard	05_ledger_invariants.test.sql	kill
+award_unique_index	award_unique_index	05_ledger_invariants.test.sql	kill
+lifetime_unique_index	lifetime_unique_index	05_ledger_invariants.test.sql	kill
+deferred_consistency	deferred_consistency	05_ledger_invariants.test.sql	kill
+counter_monotonic	counter_monotonic	05_ledger_invariants.test.sql	kill
+ledger_safety_gate	ledger_safety_gate	01_defaults_and_safety.test.sql	kill
+evaluate_gate	evaluate_gate	01_defaults_and_safety.test.sql	kill
+block_isolation	block_isolation	06_errors_rollback.test.sql	kill
+block_isolation_race	block_isolation	09_concurrency.sh	kill
+lock_user	lock_user	09_concurrency.sh	kill
+global_conditional	global_conditional	09_concurrency.sh	kill
+lock_user_location_day	lock_user_location_day	09_concurrency.sh	equivalent
+extra_table_grant	append:grant select on rewards.visits to authenticated;	04_privileges_catalog.test.sql	kill
+extra_function_grant	append:grant execute on function rewards.evaluate_visit(integer,integer,integer,integer,integer,integer,integer,boolean,integer,boolean) to authenticated;	04_privileges_catalog.test.sql	kill
+public_execute_on_internal	append:grant execute on function rewards.record_visit_at(timestamptz, uuid, double precision, double precision, text, double precision) to public;	04_privileges_catalog.test.sql	kill
+extra_default_privilege	append:alter default privileges in schema rewards grant all on tables to anon;	04_privileges_catalog.test.sql	kill
+writer_keeps_create	append:grant create on schema public to reward_writer_owner;	04_privileges_catalog.test.sql	kill
+rls_not_forced	append:alter table rewards.visits no force row level security;	04_privileges_catalog.test.sql	kill
+rewards_enabled_by_sql	append:update rewards.reward_settings set rewards_enabled = true, global_budget_utc_day = 100;	01_defaults_and_safety.test.sql	kill

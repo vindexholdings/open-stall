@@ -13,14 +13,15 @@
 # Usage:
 #   scripts/test-db-rewards.sh                run isolation self-test, build, run every test in supabase/tests/rewards
 #   scripts/test-db-rewards.sh --isolation    only the isolation self-test
-#   scripts/test-db-rewards.sh --mutations    guard-removal mutation checks (each mutant is built from a COPY of the sources)
+#   scripts/test-db-rewards.sh --mutations [name]   guard-removal mutation checks (each mutant is built from a COPY of the sources)
 #   scripts/test-db-rewards.sh --baseline-golden <file>   write the pre-P1 ACL snapshot (bootstrap + existing migrations only) as SQL
 set -euo pipefail
 
 MODE="${1:-run}"
 case "$MODE" in run|--isolation|--mutations|--baseline-golden) ;; *) echo "unknown option: $MODE" >&2; exit 64 ;; esac
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PORT=54329
+MAIN_PORT=54329
+PORT=$MAIN_PORT
 
 # ---------------------------------------------------------------- locate PostgreSQL 16 (and only 16)
 is_pg16() { [ -x "$1/postgres" ] && [ -x "$1/initdb" ] && "$1/postgres" --version 2>/dev/null | grep -Eq '\) 16\.'; }
@@ -54,15 +55,28 @@ SRC="$WORK/src"
 # Minimal explicit environment. Nothing else is inherited by any child.
 CLEAN_ENV=(env -i "PATH=$PGBIN:/usr/bin:/bin" "LANG=C.UTF-8" "LC_ALL=C.UTF-8" "HOME=$WORK/home" "TZ=UTC")
 run_as() { ${AS[@]+"${AS[@]}"} "${CLEAN_ENV[@]}" "$@"; }
-SOCK_ARGS=(-h "$WORK" -p "$PORT" -U postgres)
+SOCKDIR="$WORK"
+use_cluster() { SOCKDIR="$1"; PORT="$2"; SOCK_ARGS=(-h "$SOCKDIR" -p "$PORT" -U postgres); }
+use_cluster "$WORK" "$PORT"
 psqlc() { run_as "$PSQL_BIN" -X -q "${SOCK_ARGS[@]}" -v ON_ERROR_STOP=1 "$@"; }
 # The psql command prefix handed to two-session scripts (the database name is appended by the caller).
 psql_prefix() { echo ${AS[@]+"${AS[@]}"} "${CLEAN_ENV[@]}" "$PSQL_BIN" -X -q "${SOCK_ARGS[@]}" -v ON_ERROR_STOP=1 -d "$1"; }
 
+STARTED=()
+start_cluster() {  # start_cluster <dir> <port>: a brand-new cluster with its own unix socket and no TCP address
+  local d="$1" port="$2"
+  mkdir -p "$d"; [ -z "${AS[*]:-}" ] || chown postgres "$d"
+  run_as "$PGBIN/initdb" -D "$d/data" -A trust -U postgres --no-sync >/dev/null
+  run_as "$PGBIN/pg_ctl" -D "$d/data" -o "-k $d -p $port -c listen_addresses='' -c fsync=off -c max_connections=100" -l "$d/log" -w start >/dev/null
+  STARTED+=("$d")
+}
+stop_cluster() {
+  local d="$1"
+  if [ -f "$d/data/postmaster.pid" ]; then run_as "$PGBIN/pg_ctl" -D "$d/data" -m immediate stop >/dev/null 2>&1 || true; fi
+}
 cleanup() {
-  if [ -f "$WORK/data/postmaster.pid" ]; then
-    run_as "$PGBIN/pg_ctl" -D "$WORK/data" -m immediate stop >/dev/null 2>&1 || true
-  fi
+  local d
+  for d in ${STARTED[@]+"${STARTED[@]}"}; do stop_cluster "$d"; done
   case "$WORK" in /tmp/os-rw.*) rm -rf "$WORK" ;; esac   # only this harness's own directory
 }
 trap cleanup EXIT
@@ -70,9 +84,8 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 echo "harness: $("$PGBIN/postgres" --version)"
-run_as "$PGBIN/initdb" -D "$WORK/data" -A trust -U postgres --no-sync >/dev/null
-run_as "$PGBIN/pg_ctl" -D "$WORK/data" -o "-k $WORK -p $PORT -c listen_addresses='' -c fsync=off -c max_connections=100" \
-  -l "$WORK/log" -w start >/dev/null
+start_cluster "$WORK/main" "$MAIN_PORT"
+use_cluster "$WORK/main" "$MAIN_PORT"
 
 # ---------------------------------------------------------------- isolation self-test
 FAILS=0
@@ -91,9 +104,9 @@ isolation_selftest() {
   chk "no connection override reaches a child process" "$(echo "$out" | sed -n 's/^leaked=//p')" ""
   local row; row="$(echo "$out" | tail -1)"
   chk "server has no TCP address (inet_server_addr is NULL)" "$(echo "$row" | cut -d'|' -f1)" "t"
-  chk "server unix_socket_directories is the throwaway directory" "$(echo "$row" | cut -d'|' -f2)" "$WORK"
+  chk "server unix_socket_directories is the throwaway directory" "$(echo "$row" | cut -d'|' -f2)" "$SOCKDIR"
   chk "server listens on no TCP address" "$(echo "$row" | cut -d'|' -f3)" ""
-  chk "data directory is inside the throwaway directory" "$(echo "$row" | cut -d'|' -f4)" "$WORK/data"
+  chk "data directory is inside the throwaway directory" "$(echo "$row" | cut -d'|' -f4)" "$SOCKDIR/data"
   chk "server major version is 16" "$(echo "$row" | cut -d'|' -f5)" "16"
   chk "server is a primary, not a replica" "$(echo "$row" | cut -d'|' -f6)" "f"
   chk "inherited PGOPTIONS did not change search_path" "$(echo "$row" | cut -d'|' -f8)" '"$user", public'
@@ -156,6 +169,9 @@ SQL
 fi
 
 if [ "$MODE" = "run" ]; then
+  command -v node >/dev/null 2>&1 || { echo "node is required for the boundary check" >&2; exit 2; }
+  echo "boundary: file-inspection checks (no database, no network)"
+  (cd "$ROOT" && node scripts/check-rewards-boundary.mjs --selftest | tail -1 && node scripts/check-rewards-boundary.mjs | tail -1)
   build_template os_template "$SRC/supabase/rewards-wip"
   echo "run: $(psqlc -d postgres -A -t -c 'select version()')"
   failed=0
@@ -171,22 +187,33 @@ fi
 
 # ---------------------------------------------------------------- mutation checks
 # supabase/tests/rewards/mutations.tsv: name <TAB> marker <TAB> test file <TAB> kill|equivalent
-# A mutant deletes the region between "-- MUTABLE:<marker> begin" and "-- MUTABLE:<marker> end" in a COPY of rewards-wip.
+# A mutant either deletes the region between "-- MUTABLE:<marker> begin" and "-- MUTABLE:<marker> end" in a COPY of rewards-wip, builds it
+# in its OWN brand-new throwaway cluster (roles are cluster-wide), and the named test must then fail. The unmutated build is
+# tested first in the main cluster, so a mutant can only be "killed" by a test that passes on the original.
 build_template os_template "$SRC/supabase/rewards-wip" >/dev/null
-survived=0; killed=0; equivalent=0; bad=0
+survived=0; killed=0; equivalent=0; bad=0; idx=0
 while IFS=$'\t' read -r name marker tfile expect; do
   case "$name" in ''|'#'*) continue ;; esac
+  [ -z "${2:-}" ] || [ "$name" = "$2" ] || continue
+  idx=$((idx+1))
   mdir="$WORK/mut_${name}"; mkdir -p "$mdir"; cp "$SRC"/supabase/rewards-wip/*.sql "$mdir/"
   before="$(cat "$mdir"/*.sql | md5sum)"
-  perl -0pi -e "s/^[^\n]*MUTABLE:${marker} begin.*?MUTABLE:${marker} end[^\n]*\n//ms" "$mdir"/*.sql
+  case "$marker" in
+    append:*) printf '%s\n' "${marker#append:}" > "$mdir/R999_mutant.sql" ;;   # an INJECTED extra statement (e.g. an extra grant)
+    *) perl -0pi -e "s/^[^\n]*MUTABLE:${marker} begin.*?MUTABLE:${marker} end[^\n]*\n//ms" "$mdir"/*.sql ;;
+  esac
   after="$(cat "$mdir"/*.sql | md5sum)"
   [ "$before" != "$after" ] || { echo "BAD   $name: marker '$marker' not found"; bad=$((bad+1)); continue; }
-  psqlc -d postgres -c "drop database if exists os_mut" >/dev/null 2>&1 || true
+  # baseline: the test passes on the unmutated build (main cluster), checked once per test file
+  use_cluster "$WORK/main" "$MAIN_PORT"
+  if [ ! -e "$WORK/base_${tfile}.ok" ]; then
+    if run_one os_template "$SRC/supabase/tests/rewards/$tfile" >/dev/null 2>&1; then : > "$WORK/base_${tfile}.ok"; else echo "BAD   $name: baseline test $tfile does not pass"; bad=$((bad+1)); continue; fi
+  fi
+  mc="$WORK/mc_${idx}"; mport=$((MAIN_PORT + idx))
+  start_cluster "$mc" "$mport"; use_cluster "$mc" "$mport"
   build_template os_mut "$mdir" >/dev/null
-  # baseline on the unmutated template, then the mutant
-  if ! run_one os_template "$SRC/supabase/tests/rewards/$tfile" >/dev/null 2>&1; then echo "BAD   $name: baseline test $tfile does not pass"; bad=$((bad+1)); continue; fi
   rc=0; run_one os_mut "$SRC/supabase/tests/rewards/$tfile" >/dev/null 2>&1 || rc=$?
-  psqlc -d postgres -c "alter database os_mut is_template false" >/dev/null; psqlc -d postgres -c "drop database os_mut" >/dev/null
+  stop_cluster "$mc"; rm -rf "$mc"; use_cluster "$WORK/main" "$MAIN_PORT"
   if [ "$rc" != 0 ]; then
     if [ "$expect" = equivalent ]; then echo "UNEXPECTED $name: expected to survive but was killed by $tfile"; bad=$((bad+1)); else echo "KILLED   $name (marker $marker) by $tfile"; killed=$((killed+1)); fi
   else
@@ -195,4 +222,4 @@ while IFS=$'\t' read -r name marker tfile expect; do
 done < "$SRC/supabase/tests/rewards/mutations.tsv"
 echo "mutations: $killed killed, $equivalent documented equivalent, $survived survived unexpectedly, $bad invalid"
 [ "$survived" = 0 ] && [ "$bad" = 0 ] || exit 1
-echo "REWARDS P1 mutation checks: every guard removal was caught (originals untouched; mutants built from copies)"
+echo "REWARDS P1 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)"

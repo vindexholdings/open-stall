@@ -32,7 +32,8 @@
     "qa:selftest": "node scripts/qa-kit-selftest.mjs",
     "qa:browsercheck": "node scripts/qa-kit-browser-check.mjs",
     "packet:visual": "node scripts/visual-packet.mjs",
-    "packet:d3": "node scripts/visual-packet-d3.mjs"
+    "packet:d3": "node scripts/visual-packet-d3.mjs",
+    "test:db:rewards": "bash scripts/test-db-rewards.sh"
   },
   "engines": {
     "node": ">=20"

@@ -142,9 +142,6 @@ select pg_temp.ok(not exists (select 1 from _matrix where role = 'reward_writer_
 select pg_temp.ok(not exists (select 1 from _matrix where role = 'reward_writer_owner' and op = 'update' and ((tbl in ('reward_counters_user_day', 'reward_counters_global_day')) <> (got = 'ok'))),
                   'the writer can UPDATE only the two counters (never the ledger, visits, settings or policy)');
 select pg_temp.ok((select count(*) from _matrix) = 4 * 8 * 5, 'the matrix covers 4 roles x 8 tables x 5 operations');
-\o
-select role, tbl, op, got from _matrix where role = 'reward_writer_owner' order by tbl, op;
-\o /dev/null
 
 -- ---------------------------------------------------------------- function surface under SET ROLE
 select pg_temp.ok(pg_temp.try('authenticated', $$select rewards.evaluate_visit(5,5,4,60,1,0,0,true,10,false)$$) = '42501', 'authenticated cannot call the internal evaluate_visit');
@@ -171,4 +168,19 @@ set search_path = "$user", public;
 select pg_temp.ok(pg_temp.oc(:'r'::jsonb) = 'awarded|awarded|5|5', 'with a hostile search_path the writer still uses the real objects and policy');
 select pg_temp.ok((select count(*) from evil.visits) = 0 and (select count(*) from evil.reward_ledger) = 0 and (select count(*) from rewards.visits where user_id = :'u') = 1,
                   'nothing was written to the decoy schema');
+-- ---------------------------------------------------------------- the golden privilege list (evidence)
+\o
+\echo '== golden privilege list: table grants to non-owner roles (owner of every table: the migration role)'
+select relname, grantee, priv from _exp_tbl order by relname, grantee, priv;
+\echo '== golden privilege list: function EXECUTE grants to non-owner roles'
+select sig, grantee from _exp_fn order by sig, grantee;
+\echo '== functions: owner, SECURITY DEFINER, fixed search_path'
+select sig, owner, prosecdef as security_definer, proconfig from _fn order by sig;
+\echo '== RLS policies'
+select tablename, policyname, cmd, roles from pg_policies where schemaname = 'rewards' order by tablename, policyname;
+\echo '== role attributes'
+select rolname, rolcanlogin, rolinherit, rolbypassrls, rolsuper from pg_roles where rolname in ('reward_writer_owner', 'anon', 'authenticated', 'service_role') order by 1;
+\echo '== refusal matrix, writer role (4 roles x 8 tables x 5 operations were executed; client roles were refused 42501 everywhere)'
+select role, tbl, op, got from _matrix where role = 'reward_writer_owner' order by tbl, op;
+\o /dev/null
 select pg_temp.finish();
