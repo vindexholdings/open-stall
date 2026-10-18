@@ -32,9 +32,14 @@ PORT=$MAIN_PORT
 is_pg16() { [ -x "$1/postgres" ] && [ -x "$1/initdb" ] && "$1/postgres" --version 2>/dev/null | grep -Eq '\) 16\.'; }
 find_pg16() {
   local d
-  for d in "${OPEN_STALL_PGBIN:-}" /usr/lib/postgresql/16/bin /Applications/Postgres.app/Contents/Versions/16/bin \
+  # An explicit override must itself be PostgreSQL 16: it is never ignored and never silently replaced by another directory.
+  if [ -n "${OPEN_STALL_PGBIN:-}" ]; then
+    if is_pg16 "$OPEN_STALL_PGBIN"; then echo "$OPEN_STALL_PGBIN"; return 0; fi
+    echo "OPEN_STALL_PGBIN is not a PostgreSQL 16 bin directory: $OPEN_STALL_PGBIN" >&2
+    return 1
+  fi
+  for d in /usr/lib/postgresql/16/bin /Applications/Postgres.app/Contents/Versions/16/bin \
            /opt/homebrew/opt/postgresql@16/bin /usr/local/opt/postgresql@16/bin; do
-    [ -n "$d" ] || continue
     if is_pg16 "$d"; then echo "$d"; return 0; fi
   done
   return 1
