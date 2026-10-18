@@ -1,0 +1,37 @@
+harness: postgres (PostgreSQL) 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
+ok - isolation: no connection override reaches a child process
+ok - isolation: server has no TCP address (inet_server_addr is NULL)
+ok - isolation: server unix_socket_directories is the throwaway directory
+ok - isolation: server listens on no TCP address
+ok - isolation: data directory is inside the throwaway directory
+ok - isolation: server major version is 16
+ok - isolation: server is a primary, not a replica
+ok - isolation: inherited PGOPTIONS did not change search_path
+ok - isolation: negative control: a poisoned PGHOST cannot connect
+ok - isolation: a TCP connection to the server is refused
+ok - isolation: the cluster holds only its own default databases
+isolation: all checks passed (no production connection was made)
+KILLED   prospective_policy (marker prospective_policy) by 03_record_visit_flow.test.sql
+KILLED   visits_append_only (marker visits_append_only) by 05_ledger_invariants.test.sql
+KILLED   ledger_append_only (marker ledger_append_only) by 05_ledger_invariants.test.sql
+KILLED   truncate_guard (marker truncate_guard) by 05_ledger_invariants.test.sql
+KILLED   award_unique_index (marker award_unique_index) by 05_ledger_invariants.test.sql
+KILLED   lifetime_unique_index (marker lifetime_unique_index) by 05_ledger_invariants.test.sql
+KILLED   deferred_consistency (marker deferred_consistency) by 05_ledger_invariants.test.sql
+KILLED   counter_monotonic (marker counter_monotonic) by 05_ledger_invariants.test.sql
+KILLED   ledger_safety_gate (marker ledger_safety_gate) by 01_defaults_and_safety.test.sql
+KILLED   evaluate_gate (marker evaluate_gate) by 01_defaults_and_safety.test.sql
+KILLED   block_isolation (marker block_isolation) by 06_errors_rollback.test.sql
+KILLED   block_isolation_race (marker block_isolation) by 09_concurrency.sh
+KILLED   lock_user (marker lock_user) by 09_concurrency.sh
+KILLED   global_conditional (marker global_conditional) by 09_concurrency.sh
+SURVIVED lock_user_location_day (marker lock_user_location_day): documented equivalent mutant
+KILLED   extra_table_grant (marker append:grant select on rewards.visits to authenticated;) by 04_privileges_catalog.test.sql
+KILLED   extra_function_grant (marker append:grant execute on function rewards.evaluate_visit(integer,integer,integer,integer,integer,integer,integer,boolean,integer,boolean) to authenticated;) by 04_privileges_catalog.test.sql
+KILLED   public_execute_on_internal (marker append:grant execute on function rewards.record_visit_at(timestamptz, uuid, double precision, double precision, text, double precision) to public;) by 04_privileges_catalog.test.sql
+KILLED   extra_default_privilege (marker append:alter default privileges in schema rewards grant all on tables to anon;) by 04_privileges_catalog.test.sql
+KILLED   writer_keeps_create (marker append:grant create on schema public to reward_writer_owner;) by 04_privileges_catalog.test.sql
+KILLED   rls_not_forced (marker append:alter table rewards.visits no force row level security;) by 04_privileges_catalog.test.sql
+KILLED   rewards_enabled_by_sql (marker append:update rewards.reward_settings set rewards_enabled = true, global_budget_utc_day = 100;) by 01_defaults_and_safety.test.sql
+mutations: 21 killed, 1 documented equivalent, 0 survived unexpectedly, 0 invalid
+REWARDS P1 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)

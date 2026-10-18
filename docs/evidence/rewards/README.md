@@ -1,0 +1,46 @@
+# Rewards P1 evidence (local core, disposable PostgreSQL 16 only)
+
+**Scope and limits.** Linux container, PostgreSQL 16.13 (Ubuntu package), a brand-new throwaway cluster per run (own unix socket, no TCP address, destroyed on exit). No production, hosted or personal database was contacted, no migration was applied anywhere, no environment file was read, and nothing in `supabase/migrations/` changed. This is local engineering evidence, not a security, privacy, legal or accounting certification, not a device test, and not an independent review: **Work has not yet reproduced any of it**. Rewards stay DISABLED and the global budget UNSET everywhere except explicit test fixtures on the throwaway cluster.
+
+Implementation commit: `c05caf4b77e174d9c9f6b7d65dba6194c0cd1f3c` (source of every run below; the sources were not edited between the runs and these logs).
+
+## Commands
+- `npm run test:db:rewards` (= `bash scripts/test-db-rewards.sh`): isolation self-test, boundary check and its negative controls, build, 9 test files. Log: `p1-test-run.txt`.
+- `bash scripts/test-db-rewards.sh --mutations`: 22 mutants, each built from a COPY of `supabase/rewards-wip` in its OWN throwaway cluster (roles are cluster-wide); the named test must pass on the original and fail on the mutant. Log: `p1-mutations.txt`.
+- `node scripts/check-rewards-boundary.mjs [--selftest] [--against 90a07e8]`. Log: `p1-boundary.txt`.
+- `npm run check` on the same checkout: exit 0 (lint with the one pre-existing warning, typecheck, domain 132, mobile 65, ui 35, other suites, secret scan 359 files).
+
+## Per-file outcomes (all PASS)
+| File | Ok lines | What it proves |
+|---|---|---|
+| 01_defaults_and_safety | 27 | fresh cluster disabled and unset; disabled and budget-unset issue nothing but record the visit and keep its slot; direct writer inserts refused while disabled/unset; no client role can change settings or call `record_visit` without identity |
+| 02_evaluate_visit_table | 40 | every row of the approved decision table, precedence, no partial grants, invalid input, purity (IMMUTABLE, no clock, no table, no interval anywhere) |
+| 03_record_visit_flow | 72 | four rapid visits earn 20/5 and the fifth/sixth are recorded without points and without a hold; same-instant visits; UTC cap across local days; Honolulu/Kolkata/Denver day boundaries; both DST days; invalid or missing zone fails closed; prospective policy versions; idempotent replay; validation and distance/accuracy buckets; the real client path as `authenticated` |
+| 04_privileges_catalog | 47 | complete catalog inventory: roles, table/column/sequence/function/schema privileges, ownership, default privileges, PUBLIC, RLS enabled and forced, the 14 explicit policies, fixed search paths, only 4 SECURITY DEFINER functions; a 4 roles x 8 tables x 5 operations refusal matrix executed under `SET ROLE`; search_path decoy attack |
+| 05_ledger_invariants | 34 | UPDATE/DELETE/TRUNCATE refused for superuser, writer and every client role; unique award and lifetime indexes; check constraints; reversal rows refused in P1; commit-time visit/ledger consistency; monotonic counters; balances and counters equal ledger sums |
+| 06_errors_rollback | 16 | ten injected unexpected SQLSTATEs propagate and leave nothing (not even the lifetime row); a retry with the same key succeeds; the two designed private codes are handled only inside the spendable block; handler hypotheses |
+| 07_legacy_regression | 15 | golden catalog diff against the pre-P1 baseline: the only change to an existing object is one grant (USAGE on schema `auth` for the writer); `check_in` still refuses within 12 h and at the 11th/day; anonymous discovery unchanged; `points_balance` not written |
+| 08_bounds_timing | 10 | 62,454 visits and 124,908 ledger rows (2,000 users x 30 days plus one heavy user over 36 months); set-based consistency; plans use indexes; `record_visit_at` over 300 calls: min 9.58 ms, median 10.26 ms, p95 17.88 ms, max 21.66 ms |
+| 09_concurrency.sh | 31 | real two-session and many-session scenarios through the public RPC as `authenticated` (below) |
+
+## Concurrency scenarios (real sessions; results in `p1-test-run.txt`)
+One idempotency key from two sessions gives one visit and one award set (second replays). Two sessions racing for the 4th slot give 4th awarded and 5th location_cap. Two sessions racing for the 60th point give exactly one award and the counter at exactly 60. A user at 55/60 with first visits at two locations gets one spendable and BOTH lifetime awards. The last budget unit contended by two users: the loser's FIRST visit gets `budget_exhausted` with its lifetime award kept, no spendable row and no user-counter row, after really waiting on the global counter row. 20 simultaneous users against 10 budget units: exactly 10 awarded, 10 budget_exhausted, 20 lifetime, global counter rose by exactly 50. 24 concurrent two-visit transactions in mixed location orders: no error, no deadlock (40P01), counters equal ledger sums. REAL lock timeout (55P03) is caught by a `lock_not_available` handler; a REAL statement timeout and a REAL `pg_cancel_backend` cancellation (57014) propagate; inside `record_visit` either fault aborts the whole visit (no visit, no ledger row, no counter).
+
+## Mutation checks (`p1-mutations.txt`)
+21 killed, 1 documented equivalent, 0 survived unexpectedly, 0 invalid. Guard removals killed: prospective-policy trigger, visits/ledger append-only triggers, ledger truncate guard, award and lifetime unique indexes, deferred consistency triggers, monotonic counter guard, ledger safety gate, pure evaluation gate, block isolation (by the single-session injection test and by the real race), user lock, global conditional increment. Injected violations killed: an extra table grant, an extra function grant, PUBLIC execute on the internal recorder, a default privilege in the rewards schema, a leftover writer CREATE on `public`, RLS not forced, rewards enabled by SQL. **Equivalent mutant:** removing the per-user/location/day lock changes no observable behavior because the per-user lock taken first already serializes everything it protects; it stays as the specified second lock level.
+A first run exposed a real test defect (a probe's failure verdict was rolled back with the probe, so a deferred-trigger mutant survived); the helper was fixed and the mutant is now killed.
+
+## Real defects found by the tests while building (all fixed in the same package)
+1. The commit-time consistency trigger ran as the calling client role and failed with `permission denied for schema rewards` for EVERY client visit; found only by the two-session tests (superuser-run tests hid it). The function is now SECURITY DEFINER owned by the writer, and test 03 exercises the real `authenticated` path.
+2. FK-shadowed TRUNCATE: PostgreSQL refuses truncating referenced tables before any trigger, so the truncate guard is verified on the ledger (not FK-referenced) and the others accept either refusal.
+3. The counter guard referenced a column the global counter does not have (found on the first run).
+
+## Remaining gaps and limits (stated, not hidden)
+- `public.locations` has no time zone column and P1 may not alter it, so the zone lives in `rewards.reward_location_zones`; nothing populates it. In any real database every visit would record `no_valid_time_zone` until a later, separately approved step maps zones (Cody: America/Denver). `no_valid_time_zone` is an outcome value added to the plan's list to express "recorded, no award".
+- Foreign keys use `on delete restrict`: deleting an auth user or a location that has reward data is REFUSED until the P2 purge exists. These SQL files must not be promoted to `supabase/migrations/` before P2 (account deletion would otherwise fail). Not changed here: P2 is not authorized.
+- `profiles.points_balance` is not written; balances are derived from the ledger (`rewards.user_balances`). Whether to maintain a cache is a later decision.
+- The plan introduces no refusal threshold, so there is no per-user visit rate limit in P1; a signed-in client at a spoofed position could add visit rows without bound. Monitoring flags and any limit are later, separately approved work.
+- The single global counter row serializes budget-limited issuance (measured correct under 20-way contention; the plan's bucket split is a later change if it becomes a hotspot). The p95 latency figures come from this container and are not a capacity claim.
+- Holds, reversals, purge, retention, achievements, admin RPCs and UI are not implemented (P2-P4). The reversal columns exist; a trigger refuses any reversal row in P1.
+- The `55P03`-is-recoverable hypothesis was verified on PostgreSQL 16.13 for the later repair package; P1 itself handles only its two designed private codes.
+- Not run: macOS, other PostgreSQL versions, any hosted Supabase, any app or device. `npm run test:db:rewards` is not part of `npm run check` or CI (by design, until Work agrees).
