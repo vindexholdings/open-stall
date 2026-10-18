@@ -19,6 +19,11 @@ set -euo pipefail
 
 MODE="${1:-run}"
 case "$MODE" in run|--isolation|--mutations|--baseline-golden) ;; *) echo "unknown option: $MODE" >&2; exit 64 ;; esac
+# Every external helper this harness uses is checked BEFORE anything starts, so a missing tool is a loud exit 2, never a silent pass.
+need() { command -v "$1" >/dev/null 2>&1 || { echo "missing prerequisite: $1 (nothing was started)" >&2; exit 2; }; }
+for t in env grep cut tail cp mktemp cmp mkdir chmod rm cat tr sort mv; do need "$t"; done
+[ "$MODE" != "--mutations" ] || need perl
+[ "$MODE" != "run" ] || need node
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MAIN_PORT=54329
 PORT=$MAIN_PORT
@@ -90,6 +95,18 @@ use_cluster "$WORK/main" "$MAIN_PORT"
 # ---------------------------------------------------------------- isolation self-test
 FAILS=0
 chk() { if [ "$2" = "$3" ]; then echo "ok - isolation: $1"; else echo "not ok - isolation: $1 (expected '$3', got '$2')"; FAILS=$((FAILS+1)); fi; }
+mkdir -p "$WORK/stubs"
+printf '#!/bin/sh\nexit 127\n' > "$WORK/stubs/exit127"
+printf '#!/bin/sh\necho "something unrelated broke"\nexit 2\n' > "$WORK/stubs/exit2-no-message"
+chmod 755 "$WORK/stubs/exit127" "$WORK/stubs/exit2-no-message"
+# refusal_probe <psql binary> [VAR=value ...]: prints "refused" only for a REAL PostgreSQL connection failure, else "not-refused:<why>".
+refusal_probe() {
+  local bin="$1"; shift
+  local out rc=0
+  out="$(env PGCONNECT_TIMEOUT=3 "$@" "$bin" -X -q -d postgres -c 'select 1' 2>&1)" || rc=$?
+  if [ "$rc" = 2 ] && printf '%s' "$out" | grep -q '^psql: error: connection to server'; then echo refused
+  else echo "not-refused:rc=$rc"; fi
+}
 isolation_selftest() {
   # Poison every override a careless setup could inherit. The wrapper must drop all of them.
   local out
@@ -110,13 +127,16 @@ isolation_selftest() {
   chk "server major version is 16" "$(echo "$row" | cut -d'|' -f5)" "16"
   chk "server is a primary, not a replica" "$(echo "$row" | cut -d'|' -f6)" "f"
   chk "inherited PGOPTIONS did not change search_path" "$(echo "$row" | cut -d'|' -f8)" '"$user", public'
-  # Negative control: the poison really is unusable if it leaked into a plain psql.
-  local rc=0
-  PGHOST=example.invalid PGCONNECT_TIMEOUT=3 timeout 15 "$PSQL_BIN" -X -q -d postgres -c 'select 1' >/dev/null 2>&1 || rc=$?
-  chk "negative control: a poisoned PGHOST cannot connect" "$([ "$rc" != 0 ] && echo refused || echo connected)" "refused"
-  rc=0
-  psqlc -h 127.0.0.1 -d postgres -c 'select 1' >/dev/null 2>&1 || rc=$?
-  chk "a TCP connection to the server is refused" "$([ "$rc" != 0 ] && echo refused || echo connected)" "refused"
+  # Negative controls. A "refusal" counts ONLY when psql itself ran, exited 2 (connection failure) and printed its own connection
+  # error; a missing or broken helper (exit 127, an exec error, a stub that exits 2 without a connection error) never counts.
+  chk "negative control: a poisoned PGHOST (an unreachable unix-socket path) is refused by psql itself" "$(refusal_probe "$PSQL_BIN" PGHOST=/nonexistent/os-rw-poison)" "refused"
+  chk "the probe does NOT count a missing psql as a refusal" "$(refusal_probe "$WORK/stubs/no-such-psql" PGHOST=/nonexistent/os-rw-poison | cut -c1-12)" "not-refused:"
+  chk "the probe does NOT count an exec failure (exit 127) as a refusal" "$(refusal_probe "$WORK/stubs/exit127" PGHOST=/nonexistent/os-rw-poison | cut -c1-12)" "not-refused:"
+  chk "the probe does NOT count exit 2 without a connection error as a refusal" "$(refusal_probe "$WORK/stubs/exit2-no-message" PGHOST=/nonexistent/os-rw-poison | cut -c1-12)" "not-refused:"
+  # No TCP probe is made at all (nothing may reach another service): the server's own pid file proves where it listens.
+  local pidf="$SOCKDIR/data/postmaster.pid"
+  chk "postmaster.pid lists the throwaway socket directory" "$(sed -n 5p "$pidf")" "$SOCKDIR"
+  chk "postmaster.pid lists no TCP listen address" "$(sed -n 6p "$pidf")" ""
   local dbs; dbs="$(psqlc -d postgres -A -t -c "select string_agg(datname, ',' order by datname) from pg_database")"
   chk "the cluster holds only its own default databases" "$dbs" "postgres,template0,template1"
 }
@@ -197,13 +217,14 @@ while IFS=$'\t' read -r name marker tfile expect; do
   [ -z "${2:-}" ] || [ "$name" = "$2" ] || continue
   idx=$((idx+1))
   mdir="$WORK/mut_${name}"; mkdir -p "$mdir"; cp "$SRC"/supabase/rewards-wip/*.sql "$mdir/"
-  before="$(cat "$mdir"/*.sql | md5sum)"
+  cat "$mdir"/*.sql > "$WORK/orig.cat"
   case "$marker" in
     append:*) printf '%s\n' "${marker#append:}" > "$mdir/R999_mutant.sql" ;;   # an INJECTED extra statement (e.g. an extra grant)
+    replace:*) spec="${marker#replace:}"; FROM="${spec%%=>*}" TO="${spec#*=>}" perl -0pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/g' "$mdir"/*.sql ;;   # a literal substitution
     *) perl -0pi -e "s/^[^\n]*MUTABLE:${marker} begin.*?MUTABLE:${marker} end[^\n]*\n//ms" "$mdir"/*.sql ;;
   esac
-  after="$(cat "$mdir"/*.sql | md5sum)"
-  [ "$before" != "$after" ] || { echo "BAD   $name: marker '$marker' not found"; bad=$((bad+1)); continue; }
+  cat "$mdir"/*.sql > "$WORK/mut.cat"
+  if cmp -s "$WORK/orig.cat" "$WORK/mut.cat"; then echo "BAD   $name: the mutation changed nothing (marker or text '$marker' not found)"; bad=$((bad+1)); continue; fi
   # baseline: the test passes on the unmutated build (main cluster), checked once per test file
   use_cluster "$WORK/main" "$MAIN_PORT"
   if [ ! -e "$WORK/base_${tfile}.ok" ]; then

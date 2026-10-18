@@ -92,9 +92,9 @@ G0="$(gcount)"; setup_enable $((G0 + 5))
 { { visit_sql "$UA" "$LA" "conc-budget-key-0001"; echo "select pg_sleep(2);"; } | "${PSQL[@]}" -A -t -c "begin" -f - -c "commit" >"$T/a5" 2>&1; } &
 PA=$!
 sleep 0.7
-S0=$(date +%s.%N)
+S0="$(q "select extract(epoch from clock_timestamp())")"
 visit_sql "$UB" "$LB" "conc-budget-key-0002" | "${PSQL[@]}" -A -t -f - >"$T/b5" 2>&1
-S1=$(date +%s.%N)
+S1="$(q "select extract(epoch from clock_timestamp())")"
 wait $PA
 A5="$(grep -E '^(awarded|user_day|location|budget)' "$T/a5" | head -1 | cut -d'|' -f1-4)"; B5="$(grep -E '^(awarded|user_day|location|budget)' "$T/b5" | head -1 | cut -d'|' -f1-4)"
 eq "last budget unit: the first session wins" "$A5" "awarded|awarded|5|5"

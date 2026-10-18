@@ -21,3 +21,5 @@ extra_default_privilege	append:alter default privileges in schema rewards grant 
 writer_keeps_create	append:grant create on schema public to reward_writer_owner;	04_privileges_catalog.test.sql	kill
 rls_not_forced	append:alter table rewards.visits no force row level security;	04_privileges_catalog.test.sql	kill
 rewards_enabled_by_sql	append:update rewards.reward_settings set rewards_enabled = true, global_budget_utc_day = 100;	01_defaults_and_safety.test.sql	kill
+ledger_unset_budget_gate	ledger_unset_budget_gate	10_ledger_gate_matrix.test.sql	kill
+ledger_gate_lifetime_coverage	replace:if s.global_budget_utc_day is null then=>if new.kind = 'spendable' and s.global_budget_utc_day is null then	10_ledger_gate_matrix.test.sql	kill

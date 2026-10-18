@@ -86,8 +86,10 @@ create trigger reward_ledger_no_truncate before truncate on rewards.reward_ledge
   for each statement execute function rewards.guard_truncate();
 -- MUTABLE:truncate_guard end
 
--- Defense in depth for the production safety gate, independent of the pure evaluation: no award row can be written
--- while rewards are disabled, and no spendable award while the global budget is unset. P1 writes awards only.
+-- Defense in depth for the production safety gate, independent of the pure evaluation: no award row of EITHER kind can be
+-- written while rewards are disabled, and none of either kind while the global budget is unset (an unset budget means zero
+-- issuance, lifetime included). A configured budget that is merely exhausted is a different case: it only blocks spendable
+-- awards, through the atomic counter in record_visit, and never the independent lifetime award. P1 writes awards only.
 create function rewards.ledger_insert_guard() returns trigger
 language plpgsql set search_path = '' as $$
 declare s record;
@@ -100,9 +102,11 @@ begin
   if s.rewards_enabled is not true then
     raise exception 'rewards are disabled: no award can be written' using errcode = 'RW010';
   end if;
-  if new.kind = 'spendable' and s.global_budget_utc_day is null then
-    raise exception 'the global budget is unset: no spendable award can be written' using errcode = 'RW011';
+  -- MUTABLE:ledger_unset_budget_gate begin
+  if s.global_budget_utc_day is null then
+    raise exception 'the global budget is unset: no award of either kind can be written' using errcode = 'RW011';
   end if;
+  -- MUTABLE:ledger_unset_budget_gate end
   -- MUTABLE:ledger_safety_gate end
   return new;
 end $$;
