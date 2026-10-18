@@ -105,13 +105,22 @@ printf '#!/bin/sh\nexit 127\n' > "$WORK/stubs/exit127"
 printf '#!/bin/sh\necho "something unrelated broke"\nexit 2\n' > "$WORK/stubs/exit2-no-message"
 chmod 755 "$WORK/stubs/exit127" "$WORK/stubs/exit2-no-message"
 # refusal_probe <psql binary> [VAR=value ...]: prints "refused" only for a REAL PostgreSQL connection failure, else "not-refused:<why>".
+# The probe runs through the SAME minimal clean child environment as every other psql (env -i, the harness's own HOME): nothing
+# inherited (service, passfile, password, options, HOME, ...) can reach it. REFUSAL_OUT keeps psql's own output for assertions.
+PROBE_SOCK="$WORK/no-such-socket-dir"   # inside the harness directory, never created: unreachable by construction, no TCP, no network
+REFUSAL_OUT=""
 refusal_probe() {
   local bin="$1"; shift
-  local out rc=0
-  out="$(env PGCONNECT_TIMEOUT=3 "$@" "$bin" -X -q -d postgres -c 'select 1' 2>&1)" || rc=$?
-  if [ "$rc" = 2 ] && printf '%s' "$out" | grep -q '^psql: error: connection to server'; then echo refused
+  local rc=0
+  REFUSAL_OUT="$("${CLEAN_ENV[@]}" PGCONNECT_TIMEOUT=3 "$@" "$bin" -X -q -d postgres -c 'select 1' 2>&1)" || rc=$?
+  if [ "$rc" = 2 ] && printf '%s' "$REFUSAL_OUT" | grep -q '^psql: error: connection to server'; then echo refused
   else echo "not-refused:rc=$rc"; fi
 }
+# stubs: one dumps the environment it receives (then behaves like a refused connection), one is a harmless service file naming ONLY an
+# unreachable path inside the harness directory (no credential, no host name)
+printf '#!/bin/sh\nenv > "%s/stub-env.txt"\necho "psql: error: connection to server on socket \\"stub\\" failed: stub"\nexit 2\n' "$WORK" > "$WORK/stubs/env-dump"
+chmod 755 "$WORK/stubs/env-dump"
+printf '[poison]\nhost=%s/poison-service-socket\n' "$WORK" > "$WORK/poison-service.conf"
 isolation_selftest() {
   # Poison every override a careless setup could inherit. The wrapper must drop all of them.
   local out
@@ -134,10 +143,27 @@ isolation_selftest() {
   chk "inherited PGOPTIONS did not change search_path" "$(echo "$row" | cut -d'|' -f8)" '"$user", public'
   # Negative controls. A "refusal" counts ONLY when psql itself ran, exited 2 (connection failure) and printed its own connection
   # error; a missing or broken helper (exit 127, an exec error, a stub that exits 2 without a connection error) never counts.
-  chk "negative control: a poisoned PGHOST (an unreachable unix-socket path) is refused by psql itself" "$(refusal_probe "$PSQL_BIN" PGHOST=/nonexistent/os-rw-poison)" "refused"
-  chk "the probe does NOT count a missing psql as a refusal" "$(refusal_probe "$WORK/stubs/no-such-psql" PGHOST=/nonexistent/os-rw-poison | cut -c1-12)" "not-refused:"
-  chk "the probe does NOT count an exec failure (exit 127) as a refusal" "$(refusal_probe "$WORK/stubs/exit127" PGHOST=/nonexistent/os-rw-poison | cut -c1-12)" "not-refused:"
-  chk "the probe does NOT count exit 2 without a connection error as a refusal" "$(refusal_probe "$WORK/stubs/exit2-no-message" PGHOST=/nonexistent/os-rw-poison | cut -c1-12)" "not-refused:"
+  chk "negative control: a poisoned PGHOST (an unreachable harness-owned socket path) is refused by psql itself" "$(refusal_probe "$PSQL_BIN" PGHOST="$PROBE_SOCK")" "refused"
+  chk "the probe does NOT count a missing psql as a refusal" "$(refusal_probe "$WORK/stubs/no-such-psql" PGHOST="$PROBE_SOCK" | cut -c1-12)" "not-refused:"
+  chk "the probe does NOT count an exec failure (exit 127) as a refusal" "$(refusal_probe "$WORK/stubs/exit127" PGHOST="$PROBE_SOCK" | cut -c1-12)" "not-refused:"
+  chk "the probe does NOT count exit 2 without a connection error as a refusal" "$(refusal_probe "$WORK/stubs/exit2-no-message" PGHOST="$PROBE_SOCK" | cut -c1-12)" "not-refused:"
+  # The probe itself runs in a clean environment. A stub records exactly what it receives while every poisoned variable is exported.
+  rm -f "$WORK/stub-env.txt"
+  ( export PGSERVICE=poison PGSERVICEFILE="$WORK/poison-service.conf" PGPASSFILE=/nonexistent/passfile PGPASSWORD=nope PGOPTIONS='-c search_path=evil' \
+           PGDATABASE=prod PGUSER=prod PGPORT=1 PGSSLMODE=require DATABASE_URL=postgres://invalid SUPABASE_URL=https://example.invalid HOME=/nonexistent/home
+    refusal_probe "$WORK/stubs/env-dump" PGHOST="$PROBE_SOCK" >/dev/null )
+  chk "the stub ran and recorded the probe's environment" "$([ -s "$WORK/stub-env.txt" ] && echo yes || echo no)" "yes"
+  chk "probe environment: no service, passfile, password, options, database, user, port, sslmode, URL or key variable" "$(grep -E '^(PGSERVICE|PGSERVICEFILE|PGPASSFILE|PGPASSWORD|PGOPTIONS|PGDATABASE|PGUSER|PGPORT|PGSSLMODE|DATABASE_URL|SUPABASE_)' "$WORK/stub-env.txt" | cut -d= -f1 | tr '\n' ' ')" ""
+  chk "probe environment: HOME is the harness's own temporary HOME" "$(sed -n 's/^HOME=//p' "$WORK/stub-env.txt")" "$WORK/home"
+  chk "probe environment: the only connection variables are the explicit socket and the timeout" "$(grep '^PG' "$WORK/stub-env.txt" | cut -d= -f1 | sort | tr '\n' ' ')" "PGCONNECT_TIMEOUT PGHOST "
+  chk "probe environment: PGHOST is the explicit harness-owned socket path" "$(sed -n 's/^PGHOST=//p' "$WORK/stub-env.txt")" "$PROBE_SOCK"
+  # Independent check with the REAL psql: a poisoned inherited service (which libpq would honor over PGHOST) cannot move the target.
+  local seen
+  seen="$( export PGSERVICE=poison PGSERVICEFILE="$WORK/poison-service.conf"; refusal_probe "$PSQL_BIN" PGHOST="$PROBE_SOCK" >/dev/null; printf '%s' "$REFUSAL_OUT" )"
+  chk "real psql, inherited service poisoned: it still tried ONLY the explicit socket" "$(printf '%s' "$seen" | grep -c "$PROBE_SOCK")/$(printf '%s' "$seen" | grep -c 'poison-service-socket')" "1/0"
+  # Control for the control: WITHOUT a clean environment the same poison DOES redirect libpq, so the check above can really detect a leak.
+  seen="$(PGSERVICE=poison PGSERVICEFILE="$WORK/poison-service.conf" PGHOST="$PROBE_SOCK" PGCONNECT_TIMEOUT=3 "$PSQL_BIN" -X -q -d postgres -c 'select 1' 2>&1 || true)"
+  chk "control: an UNCLEAN psql run is redirected by the inherited service (so the leak would be detected)" "$(printf '%s' "$seen" | grep -c 'poison-service-socket')" "1"
   # No TCP probe is made at all (nothing may reach another service): the server's own pid file proves where it listens.
   local pidf="$SOCKDIR/data/postmaster.pid"
   chk "postmaster.pid lists the throwaway socket directory" "$(sed -n 5p "$pidf")" "$SOCKDIR"
