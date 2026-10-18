@@ -11,10 +11,17 @@ ok - isolation: data directory is inside the throwaway directory
 ok - isolation: server major version is 16
 ok - isolation: server is a primary, not a replica
 ok - isolation: inherited PGOPTIONS did not change search_path
-ok - isolation: negative control: a poisoned PGHOST (an unreachable unix-socket path) is refused by psql itself
+ok - isolation: negative control: a poisoned PGHOST (an unreachable harness-owned socket path) is refused by psql itself
 ok - isolation: the probe does NOT count a missing psql as a refusal
 ok - isolation: the probe does NOT count an exec failure (exit 127) as a refusal
 ok - isolation: the probe does NOT count exit 2 without a connection error as a refusal
+ok - isolation: the stub ran and recorded the probe's environment
+ok - isolation: probe environment: no service, passfile, password, options, database, user, port, sslmode, URL or key variable
+ok - isolation: probe environment: HOME is the harness's own temporary HOME
+ok - isolation: probe environment: the only connection variables are the explicit socket and the timeout
+ok - isolation: probe environment: PGHOST is the explicit harness-owned socket path
+ok - isolation: real psql, inherited service poisoned: it still tried ONLY the explicit socket
+ok - isolation: control: an UNCLEAN psql run is redirected by the inherited service (so the leak would be detected)
 ok - isolation: postmaster.pid lists the throwaway socket directory
 ok - isolation: postmaster.pid lists no TCP listen address
 ok - isolation: the cluster holds only its own default databases
@@ -432,58 +439,58 @@ psql:supabase/tests/rewards/08_bounds_timing.test.sql:55: NOTICE:  ok - bulk cou
 == heavy user (about 2,450 visits / 4,900 ledger rows over 36 months): canonical ordinal count
                                                                                          QUERY PLAN                                                                                          
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Aggregate (actual time=0.015..0.016 rows=1 loops=1)
+ Aggregate (actual time=0.013..0.014 rows=1 loops=1)
    Buffers: shared hit=4
-   ->  Index Only Scan using visits_user_location_day_idx on visits (actual time=0.011..0.012 rows=1 loops=1)
+   ->  Index Only Scan using visits_user_location_day_idx on visits (actual time=0.009..0.010 rows=1 loops=1)
          Index Cond: ((user_id = '00000000-0000-0000-0001-000000002001'::uuid) AND (location_id = '00000000-0000-0000-0002-000000000032'::uuid) AND (policy_day_local = '2026-09-25'::date))
          Heap Fetches: 1
          Buffers: shared hit=4
  Planning:
    Buffers: shared hit=9
- Planning Time: 0.110 ms
- Execution Time: 0.031 ms
+ Planning Time: 0.093 ms
+ Execution Time: 0.030 ms
 (10 rows)
 
 == idempotency lookup
                                                      QUERY PLAN                                                      
 ---------------------------------------------------------------------------------------------------------------------
- Index Scan using visits_user_id_idempotency_key_key on visits (actual time=0.015..0.015 rows=0 loops=1)
+ Index Scan using visits_user_id_idempotency_key_key on visits (actual time=0.009..0.009 rows=0 loops=1)
    Index Cond: ((user_id = '00000000-0000-0000-0001-000000002001'::uuid) AND (idempotency_key = 'heavy-none'::text))
    Buffers: shared hit=3
  Planning:
    Buffers: shared hit=36
- Planning Time: 0.172 ms
- Execution Time: 0.028 ms
+ Planning Time: 0.093 ms
+ Execution Time: 0.015 ms
 (7 rows)
 
 == derived balances for the heavy user
                                 QUERY PLAN                                
 --------------------------------------------------------------------------
- Function Scan on user_balances (actual time=1.071..1.071 rows=1 loops=1)
+ Function Scan on user_balances (actual time=0.938..0.938 rows=1 loops=1)
    Buffers: shared hit=102
- Planning Time: 0.014 ms
- Execution Time: 1.080 ms
+ Planning Time: 0.011 ms
+ Execution Time: 0.944 ms
 (4 rows)
 
 == user-day counter read
                                                       QUERY PLAN                                                      
 ----------------------------------------------------------------------------------------------------------------------
- Index Scan using reward_counters_user_day_pkey on reward_counters_user_day (actual time=0.010..0.011 rows=1 loops=1)
+ Index Scan using reward_counters_user_day_pkey on reward_counters_user_day (actual time=0.009..0.009 rows=1 loops=1)
    Index Cond: ((user_id = '00000000-0000-0000-0001-000000000100'::uuid) AND (issuance_day_utc = '2026-01-10'::date))
    Buffers: shared hit=4
  Planning:
    Buffers: shared hit=20
- Planning Time: 0.097 ms
- Execution Time: 0.016 ms
+ Planning Time: 0.105 ms
+ Execution Time: 0.015 ms
 (7 rows)
 
 == global-day counter read
                                                         QUERY PLAN                                                        
 --------------------------------------------------------------------------------------------------------------------------
- Index Scan using reward_counters_global_day_pkey on reward_counters_global_day (actual time=0.008..0.008 rows=1 loops=1)
+ Index Scan using reward_counters_global_day_pkey on reward_counters_global_day (actual time=0.007..0.008 rows=1 loops=1)
    Index Cond: (issuance_day_utc = '2026-01-10'::date)
    Buffers: shared hit=3
- Planning Time: 0.022 ms
+ Planning Time: 0.024 ms
  Execution Time: 0.013 ms
 (5 rows)
 
@@ -492,7 +499,7 @@ psql:supabase/tests/rewards/08_bounds_timing.test.sql:82: NOTICE:  ok - the idem
 psql:supabase/tests/rewards/08_bounds_timing.test.sql:84: NOTICE:  ok - the user-day counter read uses its primary key
                                                   latency                                                  
 -----------------------------------------------------------------------------------------------------------
- record_visit_at over 300 calls on the bulk data: min 9.76 ms, median 11.39 ms, p95 24.50 ms, max 25.53 ms
+ record_visit_at over 300 calls on the bulk data: min 9.65 ms, median 10.32 ms, p95 13.98 ms, max 19.22 ms
 (1 row)
 
 psql:supabase/tests/rewards/08_bounds_timing.test.sql:106: NOTICE:  ok - p95 latency of record_visit_at stays under a generous 250 ms on 60,000 visits (measured values are in the evidence log)
