@@ -67,3 +67,18 @@ $$;
 create function pg_temp.vo(at timestamptz, u uuid, l uuid, key text) returns text language sql as $$
   select pg_temp.oc(pg_temp.visit_at(at, u, l, key))
 $$;
+-- Like fails(), but forces deferred constraints inside the block so a deferred consistency failure is caught here.
+create function pg_temp.fails_c(q text, code text, name text) returns void language plpgsql as $$
+declare st text;
+begin
+  begin
+    execute q;
+    execute 'set constraints all immediate';
+    perform pg_temp.ok(false, name || ' (expected failure ' || coalesce(code, 'any') || ' but succeeded)');
+    raise exception 'rollback-probe' using errcode = 'RW999';
+  exception when others then
+    get stacked diagnostics st = returned_sqlstate;
+    if st = 'RW999' then return; end if;
+  end;
+  perform pg_temp.ok(code is null or st = any (string_to_array(code, ',')), name || ' [' || st || ']');
+end $$;
