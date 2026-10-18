@@ -11,8 +11,12 @@ ok - isolation: data directory is inside the throwaway directory
 ok - isolation: server major version is 16
 ok - isolation: server is a primary, not a replica
 ok - isolation: inherited PGOPTIONS did not change search_path
-ok - isolation: negative control: a poisoned PGHOST cannot connect
-ok - isolation: a TCP connection to the server is refused
+ok - isolation: negative control: a poisoned PGHOST (an unreachable unix-socket path) is refused by psql itself
+ok - isolation: the probe does NOT count a missing psql as a refusal
+ok - isolation: the probe does NOT count an exec failure (exit 127) as a refusal
+ok - isolation: the probe does NOT count exit 2 without a connection error as a refusal
+ok - isolation: postmaster.pid lists the throwaway socket directory
+ok - isolation: postmaster.pid lists no TCP listen address
 ok - isolation: the cluster holds only its own default databases
 isolation: all checks passed (no production connection was made)
 boundary: file-inspection checks (no database, no network)
@@ -428,58 +432,58 @@ psql:supabase/tests/rewards/08_bounds_timing.test.sql:55: NOTICE:  ok - bulk cou
 == heavy user (about 2,450 visits / 4,900 ledger rows over 36 months): canonical ordinal count
                                                                                          QUERY PLAN                                                                                          
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Aggregate (actual time=0.019..0.019 rows=1 loops=1)
+ Aggregate (actual time=0.015..0.016 rows=1 loops=1)
    Buffers: shared hit=4
-   ->  Index Only Scan using visits_user_location_day_idx on visits (actual time=0.014..0.015 rows=1 loops=1)
+   ->  Index Only Scan using visits_user_location_day_idx on visits (actual time=0.011..0.012 rows=1 loops=1)
          Index Cond: ((user_id = '00000000-0000-0000-0001-000000002001'::uuid) AND (location_id = '00000000-0000-0000-0002-000000000032'::uuid) AND (policy_day_local = '2026-09-25'::date))
          Heap Fetches: 1
          Buffers: shared hit=4
  Planning:
    Buffers: shared hit=9
- Planning Time: 0.112 ms
- Execution Time: 0.036 ms
+ Planning Time: 0.110 ms
+ Execution Time: 0.031 ms
 (10 rows)
 
 == idempotency lookup
                                                      QUERY PLAN                                                      
 ---------------------------------------------------------------------------------------------------------------------
- Index Scan using visits_user_id_idempotency_key_key on visits (actual time=0.011..0.011 rows=0 loops=1)
+ Index Scan using visits_user_id_idempotency_key_key on visits (actual time=0.015..0.015 rows=0 loops=1)
    Index Cond: ((user_id = '00000000-0000-0000-0001-000000002001'::uuid) AND (idempotency_key = 'heavy-none'::text))
    Buffers: shared hit=3
  Planning:
    Buffers: shared hit=36
- Planning Time: 0.094 ms
- Execution Time: 0.017 ms
+ Planning Time: 0.172 ms
+ Execution Time: 0.028 ms
 (7 rows)
 
 == derived balances for the heavy user
                                 QUERY PLAN                                
 --------------------------------------------------------------------------
- Function Scan on user_balances (actual time=1.055..1.055 rows=1 loops=1)
+ Function Scan on user_balances (actual time=1.071..1.071 rows=1 loops=1)
    Buffers: shared hit=102
- Planning Time: 0.011 ms
- Execution Time: 1.061 ms
+ Planning Time: 0.014 ms
+ Execution Time: 1.080 ms
 (4 rows)
 
 == user-day counter read
                                                       QUERY PLAN                                                      
 ----------------------------------------------------------------------------------------------------------------------
- Index Scan using reward_counters_user_day_pkey on reward_counters_user_day (actual time=0.011..0.011 rows=1 loops=1)
+ Index Scan using reward_counters_user_day_pkey on reward_counters_user_day (actual time=0.010..0.011 rows=1 loops=1)
    Index Cond: ((user_id = '00000000-0000-0000-0001-000000000100'::uuid) AND (issuance_day_utc = '2026-01-10'::date))
    Buffers: shared hit=4
  Planning:
    Buffers: shared hit=20
- Planning Time: 0.089 ms
- Execution Time: 0.017 ms
+ Planning Time: 0.097 ms
+ Execution Time: 0.016 ms
 (7 rows)
 
 == global-day counter read
                                                         QUERY PLAN                                                        
 --------------------------------------------------------------------------------------------------------------------------
- Index Scan using reward_counters_global_day_pkey on reward_counters_global_day (actual time=0.008..0.009 rows=1 loops=1)
+ Index Scan using reward_counters_global_day_pkey on reward_counters_global_day (actual time=0.008..0.008 rows=1 loops=1)
    Index Cond: (issuance_day_utc = '2026-01-10'::date)
    Buffers: shared hit=3
- Planning Time: 0.021 ms
+ Planning Time: 0.022 ms
  Execution Time: 0.013 ms
 (5 rows)
 
@@ -488,13 +492,41 @@ psql:supabase/tests/rewards/08_bounds_timing.test.sql:82: NOTICE:  ok - the idem
 psql:supabase/tests/rewards/08_bounds_timing.test.sql:84: NOTICE:  ok - the user-day counter read uses its primary key
                                                   latency                                                  
 -----------------------------------------------------------------------------------------------------------
- record_visit_at over 300 calls on the bulk data: min 9.58 ms, median 10.26 ms, p95 17.88 ms, max 21.66 ms
+ record_visit_at over 300 calls on the bulk data: min 9.76 ms, median 11.39 ms, p95 24.50 ms, max 25.53 ms
 (1 row)
 
 psql:supabase/tests/rewards/08_bounds_timing.test.sql:106: NOTICE:  ok - p95 latency of record_visit_at stays under a generous 250 ms on 60,000 visits (measured values are in the evidence log)
 psql:supabase/tests/rewards/08_bounds_timing.test.sql:107: NOTICE:  ok - all 300 measured calls were recorded
 psql:supabase/tests/rewards/08_bounds_timing.test.sql:110: NOTICE:  ok - a too-short key is still refused with data loaded [22023]
 psql:supabase/tests/rewards/08_bounds_timing.test.sql:111: NOTICE:  checks: 10 passed, 0 failed
+PASS 10_ledger_gate_matrix.test.sql (14 ok lines)
+            state            |   kind    | expected |  got  
+-----------------------------+-----------+----------+-------
+ disabled, budget configured | lifetime  | RW010    | RW010
+ disabled, budget configured | spendable | RW010    | RW010
+ disabled, budget unset      | lifetime  | RW010    | RW010
+ disabled, budget unset      | spendable | RW010    | RW010
+ enabled, budget configured  | lifetime  | ok       | ok
+ enabled, budget configured  | spendable | ok       | ok
+ enabled, budget unset       | lifetime  | RW011    | RW011
+ enabled, budget unset       | spendable | RW011    | RW011
+(8 rows)
+
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:56: NOTICE:  ok - disabled / unset: a direct LIFETIME award is refused by the gate (RW010)
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:57: NOTICE:  ok - disabled / unset: a direct SPENDABLE award is refused by the gate (RW010)
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:59: NOTICE:  ok - disabled with a configured budget: both kinds refused (RW010)
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:60: NOTICE:  ok - enabled / budget UNSET: a direct LIFETIME award is refused by the gate (RW011)
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:61: NOTICE:  ok - enabled / budget UNSET: a direct SPENDABLE award is refused by the gate (RW011)
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:63: NOTICE:  ok - enabled / budget configured: the SAME otherwise valid rows pass every rule, so the refusals above came only from the gate
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:64: NOTICE:  ok - the whole matrix matches the expectation (4 states x 2 kinds)
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:90: NOTICE:  ok - enabled / budget configured: a complete valid writer transaction commits for a lifetime award AND for a spendable award
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:98: NOTICE:  ok - enabled / configured but EXHAUSTED: through record_visit the lifetime award is still issued and the spendable award is not
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:100: NOTICE:  ok - exhausted budget: exactly one lifetime row and no spendable row
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:101: NOTICE:  ok - exhausted budget: a direct lifetime award is NOT refused by the gate (independence of lifetime from the spendable budget)
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:102: NOTICE:  ok - the exhausted counter never moved
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:109: NOTICE:  ok - enabled / unset through record_visit: budget_unset and nothing issued (either kind)
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:110: NOTICE:  ok - and no ledger row exists
+psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:112: NOTICE:  checks: 14 passed, 0 failed
 PASS 09_concurrency.sh (31 ok lines)
 ok - same key from two sessions: both end with the same visit id
 ok - the first session recorded it, the second replayed it
@@ -528,5 +560,5 @@ ok - the error surfaced to the caller (not swallowed by the spendable block)
 ok - a REAL lock timeout while waiting on the global counter aborts the whole visit (no visit, no ledger row, no counter)
 ok - the error surfaced to the caller (not swallowed by the spendable block)
 checks: 31 passed, 0 failed
-summary: 9 test files, 0 failed
+summary: 10 test files, 0 failed
 REWARDS P1: all tests passed on a disposable local PostgreSQL 16 (no production connection was made)
