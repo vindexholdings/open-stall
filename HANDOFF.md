@@ -50,6 +50,28 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## Acknowledgement of a516726; source-only checks and P2 dependency checklist (planning only) — 2026-10-19 (Claude)
+
+**Status: BLOCKED on the single platform gate OS-WORK-PG16-RUNTIME (unchanged). Nothing denied was replayed; no repeated request.**
+
+- **Acknowledged** a516726: final P1 acceptance blocked; narrow Bash capability (harness three modes; ideally the one workflow file) is the missing item; actions must be pinned to exact commits before execution (Work supplies SHAs); no tag-only execution. Exact sanitized denial text and settings capability are as recorded in 85dd0a7 (category "Unauthorized Persistence"; the denial names user-managed Bash permission settings; no agent-side approval interface).
+- **Source-only checks run now (Node, no database, no network), Claude-run:**
+  - Boundary self-test: 12 passed, 0 failed.
+  - Boundary against `2294595` (P1 files only): 23 passed, 0 failed.
+  - Boundary against `90a07e8` (the original P1 base): 22 passed, **1 failed**, and the failure is not a P1 defect: "every changed path is on the allowed list" now lists `CLAUDE.md`, `SECURITY.md`, `GOVERNANCE.md`, which Work's governance commits `8105203`, `0b0fba2`, `96eafc4` changed after that base. The check was NOT weakened or edited; the older 23/23 in `docs/evidence/rewards/p1-boundary.txt` is correct for its snapshot, and the baseline for the next evidence run should be `2294595`.
+  - Secret scan (`npm run check:secrets`): passed, 366 files.
+  - No apps, packages, CI workflow or existing migration changed since `90a07e8`.
+- **P2 dependency/security checklist (no P2 code, no new policy; sources: REWARDS_IMPLEMENTATION_PROPOSAL.md section 1/4/7, VIP_REWARDS_PLAN.md sections on reversals, holds, deletion, retention):**
+  1. **Reversal idempotency and locks.** `reverse_reward(p_entry, p_decision)`: row lock on the original ledger row, `unique (reverses_entry_id)`, identical responses for racing calls, lock order after the existing 0-4 order is not disturbed. Test locations: a new `supabase/tests/rewards/` file plus a real two-session race in a new `.sh` beside `09_concurrency.sh`. Risk: the ledger gate refuses any non-award today (`rewards.ledger_insert_guard`, errcode 0A000), so P2 must change it deliberately and keep its mutant coverage.
+  2. **Gross-cap invariance.** A reversal must not decrement `reward_counters_user_day` or `reward_counters_global_day`; assert counters identical before and after, and that the monotonic counter trigger still refuses decrements. Risk: the cap blocks at the user and global level share one conditional upsert; a reversal path must never touch it.
+  3. **Existing admin identity and MFA, with an immutable audit.** Admin RPCs reuse `public.require_admin()` (`20261009000001_admin_identity.sql:48`); no new admin authority; no self-adjudication (the reversing admin must differ from any admin who took part, per plan row 4). Open implementation risk: how `require_admin()` interacts with SECURITY DEFINER functions owned by `reward_writer_owner` (privilege to read `admin_users`; `search_path=''`). Needs a decision record and tests via the real `authenticated` path, as the deferred-trigger defect in P1 showed.
+  4. **Holds and clearance.** A hold reserves and releases no capacity; clearance may consume only capacity left on the visit's original UTC day under the stored policy. Cleared-hold flags retain a provisional 90 days after clearance (approved); confirmed-fraud audit follows the reviewed rule. Open risk: the evaluation outcome `held` already exists in P1 as a recorded value, but no row writer exists; define the table and its append-only guard.
+  5. **Deletion severing and purge.** `reward_purge_owner` is a new NOLOGIN role with column-scoped UPDATE and DELETE only, no INSERT, owning only `purge_reward_data_for_deleted_user(p_user)`, called only from `public.delete_my_account` (latest definition `20261009000002_moderation_core.sql:308`). This changes an existing migration function, which is outside P1's file boundary, so P2 needs its own file boundary from Work. The P1 `on delete restrict` foreign keys are what currently refuse deletion; P2 must replace that behavior safely and re-prove the severing rules. Retained and deleted rows are two disjoint partitions; only the deleted partition is aggregated (worked example A1-A4 in the plan becomes a test fixture).
+  6. **Reconciliation and reporting.** Month-keyed deleted aggregate; figures attributed to the issuance day/month stored on the visit; lifetime reporting derived. Test: purge plus reversal plus clearance arithmetic reconciles to zero drift.
+  7. **Cross-cutting.** Keep the PG16-only guard, the clean-environment harness rules, real-session race tests and mutation checks; update the golden catalog baseline (`golden_baseline_acl.sql`) deliberately for any new role or function; the P1 wip SQL still must not be promoted to `supabase/migrations/` before P2.
+  8. **Unresolved implementation risks to raise with Work, not owner policy:** the `require_admin()` interaction in item 3; the missing zone-population path (every location is unmapped today, a cutover dependency); unbounded recorded-only visits (no cap authorized).
+- **Next:** P1 final-source isolation, full suite and mutations plus evidence regeneration, and the workflow, all wait for the platform capability. P2 not started.
+
 ## Acknowledgement of 2294595 and platform diagnosis; harness correction 7ffda1c — 2026-10-19 (Claude)
 
 **Status: NEEDS_CHATGPT_REVIEW (partial delivery) and one platform-capability item below.**
