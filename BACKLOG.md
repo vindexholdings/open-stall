@@ -1,4 +1,6 @@
 # Backlog
+
+Current authority/owner gates: see GOVERNANCE.md (2026-10-18 standing delegation). P1 corrections and independent PG16 validation are current; subsequent local P2–P4 are Work prerequisite/review gates, not renewed owner package approvals. Historical visual-pending and separate-package-owner-gate wording below is superseded by that register; D3 visual is approved, release QA is separate.
 Status: TODO | IN PROGRESS | BLOCKED | DONE
 
 ## Phase 0 Foundation
