@@ -1,4 +1,6 @@
 # Security / Privacy / Moderation
+
+Governance/access authority: GOVERNANCE.md and CLAUDE.md (owner2026-10-18). Delegation changes no security/privacy policy. Moderated originals/decisions remain preserved with identity severed on deletion per the nine Phase3A decisions; older account-cascade descriptions below are historical where superseded. Test controls require isolated explicit environments; instructions/env allowlisting alone are not OS sandboxing.
 Never commit secrets or expose Supabase service-role key. Use RLS and least privilege. Validate privileged actions server-side. Production changes need approval.
 Prefer ephemeral precise user location; do not persist unless a defined feature requires it. Avoid analytics tying precise coordinates to identifiable users.
 All user-added locations/edits stay pending until moderation.
