@@ -161,9 +161,22 @@ isolation_selftest() {
   local seen
   seen="$( export PGSERVICE=poison PGSERVICEFILE="$WORK/poison-service.conf"; refusal_probe "$PSQL_BIN" PGHOST="$PROBE_SOCK" >/dev/null; printf '%s' "$REFUSAL_OUT" )"
   chk "real psql, inherited service poisoned: it still tried ONLY the explicit socket" "$(printf '%s' "$seen" | grep -c "$PROBE_SOCK")/$(printf '%s' "$seen" | grep -c 'poison-service-socket')" "1/0"
-  # Control for the control: WITHOUT a clean environment the same poison DOES redirect libpq, so the check above can really detect a leak.
-  seen="$(PGSERVICE=poison PGSERVICEFILE="$WORK/poison-service.conf" PGHOST="$PROBE_SOCK" PGCONNECT_TIMEOUT=3 "$PSQL_BIN" -X -q -d postgres -c 'select 1' 2>&1 || true)"
-  chk "control: an UNCLEAN psql run is redirected by the inherited service (so the leak would be detected)" "$(printf '%s' "$seen" | grep -c 'poison-service-socket')" "1"
+  # Control for the control: the same synthetic service poison, injected DELIBERATELY into an otherwise clean child (env -i, the harness's
+  # own HOME), DOES redirect libpq, so the check above can really detect a leak. Only these four synthetic values are ever supplied;
+  # nothing from the caller's real environment is inherited by this control either.
+  unclean_control() { "${CLEAN_ENV[@]}" PGSERVICE=poison PGSERVICEFILE="$WORK/poison-service.conf" PGHOST="$PROBE_SOCK" PGCONNECT_TIMEOUT=3 "$@"; }
+  seen="$(unclean_control "$PSQL_BIN" -X -q -d postgres -c 'select 1' 2>&1 || true)"
+  chk "control: a deliberately service-poisoned psql run is redirected by the service (so the leak would be detected)" "$(printf '%s' "$seen" | grep -c 'poison-service-socket')" "1"
+  # The control's own environment, with the caller's real-looking credentials exported: only the four deliberate synthetic values arrive.
+  rm -f "$WORK/stub-env.txt"
+  ( export PGPASSFILE=/nonexistent/passfile PGPASSWORD=nope PGOPTIONS='-c search_path=evil' PGDATABASE=prod PGUSER=prod PGPORT=1 PGSSLMODE=require \
+           DATABASE_URL=postgres://invalid SUPABASE_URL=https://example.invalid AWS_SECRET_ACCESS_KEY=invalid HOME=/nonexistent/home
+    unclean_control "$WORK/stubs/env-dump" >/dev/null || true )
+  chk "unclean control: the stub ran and recorded its environment" "$([ -s "$WORK/stub-env.txt" ] && echo yes || echo no)" "yes"
+  chk "unclean control: only the synthetic service, service file, socket and timeout variables are present" "$(grep '^PG' "$WORK/stub-env.txt" | cut -d= -f1 | sort | tr '\n' ' ')" "PGCONNECT_TIMEOUT PGHOST PGSERVICE PGSERVICEFILE "
+  chk "unclean control: no caller credential, URL or cloud variable arrives" "$(grep -E '^(PGPASSFILE|PGPASSWORD|PGOPTIONS|PGDATABASE|PGUSER|PGPORT|PGSSLMODE|DATABASE_URL|SUPABASE_|AWS_)' "$WORK/stub-env.txt" | cut -d= -f1 | tr '\n' ' ')" ""
+  chk "unclean control: HOME is the harness's own temporary HOME" "$(sed -n 's/^HOME=//p' "$WORK/stub-env.txt")" "$WORK/home"
+  chk "unclean control: the service file is the harness-created synthetic file" "$(sed -n 's/^PGSERVICEFILE=//p' "$WORK/stub-env.txt")" "$WORK/poison-service.conf"
   # No TCP probe is made at all (nothing may reach another service): the server's own pid file proves where it listens.
   local pidf="$SOCKDIR/data/postmaster.pid"
   chk "postmaster.pid lists the throwaway socket directory" "$(sed -n 5p "$pidf")" "$SOCKDIR"
