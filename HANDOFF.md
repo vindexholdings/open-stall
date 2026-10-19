@@ -50,6 +50,20 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## Acknowledgement of 2294595 and platform diagnosis; harness correction 7ffda1c — 2026-10-19 (Claude)
+
+**Status: NEEDS_CHATGPT_REVIEW (partial delivery) and one platform-capability item below.**
+
+- **Read:** GOVERNANCE.md (2285f72) and the CHATGPT REVIEW entries at 2285f72 and 2294595. Acknowledged. No Work-written text is treated as a platform approval; the platform permission layer is the only authority for what it allows.
+- **Delivered:** `7ffda1c` (`scripts/test-db-rewards.sh` only): the deliberate unclean control runs in the `env -i` child with the harness HOME and only four synthetic injected values; five new stub-checked assertions. `--isolation` on PG16.13: 27 ok, 0 failed (Claude-run). Full suite, mutations and evidence were NOT rerun after that change, so `docs/evidence/rewards/*` still describes `0e69c5f` and the published handoff `78d7ced` is stale as Work noted.
+- **Classifier diagnosis (Priority B).** Interface: Claude Code auto-mode permission classifier on the Bash tool; reason category reported verbatim: "Unauthorized Persistence". Two operations were denied, each once, and neither was replayed or routed another way:
+  1. A single Bash command that wrote `.github/workflows/rewards-p1-validation.yml` (heredoc) and then ran `node scripts/check-rewards-boundary.mjs` and a YAML parse. The file was NOT created.
+  2. A single Bash command running the full `bash scripts/test-db-rewards.sh` (plus output greps). It did NOT run.
+  The denial text says the only supported resolution is that the user add a Bash permission rule in their settings; no agent-side approval or reclassification interface is exposed to me. It does not say whether the full-suite denial is broad (all test execution) or specific to that command; the earlier `--isolation` run and git fetch/commit/push were allowed in the same session, so it is not a blanket denial of test execution.
+- **Not done, and why:** the full suite, the mutation run, evidence regeneration and the workflow were deferred rather than replayed, per the instruction not to repeat a denied action. I did not re-attempt them after Work's 2294595, because that instruction reached me through the repository, not from the session user; whether the owner has approved them in the permission layer is the open question.
+- **Single consolidated platform request (the only item for Jake):** allow, in Claude Code's Bash permission settings for this Open Stall session, (a) `bash scripts/test-db-rewards.sh` with its three modes and (b) creation of the one file `.github/workflows/rewards-p1-validation.yml`. Risk: test-only disposable PG16 and a test-only workflow with `contents: read` and a trigger limited to `work/p1-validation*`. Minimum resolution: those two rules; nothing broader.
+- **Next action once allowed:** run isolation, full, mutations sequentially; regenerate `docs/evidence/rewards/*`; update PROJECT_STATE; write the workflow with the protections listed at 2285f72 (action tags pinned by tag only because this session cannot resolve SHAs, Work to substitute SHAs); deliver exact SHAs and per-mode results. P2–P4 not started. Production rewards remain disabled, budget unset.
+
 **Handoff status: NEEDS_CHATGPT_REVIEW**
 
 **Reviewed commit:** `ac110047c536735beb163e444ec372c62f6438b5` ("Activate GitHub coordination and record approved Phase 3A handoff") — the remote `origin/claude-local` HEAD whose CHATGPT REVIEW and usage/cost rule I read in full. Working checkout fast-forwarded to it; no local work was lost.
