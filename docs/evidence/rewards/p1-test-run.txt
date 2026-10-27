@@ -1,7 +1,3 @@
-
-> test:db:rewards
-> bash scripts/test-db-rewards.sh
-
 harness: postgres (PostgreSQL) 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
 ok - isolation: no connection override reaches a child process
 ok - isolation: server has no TCP address (inet_server_addr is NULL)
@@ -21,7 +17,12 @@ ok - isolation: probe environment: HOME is the harness's own temporary HOME
 ok - isolation: probe environment: the only connection variables are the explicit socket and the timeout
 ok - isolation: probe environment: PGHOST is the explicit harness-owned socket path
 ok - isolation: real psql, inherited service poisoned: it still tried ONLY the explicit socket
-ok - isolation: control: an UNCLEAN psql run is redirected by the inherited service (so the leak would be detected)
+ok - isolation: control: a deliberately service-poisoned psql run is redirected by the service (so the leak would be detected)
+ok - isolation: unclean control: the stub ran and recorded its environment
+ok - isolation: unclean control: only the synthetic service, service file, socket and timeout variables are present
+ok - isolation: unclean control: no caller credential, URL or cloud variable arrives
+ok - isolation: unclean control: HOME is the harness's own temporary HOME
+ok - isolation: unclean control: the service file is the harness-created synthetic file
 ok - isolation: postmaster.pid lists the throwaway socket directory
 ok - isolation: postmaster.pid lists no TCP listen address
 ok - isolation: the cluster holds only its own default databases
@@ -35,198 +36,198 @@ rewards-wip: R003_visits_ledger_counters.sql
 rewards-wip: R004_evaluate_record.sql
 run: PostgreSQL 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit
 PASS 01_defaults_and_safety.test.sql (27 ok lines)
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:7: NOTICE:  ok - fresh settings: rewards_enabled = false
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:8: NOTICE:  ok - fresh settings: global budget is NULL (unset)
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:9: NOTICE:  ok - exactly one settings row
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:10: NOTICE:  ok - the seed row appended one history row
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:13: NOTICE:  ok - fresh cluster: ledger, visits and counters are empty
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:16: NOTICE:  ok - seed policy is 5/5/4/60
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:18: NOTICE:  ok - no cooldown, coordinate or device-identifier column exists in the rewards schema
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:23: NOTICE:  ok - disabled: both outcomes are rewards_disabled
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:24: NOTICE:  ok - disabled: the visit is still recorded
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:25: NOTICE:  ok - disabled: the visit keeps its ordinal slot
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:27: NOTICE:  ok - disabled: no ledger row and no counter change
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:33: NOTICE:  ok - enabled with unset budget: budget_unset / rewards_disabled
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:34: NOTICE:  ok - enabled with unset budget: nothing is issued
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:35: NOTICE:  ok - the second visit that day is ordinal 2 even though nothing was issued
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:39: NOTICE:  ok - two changes appended two history rows
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:40: NOTICE:  ok - visits record the settings history row in force
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:47: NOTICE:  ok - ledger insert is refused while rewards are disabled [RW010]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:53: NOTICE:  ok - spendable ledger insert is refused while the budget is unset [RW011]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:58: NOTICE:  ok - authenticated cannot enable rewards [42501]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:60: NOTICE:  ok - anon cannot set a budget [42501]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:62: NOTICE:  ok - service_role cannot enable rewards [42501]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:64: NOTICE:  ok - the writer role cannot enable rewards [42501]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:66: NOTICE:  ok - the settings row cannot be deleted [42501]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:67: NOTICE:  ok - settings cannot be truncated [42501]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:68: NOTICE:  ok - settings are still disabled after all refusals
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:71: NOTICE:  ok - anon cannot execute record_visit [42501]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:74: NOTICE:  ok - record_visit needs a signed-in identity [28000]
-psql:supabase/tests/rewards/01_defaults_and_safety.test.sql:76: NOTICE:  checks: 27 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:7: NOTICE:  ok - fresh settings: rewards_enabled = false
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:8: NOTICE:  ok - fresh settings: global budget is NULL (unset)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:9: NOTICE:  ok - exactly one settings row
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:10: NOTICE:  ok - the seed row appended one history row
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:13: NOTICE:  ok - fresh cluster: ledger, visits and counters are empty
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:16: NOTICE:  ok - seed policy is 5/5/4/60
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:18: NOTICE:  ok - no cooldown, coordinate or device-identifier column exists in the rewards schema
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:23: NOTICE:  ok - disabled: both outcomes are rewards_disabled
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:24: NOTICE:  ok - disabled: the visit is still recorded
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:25: NOTICE:  ok - disabled: the visit keeps its ordinal slot
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:27: NOTICE:  ok - disabled: no ledger row and no counter change
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:33: NOTICE:  ok - enabled with unset budget: budget_unset / rewards_disabled
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:34: NOTICE:  ok - enabled with unset budget: nothing is issued
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:35: NOTICE:  ok - the second visit that day is ordinal 2 even though nothing was issued
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:39: NOTICE:  ok - two changes appended two history rows
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:40: NOTICE:  ok - visits record the settings history row in force
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:47: NOTICE:  ok - ledger insert is refused while rewards are disabled [RW010]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:53: NOTICE:  ok - spendable ledger insert is refused while the budget is unset [RW011]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:58: NOTICE:  ok - authenticated cannot enable rewards [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:60: NOTICE:  ok - anon cannot set a budget [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:62: NOTICE:  ok - service_role cannot enable rewards [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:64: NOTICE:  ok - the writer role cannot enable rewards [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:66: NOTICE:  ok - the settings row cannot be deleted [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:67: NOTICE:  ok - settings cannot be truncated [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:68: NOTICE:  ok - settings are still disabled after all refusals
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:71: NOTICE:  ok - anon cannot execute record_visit [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:74: NOTICE:  ok - record_visit needs a signed-in identity [28000]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/01_defaults_and_safety.test.sql:76: NOTICE:  checks: 27 passed, 0 failed
 PASS 02_evaluate_visit_table.test.sql (40 ok lines)
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 1st visit, caps free -> awarded|awarded|5|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 2nd visit -> awarded|not_first_daily|5|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 3rd visit -> awarded|not_first_daily|5|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 4th visit -> awarded|not_first_daily|5|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 5th visit is recorded only (location cap) -> location_cap|not_first_daily|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 6th visit -> location_cap|not_first_daily|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 20th visit -> location_cap|not_first_daily|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 1st visit, user at 60: lifetime still earned -> user_day_cap|awarded|0|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 3rd visit, user at 60 -> user_day_cap|not_first_daily|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - user at 55: the last 5 fit exactly -> awarded|awarded|5|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - user at 58: no partial grant -> user_day_cap|awarded|0|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - user at 56: no partial grant -> user_day_cap|not_first_daily|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget exhausted, 1st visit: lifetime earned -> budget_exhausted|awarded|0|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget exhausted, 2nd visit -> budget_exhausted|not_first_daily|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget 95 of 100 used: the last 5 fit -> awarded|awarded|5|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget 96 of 100 used: no partial grant -> budget_exhausted|awarded|0|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget 0 is a real, exhausted budget -> budget_exhausted|awarded|0|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - enabled but budget unset: nothing issued -> budget_unset|rewards_disabled|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - disabled, budget set: nothing issued -> rewards_disabled|rewards_disabled|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - disabled, budget unset: nothing issued -> rewards_disabled|rewards_disabled|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - held visit keeps its slot, earns nothing yet -> held|held|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - location cap wins over user cap -> location_cap|not_first_daily|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - user cap wins over an exhausted budget -> user_day_cap|not_first_daily|0|0
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - lifetime independent of BOTH caps -> user_day_cap|awarded|0|5
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:40: NOTICE:  ok - a policy with 2 slots caps the 3rd visit
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:42: NOTICE:  ok - policy values drive the amounts
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:44: NOTICE:  ok - a non-dividing policy is refused as capped, never partially granted (8 + 7 > 14)
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:47: NOTICE:  ok - ordinal 0 is invalid [22023]
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:48: NOTICE:  ok - NULL ordinal is invalid [22023]
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:49: NOTICE:  ok - negative user issuance is invalid [22023]
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:50: NOTICE:  ok - negative global issuance is invalid [22023]
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:51: NOTICE:  ok - negative budget is invalid [22023]
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:52: NOTICE:  ok - zero points per visit is invalid [22023]
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:53: NOTICE:  ok - NULL switch is invalid [22023]
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:57: NOTICE:  ok - evaluate_visit is IMMUTABLE
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:60: NOTICE:  ok - evaluate_visit source has no clock, no table access and no interval
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:63: NOTICE:  ok - no rewards function takes or returns an interval
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:65: NOTICE:  ok - no rewards column is an interval (no cooldown parameter can exist)
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:67: NOTICE:  ok - no rewards or public function uses "when others"
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:70: NOTICE:  ok - record_visit_at computes no interval or elapsed time between visits
-psql:supabase/tests/rewards/02_evaluate_visit_table.test.sql:71: NOTICE:  checks: 40 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 1st visit, caps free -> awarded|awarded|5|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 2nd visit -> awarded|not_first_daily|5|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 3rd visit -> awarded|not_first_daily|5|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 4th visit -> awarded|not_first_daily|5|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 5th visit is recorded only (location cap) -> location_cap|not_first_daily|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 6th visit -> location_cap|not_first_daily|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 20th visit -> location_cap|not_first_daily|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 1st visit, user at 60: lifetime still earned -> user_day_cap|awarded|0|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - 3rd visit, user at 60 -> user_day_cap|not_first_daily|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - user at 55: the last 5 fit exactly -> awarded|awarded|5|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - user at 58: no partial grant -> user_day_cap|awarded|0|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - user at 56: no partial grant -> user_day_cap|not_first_daily|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget exhausted, 1st visit: lifetime earned -> budget_exhausted|awarded|0|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget exhausted, 2nd visit -> budget_exhausted|not_first_daily|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget 95 of 100 used: the last 5 fit -> awarded|awarded|5|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget 96 of 100 used: no partial grant -> budget_exhausted|awarded|0|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - budget 0 is a real, exhausted budget -> budget_exhausted|awarded|0|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - enabled but budget unset: nothing issued -> budget_unset|rewards_disabled|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - disabled, budget set: nothing issued -> rewards_disabled|rewards_disabled|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - disabled, budget unset: nothing issued -> rewards_disabled|rewards_disabled|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - held visit keeps its slot, earns nothing yet -> held|held|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - location cap wins over user cap -> location_cap|not_first_daily|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - user cap wins over an exhausted budget -> user_day_cap|not_first_daily|0|0
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:36: NOTICE:  ok - lifetime independent of BOTH caps -> user_day_cap|awarded|0|5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:40: NOTICE:  ok - a policy with 2 slots caps the 3rd visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:42: NOTICE:  ok - policy values drive the amounts
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:44: NOTICE:  ok - a non-dividing policy is refused as capped, never partially granted (8 + 7 > 14)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:47: NOTICE:  ok - ordinal 0 is invalid [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:48: NOTICE:  ok - NULL ordinal is invalid [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:49: NOTICE:  ok - negative user issuance is invalid [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:50: NOTICE:  ok - negative global issuance is invalid [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:51: NOTICE:  ok - negative budget is invalid [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:52: NOTICE:  ok - zero points per visit is invalid [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:53: NOTICE:  ok - NULL switch is invalid [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:57: NOTICE:  ok - evaluate_visit is IMMUTABLE
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:60: NOTICE:  ok - evaluate_visit source has no clock, no table access and no interval
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:63: NOTICE:  ok - no rewards function takes or returns an interval
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:65: NOTICE:  ok - no rewards column is an interval (no cooldown parameter can exist)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:67: NOTICE:  ok - no rewards or public function uses "when others"
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:70: NOTICE:  ok - record_visit_at computes no interval or elapsed time between visits
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/02_evaluate_visit_table.test.sql:71: NOTICE:  checks: 40 passed, 0 failed
 PASS 03_record_visit_flow.test.sql (72 ok lines)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:16: NOTICE:  ok - rapid visit 1 (30 s window): awarded spendable 5 and lifetime 5
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:18: NOTICE:  ok - rapid visits 2-4 each earn 5 spendable, no lifetime
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:19: NOTICE:  ok - the fifth and sixth are recorded without points (location_cap), no hold
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:21: NOTICE:  ok - four rapid visits earn exactly 20 spendable and 5 lifetime
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:23: NOTICE:  ok - every visit is recorded and ordinals follow acceptance order (cap-blocked visits keep their slot)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:24: NOTICE:  ok - no visit is held
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:32: NOTICE:  ok - four visits at the SAME instant are all rewarded (no same-location minimum interval)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:35: NOTICE:  ok - a fifth visit with an EARLIER timestamp still takes slot 5 (acceptance order, not time order)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:55: NOTICE:  ok - three locations x four visits reach exactly 60 on the UTC day
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:57: NOTICE:  ok - first visit with the user at 60: spendable user_day_cap, lifetime +5 still awarded
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:58: NOTICE:  ok - exactly one ledger row (the lifetime award) for the capped visit
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:60: NOTICE:  ok - second visit while capped: nothing awarded
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:63: NOTICE:  ok - after UTC midnight (same local day) the user cap has reset but the location ordinal continues (ordinal 3, no new lifetime)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:64: NOTICE:  ok - all three visits belong to local day 2026-10-20
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:67: NOTICE:  ok - the two UTC days are counted separately
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:76: NOTICE:  ok - Honolulu: 09:59:59Z and 10:00:00Z straddle local midnight, so both are first visits
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:77: NOTICE:  ok - Honolulu local days are 2026-10-19 and 2026-10-20
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:80: NOTICE:  ok - Kolkata: 18:29:59Z and 18:30:00Z straddle local midnight (UTC+05:30)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:81: NOTICE:  ok - Kolkata local days are 2026-10-19 and 2026-10-20
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:84: NOTICE:  ok - Denver (MDT, UTC-6): 05:59:59Z and 06:00:00Z straddle local midnight
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:85: NOTICE:  ok - Denver local days are 2026-10-20 and 2026-10-21
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:87: NOTICE:  ok - both Denver visits are on the same UTC day: the stored UTC day is independent of the local day
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:88: NOTICE:  ok - each visit stores the zone used
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:100: NOTICE:  ok - fall back: the last second before local midnight is its own (previous) local day
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:102: NOTICE:  ok - fall back: 06:00Z through 06:00Z next day (24 h later) are all ONE local day: ordinals 1-4
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:103: NOTICE:  ok - fall back: the 25th hour still belongs to the same local day (fifth visit is capped)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:104: NOTICE:  ok - fall back: 07:00:00Z is local midnight of the next day (a new first visit)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:106: NOTICE:  ok - fall back: stored local days are exactly as expected
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:111: NOTICE:  ok - spring forward: the 23-hour local day still holds ordinal 2 at its last second
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:112: NOTICE:  ok - spring forward: only 23 hours after the day began, the next local day has started (nothing assumes 24 hours)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:113: NOTICE:  ok - spring forward: stored local days
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:120: NOTICE:  ok - a location with no zone: recorded, nothing awarded (fails closed)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:122: NOTICE:  ok - a location with an invalid zone name: recorded, nothing awarded
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:123: NOTICE:  ok - those visits have no day and no ordinal
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:124: NOTICE:  ok - no ledger row and no counter change
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:134: NOTICE:  ok - a policy version effective in the past is refused (prospective only) [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:136: NOTICE:  ok - a policy version effective now is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:138: NOTICE:  ok - two versions cannot share an effective time [23505]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:139: NOTICE:  ok - a policy version is immutable (UPDATE refused) [42501]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:140: NOTICE:  ok - a policy version cannot be deleted [42501]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:141: NOTICE:  ok - policy versions cannot be truncated [0A000]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:146: NOTICE:  ok - before the transition the old version applies (5 / 5)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:147: NOTICE:  ok - after the transition the new version applies to later visits (10 spendable) on the SAME local day
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:148: NOTICE:  ok - the lowered location cap (2) applies to later visits the same day (the old version would have allowed 4)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:150: NOTICE:  ok - earlier awards are never clawed back by the new version
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:151: NOTICE:  ok - each visit records the policy version it used
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:152: NOTICE:  ok - the user counter carries across the transition
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:160: NOTICE:  ok - a retry with the same key returns the same visit
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:161: NOTICE:  ok - the retry is marked replayed
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:162: NOTICE:  ok - the retry reports the same outcomes and points
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:164: NOTICE:  ok - a retry never awards twice
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:165: NOTICE:  ok - the same key for a different restroom is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:166: NOTICE:  ok - the refused reuse wrote nothing
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:170: NOTICE:  ok - keys are scoped per user
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:178: NOTICE:  ok - NaN latitude is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:179: NOTICE:  ok - latitude out of range is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:180: NOTICE:  ok - longitude out of range is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:181: NOTICE:  ok - a short idempotency key is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:182: NOTICE:  ok - an idempotency key with unsafe characters is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:183: NOTICE:  ok - a negative accuracy is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:184: NOTICE:  ok - NaN accuracy is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:185: NOTICE:  ok - a missing server time is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:186: NOTICE:  ok - an unknown restroom is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:187: NOTICE:  ok - a restroom that is not public is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:188: NOTICE:  ok - more than 150 m from the restroom is refused [22023]
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:189: NOTICE:  ok - no refused request wrote a visit
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:195: NOTICE:  ok - distance is stored only as a coarse bucket
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:196: NOTICE:  ok - accuracy is optional and stored only as a bucket
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:197: NOTICE:  ok - missing or poor accuracy never changes eligibility
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:207: NOTICE:  ok - an authenticated client calling public.record_visit is awarded (commit-time checks run as the writer)
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:208: NOTICE:  ok - the client retry is a replay
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:209: NOTICE:  ok - the client call wrote one visit and two awards
-psql:supabase/tests/rewards/03_record_visit_flow.test.sql:210: NOTICE:  checks: 72 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:16: NOTICE:  ok - rapid visit 1 (30 s window): awarded spendable 5 and lifetime 5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:18: NOTICE:  ok - rapid visits 2-4 each earn 5 spendable, no lifetime
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:19: NOTICE:  ok - the fifth and sixth are recorded without points (location_cap), no hold
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:21: NOTICE:  ok - four rapid visits earn exactly 20 spendable and 5 lifetime
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:23: NOTICE:  ok - every visit is recorded and ordinals follow acceptance order (cap-blocked visits keep their slot)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:24: NOTICE:  ok - no visit is held
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:32: NOTICE:  ok - four visits at the SAME instant are all rewarded (no same-location minimum interval)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:35: NOTICE:  ok - a fifth visit with an EARLIER timestamp still takes slot 5 (acceptance order, not time order)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:55: NOTICE:  ok - three locations x four visits reach exactly 60 on the UTC day
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:57: NOTICE:  ok - first visit with the user at 60: spendable user_day_cap, lifetime +5 still awarded
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:58: NOTICE:  ok - exactly one ledger row (the lifetime award) for the capped visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:60: NOTICE:  ok - second visit while capped: nothing awarded
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:63: NOTICE:  ok - after UTC midnight (same local day) the user cap has reset but the location ordinal continues (ordinal 3, no new lifetime)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:64: NOTICE:  ok - all three visits belong to local day 2026-10-20
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:67: NOTICE:  ok - the two UTC days are counted separately
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:76: NOTICE:  ok - Honolulu: 09:59:59Z and 10:00:00Z straddle local midnight, so both are first visits
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:77: NOTICE:  ok - Honolulu local days are 2026-10-19 and 2026-10-20
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:80: NOTICE:  ok - Kolkata: 18:29:59Z and 18:30:00Z straddle local midnight (UTC+05:30)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:81: NOTICE:  ok - Kolkata local days are 2026-10-19 and 2026-10-20
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:84: NOTICE:  ok - Denver (MDT, UTC-6): 05:59:59Z and 06:00:00Z straddle local midnight
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:85: NOTICE:  ok - Denver local days are 2026-10-20 and 2026-10-21
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:87: NOTICE:  ok - both Denver visits are on the same UTC day: the stored UTC day is independent of the local day
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:88: NOTICE:  ok - each visit stores the zone used
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:100: NOTICE:  ok - fall back: the last second before local midnight is its own (previous) local day
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:102: NOTICE:  ok - fall back: 06:00Z through 06:00Z next day (24 h later) are all ONE local day: ordinals 1-4
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:103: NOTICE:  ok - fall back: the 25th hour still belongs to the same local day (fifth visit is capped)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:104: NOTICE:  ok - fall back: 07:00:00Z is local midnight of the next day (a new first visit)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:106: NOTICE:  ok - fall back: stored local days are exactly as expected
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:111: NOTICE:  ok - spring forward: the 23-hour local day still holds ordinal 2 at its last second
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:112: NOTICE:  ok - spring forward: only 23 hours after the day began, the next local day has started (nothing assumes 24 hours)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:113: NOTICE:  ok - spring forward: stored local days
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:120: NOTICE:  ok - a location with no zone: recorded, nothing awarded (fails closed)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:122: NOTICE:  ok - a location with an invalid zone name: recorded, nothing awarded
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:123: NOTICE:  ok - those visits have no day and no ordinal
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:124: NOTICE:  ok - no ledger row and no counter change
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:134: NOTICE:  ok - a policy version effective in the past is refused (prospective only) [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:136: NOTICE:  ok - a policy version effective now is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:138: NOTICE:  ok - two versions cannot share an effective time [23505]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:139: NOTICE:  ok - a policy version is immutable (UPDATE refused) [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:140: NOTICE:  ok - a policy version cannot be deleted [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:141: NOTICE:  ok - policy versions cannot be truncated [0A000]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:146: NOTICE:  ok - before the transition the old version applies (5 / 5)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:147: NOTICE:  ok - after the transition the new version applies to later visits (10 spendable) on the SAME local day
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:148: NOTICE:  ok - the lowered location cap (2) applies to later visits the same day (the old version would have allowed 4)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:150: NOTICE:  ok - earlier awards are never clawed back by the new version
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:151: NOTICE:  ok - each visit records the policy version it used
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:152: NOTICE:  ok - the user counter carries across the transition
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:160: NOTICE:  ok - a retry with the same key returns the same visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:161: NOTICE:  ok - the retry is marked replayed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:162: NOTICE:  ok - the retry reports the same outcomes and points
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:164: NOTICE:  ok - a retry never awards twice
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:165: NOTICE:  ok - the same key for a different restroom is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:166: NOTICE:  ok - the refused reuse wrote nothing
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:170: NOTICE:  ok - keys are scoped per user
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:178: NOTICE:  ok - NaN latitude is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:179: NOTICE:  ok - latitude out of range is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:180: NOTICE:  ok - longitude out of range is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:181: NOTICE:  ok - a short idempotency key is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:182: NOTICE:  ok - an idempotency key with unsafe characters is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:183: NOTICE:  ok - a negative accuracy is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:184: NOTICE:  ok - NaN accuracy is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:185: NOTICE:  ok - a missing server time is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:186: NOTICE:  ok - an unknown restroom is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:187: NOTICE:  ok - a restroom that is not public is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:188: NOTICE:  ok - more than 150 m from the restroom is refused [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:189: NOTICE:  ok - no refused request wrote a visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:195: NOTICE:  ok - distance is stored only as a coarse bucket
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:196: NOTICE:  ok - accuracy is optional and stored only as a bucket
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:197: NOTICE:  ok - missing or poor accuracy never changes eligibility
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:207: NOTICE:  ok - an authenticated client calling public.record_visit is awarded (commit-time checks run as the writer)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:208: NOTICE:  ok - the client retry is a replay
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:209: NOTICE:  ok - the client call wrote one visit and two awards
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/03_record_visit_flow.test.sql:210: NOTICE:  checks: 72 passed, 0 failed
 PASS 04_privileges_catalog.test.sql (47 ok lines)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:8: NOTICE:  ok - reward_writer_owner is NOLOGIN, NOINHERIT, no BYPASSRLS, not superuser, no createdb/createrole/replication
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:9: NOTICE:  ok - reward_writer_owner is a member of no role
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:10: NOTICE:  ok - P1 creates the writer role only (no purge role: that is P2)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:16: NOTICE:  ok - the rewards schema holds exactly the eight expected tables and no view
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:17: NOTICE:  ok - all tables are owned by the migration role, not by the writer
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:18: NOTICE:  ok - every rewards table has RLS enabled AND forced
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:33: NOTICE:  ok - no table grant beyond the golden list (any extra grant fails)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:34: NOTICE:  ok - every golden table grant exists
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:35: NOTICE:  ok - no table is granted to PUBLIC, anon, authenticated or service_role
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:36: NOTICE:  ok - no column-level grants exist on any rewards table
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:40: NOTICE:  ok - rewards sequences have no non-owner grant
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:52: NOTICE:  ok - the RLS policy list is exactly the 14 expected policies
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:53: NOTICE:  ok - every policy applies to the writer role only
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:60: NOTICE:  ok - exactly 13 rewards functions and 1 public function
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:61: NOTICE:  ok - only four SECURITY DEFINER functions exist (the writer, its wrapper, the deferred consistency check and the read-only location helper)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:64: NOTICE:  ok - the writer owns only record_visit, record_visit_at and the deferred consistency trigger function; everything else is owned by the migration role
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:66: NOTICE:  ok - every rewards function has a fixed search_path (empty, or pg_catalog for the pure zone check)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:67: NOTICE:  ok - no function keeps the default (PUBLIC) EXECUTE: every ACL is explicit
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:78: NOTICE:  ok - function EXECUTE grants are exactly: writer on 3 internals, authenticated on public.record_visit
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:80: NOTICE:  ok - anon and service_role can execute no rewards function
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:82: NOTICE:  ok - authenticated can execute public.record_visit and NOTHING else
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:83: NOTICE:  ok - PUBLIC can execute no rewards function
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:86: NOTICE:  ok - the rewards schema is owned by the migration role
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:88: NOTICE:  ok - no client role or PUBLIC has USAGE on the rewards schema
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:90: NOTICE:  ok - nobody but the owner has CREATE on the rewards schema (the temporary writer CREATE was revoked)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:91: NOTICE:  ok - the writer has USAGE on the rewards schema
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:92: NOTICE:  ok - the writer has no CREATE on schema public (the temporary grant was revoked)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:94: NOTICE:  ok - the only non-owner USAGE grant on the rewards schema is the writer
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:95: NOTICE:  ok - the writer may use the auth schema (for auth.uid) but not create in it
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:97: NOTICE:  ok - no default privileges exist in the rewards schema (new objects there would receive no automatic grant)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:99: NOTICE:  ok - the Supabase-style default grants in schema public are present (mirrored by bootstrap), and the rewards schema is deliberately outside them
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:101: NOTICE:  ok - no rewards table was created in schema public
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:137: NOTICE:  ok - anon, authenticated and service_role are refused (42501) every select/insert/update/delete/truncate on every rewards table
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:138: NOTICE:  ok - the writer is refused DELETE and TRUNCATE on every table
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:139: NOTICE:  ok - the writer can SELECT every table
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:141: NOTICE:  ok - the writer can INSERT only into visits, the ledger and the two counters
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:143: NOTICE:  ok - the writer can UPDATE only the two counters (never the ledger, visits, settings or policy)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:144: NOTICE:  ok - the matrix covers 4 roles x 8 tables x 5 operations
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:147: NOTICE:  ok - authenticated cannot call the internal evaluate_visit
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:148: NOTICE:  ok - authenticated cannot call the internal time-injected recorder (a client cannot choose the time)
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:149: NOTICE:  ok - anon cannot call record_visit
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:150: NOTICE:  ok - service_role cannot call record_visit
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:151: NOTICE:  ok - the writer cannot enable rewards
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:152: NOTICE:  ok - the writer cannot create a policy version
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:153: NOTICE:  ok - the writer cannot create a location zone
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:168: NOTICE:  ok - with a hostile search_path the writer still uses the real objects and policy
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:170: NOTICE:  ok - nothing was written to the decoy schema
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:8: NOTICE:  ok - reward_writer_owner is NOLOGIN, NOINHERIT, no BYPASSRLS, not superuser, no createdb/createrole/replication
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:9: NOTICE:  ok - reward_writer_owner is a member of no role
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:10: NOTICE:  ok - P1 creates the writer role only (no purge role: that is P2)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:16: NOTICE:  ok - the rewards schema holds exactly the eight expected tables and no view
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:17: NOTICE:  ok - all tables are owned by the migration role, not by the writer
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:18: NOTICE:  ok - every rewards table has RLS enabled AND forced
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:33: NOTICE:  ok - no table grant beyond the golden list (any extra grant fails)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:34: NOTICE:  ok - every golden table grant exists
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:35: NOTICE:  ok - no table is granted to PUBLIC, anon, authenticated or service_role
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:36: NOTICE:  ok - no column-level grants exist on any rewards table
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:40: NOTICE:  ok - rewards sequences have no non-owner grant
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:52: NOTICE:  ok - the RLS policy list is exactly the 14 expected policies
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:53: NOTICE:  ok - every policy applies to the writer role only
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:60: NOTICE:  ok - exactly 13 rewards functions and 1 public function
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:61: NOTICE:  ok - only four SECURITY DEFINER functions exist (the writer, its wrapper, the deferred consistency check and the read-only location helper)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:64: NOTICE:  ok - the writer owns only record_visit, record_visit_at and the deferred consistency trigger function; everything else is owned by the migration role
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:66: NOTICE:  ok - every rewards function has a fixed search_path (empty, or pg_catalog for the pure zone check)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:67: NOTICE:  ok - no function keeps the default (PUBLIC) EXECUTE: every ACL is explicit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:78: NOTICE:  ok - function EXECUTE grants are exactly: writer on 3 internals, authenticated on public.record_visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:80: NOTICE:  ok - anon and service_role can execute no rewards function
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:82: NOTICE:  ok - authenticated can execute public.record_visit and NOTHING else
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:83: NOTICE:  ok - PUBLIC can execute no rewards function
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:86: NOTICE:  ok - the rewards schema is owned by the migration role
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:88: NOTICE:  ok - no client role or PUBLIC has USAGE on the rewards schema
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:90: NOTICE:  ok - nobody but the owner has CREATE on the rewards schema (the temporary writer CREATE was revoked)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:91: NOTICE:  ok - the writer has USAGE on the rewards schema
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:92: NOTICE:  ok - the writer has no CREATE on schema public (the temporary grant was revoked)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:94: NOTICE:  ok - the only non-owner USAGE grant on the rewards schema is the writer
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:95: NOTICE:  ok - the writer may use the auth schema (for auth.uid) but not create in it
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:97: NOTICE:  ok - no default privileges exist in the rewards schema (new objects there would receive no automatic grant)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:99: NOTICE:  ok - the Supabase-style default grants in schema public are present (mirrored by bootstrap), and the rewards schema is deliberately outside them
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:101: NOTICE:  ok - no rewards table was created in schema public
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:137: NOTICE:  ok - anon, authenticated and service_role are refused (42501) every select/insert/update/delete/truncate on every rewards table
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:138: NOTICE:  ok - the writer is refused DELETE and TRUNCATE on every table
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:139: NOTICE:  ok - the writer can SELECT every table
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:141: NOTICE:  ok - the writer can INSERT only into visits, the ledger and the two counters
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:143: NOTICE:  ok - the writer can UPDATE only the two counters (never the ledger, visits, settings or policy)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:144: NOTICE:  ok - the matrix covers 4 roles x 8 tables x 5 operations
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:147: NOTICE:  ok - authenticated cannot call the internal evaluate_visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:148: NOTICE:  ok - authenticated cannot call the internal time-injected recorder (a client cannot choose the time)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:149: NOTICE:  ok - anon cannot call record_visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:150: NOTICE:  ok - service_role cannot call record_visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:151: NOTICE:  ok - the writer cannot enable rewards
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:152: NOTICE:  ok - the writer cannot create a policy version
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:153: NOTICE:  ok - the writer cannot create a location zone
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:168: NOTICE:  ok - with a hostile search_path the writer still uses the real objects and policy
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:170: NOTICE:  ok - nothing was written to the decoy schema
 == golden privilege list: table grants to non-owner roles (owner of every table: the migration role)
           relname           |       grantee       |  priv  
 ----------------------------+---------------------+--------
@@ -347,61 +348,61 @@ psql:supabase/tests/rewards/04_privileges_catalog.test.sql:170: NOTICE:  ok - no
  reward_writer_owner | visits                     | update   | 42501
 (40 rows)
 
-psql:supabase/tests/rewards/04_privileges_catalog.test.sql:186: NOTICE:  checks: 47 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/04_privileges_catalog.test.sql:186: NOTICE:  checks: 47 passed, 0 failed
 PASS 05_ledger_invariants.test.sql (34 ok lines)
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:17: NOTICE:  ok - setup: 5 visits wrote 5 spendable and 3 lifetime awards (8 ledger rows)
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:52: NOTICE:  ok - UPDATE and DELETE are refused (42501) on visits, ledger, settings history and policy versions for superuser, writer, authenticated, anon and service_role
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:53: NOTICE:  ok - TRUNCATE is refused for every role on every protected table
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:54: NOTICE:  ok - TRUNCATE of the ledger is refused by its guard (42501) even for the superuser
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:55: NOTICE:  ok - no row was lost to any refused statement
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:57: NOTICE:  ok - counters and the zone table cannot be truncated either
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:62: NOTICE:  ok - a second spendable award for the same visit is refused (unique visit+kind) [23505]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:65: NOTICE:  ok - a second lifetime award for the same visit is refused [23505]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:68: NOTICE:  ok - a second lifetime award for the same user/location/local day on ANOTHER visit is refused [23505]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:73: NOTICE:  ok - an award of 0 is refused [23514]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:75: NOTICE:  ok - a negative award is refused [23514]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:77: NOTICE:  ok - an unknown kind is refused [23514]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:79: NOTICE:  ok - an empty reason is refused [23514]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:81: NOTICE:  ok - an unknown entry type is refused [0A000]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:83: NOTICE:  ok - an award that claims to reverse something is refused [23514]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:85: NOTICE:  ok - a reversal row is refused in P1 (reversals are P2) [0A000]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:86: NOTICE:  ok - no refused insert left a row
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:91: NOTICE:  ok - a visit marked awarded with no spendable ledger row is refused at commit [23514]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:96: NOTICE:  ok - a ledger award for a visit whose outcome is NOT awarded is refused at commit [23514]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:99: NOTICE:  ok - a ledger row that references no visit is refused [23503]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:100: NOTICE:  ok - the probes left no residue
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:103: NOTICE:  ok - a user counter can never decrease [42501]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:104: NOTICE:  ok - the global counter can never decrease [42501]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:105: NOTICE:  ok - a user counter row cannot be deleted [42501]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:106: NOTICE:  ok - a global counter row cannot be deleted [42501]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:107: NOTICE:  ok - a counter key cannot be changed [42501]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:108: NOTICE:  ok - a counter owner cannot be changed [42501]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:109: NOTICE:  ok - a negative counter is refused [42501]
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:112: NOTICE:  ok - user 1 balances: 20 spendable (4 awards) and 10 lifetime (two locations)
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:113: NOTICE:  ok - user 2 balances: 5 and 5
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:118: NOTICE:  ok - every user-day counter equals that user/day's spendable awards joined through the visit
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:123: NOTICE:  ok - every global-day counter equals that day's spendable awards
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:127: NOTICE:  ok - every visit's outcomes agree with its ledger rows
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:128: NOTICE:  ok - profiles.points_balance is never written by P1 (balances are derived, not cached)
-psql:supabase/tests/rewards/05_ledger_invariants.test.sql:129: NOTICE:  checks: 34 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:17: NOTICE:  ok - setup: 5 visits wrote 5 spendable and 3 lifetime awards (8 ledger rows)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:52: NOTICE:  ok - UPDATE and DELETE are refused (42501) on visits, ledger, settings history and policy versions for superuser, writer, authenticated, anon and service_role
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:53: NOTICE:  ok - TRUNCATE is refused for every role on every protected table
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:54: NOTICE:  ok - TRUNCATE of the ledger is refused by its guard (42501) even for the superuser
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:55: NOTICE:  ok - no row was lost to any refused statement
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:57: NOTICE:  ok - counters and the zone table cannot be truncated either
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:62: NOTICE:  ok - a second spendable award for the same visit is refused (unique visit+kind) [23505]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:65: NOTICE:  ok - a second lifetime award for the same visit is refused [23505]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:68: NOTICE:  ok - a second lifetime award for the same user/location/local day on ANOTHER visit is refused [23505]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:73: NOTICE:  ok - an award of 0 is refused [23514]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:75: NOTICE:  ok - a negative award is refused [23514]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:77: NOTICE:  ok - an unknown kind is refused [23514]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:79: NOTICE:  ok - an empty reason is refused [23514]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:81: NOTICE:  ok - an unknown entry type is refused [0A000]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:83: NOTICE:  ok - an award that claims to reverse something is refused [23514]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:85: NOTICE:  ok - a reversal row is refused in P1 (reversals are P2) [0A000]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:86: NOTICE:  ok - no refused insert left a row
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:91: NOTICE:  ok - a visit marked awarded with no spendable ledger row is refused at commit [23514]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:96: NOTICE:  ok - a ledger award for a visit whose outcome is NOT awarded is refused at commit [23514]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:99: NOTICE:  ok - a ledger row that references no visit is refused [23503]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:100: NOTICE:  ok - the probes left no residue
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:103: NOTICE:  ok - a user counter can never decrease [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:104: NOTICE:  ok - the global counter can never decrease [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:105: NOTICE:  ok - a user counter row cannot be deleted [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:106: NOTICE:  ok - a global counter row cannot be deleted [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:107: NOTICE:  ok - a counter key cannot be changed [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:108: NOTICE:  ok - a counter owner cannot be changed [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:109: NOTICE:  ok - a negative counter is refused [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:112: NOTICE:  ok - user 1 balances: 20 spendable (4 awards) and 10 lifetime (two locations)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:113: NOTICE:  ok - user 2 balances: 5 and 5
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:118: NOTICE:  ok - every user-day counter equals that user/day's spendable awards joined through the visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:123: NOTICE:  ok - every global-day counter equals that day's spendable awards
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:127: NOTICE:  ok - every visit's outcomes agree with its ledger rows
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:128: NOTICE:  ok - profiles.points_balance is never written by P1 (balances are derived, not cached)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/05_ledger_invariants.test.sql:129: NOTICE:  checks: 34 passed, 0 failed
 PASS 06_errors_rollback.test.sql (16 ok lines)
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:49: NOTICE:  ok - every injected unexpected SQLSTATE (class XX, 23, 40, 42, 55, 57, 22, P0) propagates out of record_visit unchanged
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:51: NOTICE:  ok - each unexpected failure left NO visit, NO ledger row (not even the lifetime award written before the spendable block) and NO counter row
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:52: NOTICE:  ok - no global counter row was created by any aborted visit
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:55: NOTICE:  ok - a retry with the same idempotency key succeeds after an aborted attempt
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:62: NOTICE:  ok - the designed user-cap code RW001 is handled (the visit commits)
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:63: NOTICE:  ok - RW001 inside the spendable block gives user_day_cap and keeps the lifetime award
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:65: NOTICE:  ok - exactly one lifetime row and no spendable row remain
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:68: NOTICE:  ok - the spendable block rolled back its user and global counter increments completely
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:70: NOTICE:  ok - RW002 inside the spendable block gives budget_exhausted and keeps the lifetime award
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:72: NOTICE:  ok - and again no counter residue
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:86: NOTICE:  ok - 55P03 is caught inside a block whose handler names lock_not_available
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:88: NOTICE:  ok - 57014, 42501, class 23, 40001, 40P01, class XX and 22023 are NOT caught by a named lock_not_available handler: they propagate
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:99: NOTICE:  ok - WHEN OTHERS would silently swallow 23505, 42501 and XX000, which is why no rewards function uses it
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:100: NOTICE:  ok - WHEN OTHERS would also swallow a lock timeout
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:109: NOTICE:  ok - QUERY_CANCELED (57014) is the one condition a WHEN OTHERS handler does not catch: a cancellation always propagates
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:112: NOTICE:  ok - record_visit_at handles exactly the two designed private codes and nothing broader
-psql:supabase/tests/rewards/06_errors_rollback.test.sql:113: NOTICE:  checks: 16 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:49: NOTICE:  ok - every injected unexpected SQLSTATE (class XX, 23, 40, 42, 55, 57, 22, P0) propagates out of record_visit unchanged
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:51: NOTICE:  ok - each unexpected failure left NO visit, NO ledger row (not even the lifetime award written before the spendable block) and NO counter row
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:52: NOTICE:  ok - no global counter row was created by any aborted visit
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:55: NOTICE:  ok - a retry with the same idempotency key succeeds after an aborted attempt
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:62: NOTICE:  ok - the designed user-cap code RW001 is handled (the visit commits)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:63: NOTICE:  ok - RW001 inside the spendable block gives user_day_cap and keeps the lifetime award
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:65: NOTICE:  ok - exactly one lifetime row and no spendable row remain
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:68: NOTICE:  ok - the spendable block rolled back its user and global counter increments completely
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:70: NOTICE:  ok - RW002 inside the spendable block gives budget_exhausted and keeps the lifetime award
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:72: NOTICE:  ok - and again no counter residue
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:86: NOTICE:  ok - 55P03 is caught inside a block whose handler names lock_not_available
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:88: NOTICE:  ok - 57014, 42501, class 23, 40001, 40P01, class XX and 22023 are NOT caught by a named lock_not_available handler: they propagate
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:99: NOTICE:  ok - WHEN OTHERS would silently swallow 23505, 42501 and XX000, which is why no rewards function uses it
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:100: NOTICE:  ok - WHEN OTHERS would also swallow a lock timeout
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:109: NOTICE:  ok - QUERY_CANCELED (57014) is the one condition a WHEN OTHERS handler does not catch: a cancellation always propagates
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:112: NOTICE:  ok - record_visit_at handles exactly the two designed private codes and nothing broader
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/06_errors_rollback.test.sql:113: NOTICE:  checks: 16 passed, 0 failed
 PASS 07_legacy_regression.test.sql (15 ok lines)
         side        |  kind  | name |  owner   |                                                          acl                                                           | extra 
 --------------------+--------+------+----------+------------------------------------------------------------------------------------------------------------------------+-------
@@ -409,27 +410,27 @@ PASS 07_legacy_regression.test.sql (15 ok lines)
  removed-or-changed | schema | auth | postgres | {postgres=UC/postgres,anon=U/postgres,authenticated=U/postgres,service_role=U/postgres}                                | 
 (2 rows)
 
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:16: NOTICE:  ok - the golden baseline lists the existing public/auth tables, functions and schemas (75 objects)
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:17: NOTICE:  ok - no existing table or function changed owner, ACL, RLS setting, source or search_path (golden diff is empty for tables and functions)
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:19: NOTICE:  ok - the only change to an existing object is the auth schema ACL (one before row, one after row)
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:21: NOTICE:  ok - and that change is exactly one added grant: USAGE on schema auth for reward_writer_owner (needed for auth.uid)
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:22: NOTICE:  ok - the public schema ACL is unchanged (the temporary CREATE grant left no trace)
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:24: NOTICE:  ok - check_in, nearby_locations and the public lookup functions are part of the compared baseline
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:34: NOTICE:  ok - check_in still returns {checkin_id}
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:35: NOTICE:  ok - check_in still refuses a second check-in within 12 hours [54000]
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:42: NOTICE:  ok - record_visit is not limited by the legacy 12-hour same-location guard
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:43: NOTICE:  ok - recording visits does not create or consume check-ins
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:61: NOTICE:  ok - check_in still allows 10 per day and refuses the 11th
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:67: NOTICE:  ok - anon can still call nearby_locations and read public restrooms
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:68: NOTICE:  ok - anon still cannot read the locations table directly [42501]
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:70: NOTICE:  ok - anon still cannot read check-ins [42501]
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:72: NOTICE:  ok - no profile points_balance was written
-psql:supabase/tests/rewards/07_legacy_regression.test.sql:73: NOTICE:  checks: 15 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:16: NOTICE:  ok - the golden baseline lists the existing public/auth tables, functions and schemas (75 objects)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:17: NOTICE:  ok - no existing table or function changed owner, ACL, RLS setting, source or search_path (golden diff is empty for tables and functions)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:19: NOTICE:  ok - the only change to an existing object is the auth schema ACL (one before row, one after row)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:21: NOTICE:  ok - and that change is exactly one added grant: USAGE on schema auth for reward_writer_owner (needed for auth.uid)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:22: NOTICE:  ok - the public schema ACL is unchanged (the temporary CREATE grant left no trace)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:24: NOTICE:  ok - check_in, nearby_locations and the public lookup functions are part of the compared baseline
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:34: NOTICE:  ok - check_in still returns {checkin_id}
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:35: NOTICE:  ok - check_in still refuses a second check-in within 12 hours [54000]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:42: NOTICE:  ok - record_visit is not limited by the legacy 12-hour same-location guard
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:43: NOTICE:  ok - recording visits does not create or consume check-ins
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:61: NOTICE:  ok - check_in still allows 10 per day and refuses the 11th
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:67: NOTICE:  ok - anon can still call nearby_locations and read public restrooms
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:68: NOTICE:  ok - anon still cannot read the locations table directly [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:70: NOTICE:  ok - anon still cannot read check-ins [42501]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:72: NOTICE:  ok - no profile points_balance was written
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/07_legacy_regression.test.sql:73: NOTICE:  checks: 15 passed, 0 failed
 PASS 08_bounds_timing.test.sql (10 ok lines)
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:49: NOTICE:  ok - bulk load: 62454 visits
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:50: NOTICE:  ok - bulk load: two awards per visit (124908 ledger rows)
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:53: NOTICE:  ok - the bulk data satisfies the visit/ledger consistency invariant for every row (set-based check)
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:55: NOTICE:  ok - bulk counters reconcile with the ledger
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:49: NOTICE:  ok - bulk load: 62454 visits
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:50: NOTICE:  ok - bulk load: two awards per visit (124908 ledger rows)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:53: NOTICE:  ok - the bulk data satisfies the visit/ledger consistency invariant for every row (set-based check)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:55: NOTICE:  ok - bulk counters reconcile with the ledger
 == evidence
                                                                  version                                                                  
 ------------------------------------------------------------------------------------------------------------------------------------------
@@ -439,73 +440,73 @@ psql:supabase/tests/rewards/08_bounds_timing.test.sql:55: NOTICE:  ok - bulk cou
 == heavy user (about 2,450 visits / 4,900 ledger rows over 36 months): canonical ordinal count
                                                                                          QUERY PLAN                                                                                          
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Aggregate (actual time=0.013..0.014 rows=1 loops=1)
+ Aggregate (actual time=0.014..0.014 rows=1 loops=1)
    Buffers: shared hit=4
-   ->  Index Only Scan using visits_user_location_day_idx on visits (actual time=0.009..0.010 rows=1 loops=1)
+   ->  Index Only Scan using visits_user_location_day_idx on visits (actual time=0.010..0.010 rows=1 loops=1)
          Index Cond: ((user_id = '00000000-0000-0000-0001-000000002001'::uuid) AND (location_id = '00000000-0000-0000-0002-000000000032'::uuid) AND (policy_day_local = '2026-09-25'::date))
          Heap Fetches: 1
          Buffers: shared hit=4
  Planning:
    Buffers: shared hit=9
- Planning Time: 0.093 ms
- Execution Time: 0.030 ms
+ Planning Time: 0.090 ms
+ Execution Time: 0.033 ms
 (10 rows)
 
 == idempotency lookup
                                                      QUERY PLAN                                                      
 ---------------------------------------------------------------------------------------------------------------------
- Index Scan using visits_user_id_idempotency_key_key on visits (actual time=0.009..0.009 rows=0 loops=1)
+ Index Scan using visits_user_id_idempotency_key_key on visits (actual time=0.010..0.010 rows=0 loops=1)
    Index Cond: ((user_id = '00000000-0000-0000-0001-000000002001'::uuid) AND (idempotency_key = 'heavy-none'::text))
    Buffers: shared hit=3
  Planning:
    Buffers: shared hit=36
- Planning Time: 0.093 ms
- Execution Time: 0.015 ms
+ Planning Time: 0.125 ms
+ Execution Time: 0.018 ms
 (7 rows)
 
 == derived balances for the heavy user
                                 QUERY PLAN                                
 --------------------------------------------------------------------------
- Function Scan on user_balances (actual time=0.938..0.938 rows=1 loops=1)
+ Function Scan on user_balances (actual time=0.830..0.831 rows=1 loops=1)
    Buffers: shared hit=102
- Planning Time: 0.011 ms
- Execution Time: 0.944 ms
+ Planning Time: 0.010 ms
+ Execution Time: 0.837 ms
 (4 rows)
 
 == user-day counter read
                                                       QUERY PLAN                                                      
 ----------------------------------------------------------------------------------------------------------------------
- Index Scan using reward_counters_user_day_pkey on reward_counters_user_day (actual time=0.009..0.009 rows=1 loops=1)
+ Index Scan using reward_counters_user_day_pkey on reward_counters_user_day (actual time=0.008..0.009 rows=1 loops=1)
    Index Cond: ((user_id = '00000000-0000-0000-0001-000000000100'::uuid) AND (issuance_day_utc = '2026-01-10'::date))
    Buffers: shared hit=4
  Planning:
    Buffers: shared hit=20
- Planning Time: 0.105 ms
- Execution Time: 0.015 ms
+ Planning Time: 0.076 ms
+ Execution Time: 0.014 ms
 (7 rows)
 
 == global-day counter read
                                                         QUERY PLAN                                                        
 --------------------------------------------------------------------------------------------------------------------------
- Index Scan using reward_counters_global_day_pkey on reward_counters_global_day (actual time=0.007..0.008 rows=1 loops=1)
+ Index Scan using reward_counters_global_day_pkey on reward_counters_global_day (actual time=0.005..0.005 rows=1 loops=1)
    Index Cond: (issuance_day_utc = '2026-01-10'::date)
    Buffers: shared hit=3
- Planning Time: 0.024 ms
- Execution Time: 0.013 ms
+ Planning Time: 0.015 ms
+ Execution Time: 0.008 ms
 (5 rows)
 
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:80: NOTICE:  ok - the ordinal count uses an index at 60,000+ visits
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:82: NOTICE:  ok - the idempotency lookup uses the unique index
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:84: NOTICE:  ok - the user-day counter read uses its primary key
-                                                  latency                                                  
------------------------------------------------------------------------------------------------------------
- record_visit_at over 300 calls on the bulk data: min 9.65 ms, median 10.32 ms, p95 13.98 ms, max 19.22 ms
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:80: NOTICE:  ok - the ordinal count uses an index at 60,000+ visits
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:82: NOTICE:  ok - the idempotency lookup uses the unique index
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:84: NOTICE:  ok - the user-day counter read uses its primary key
+                                                 latency                                                  
+----------------------------------------------------------------------------------------------------------
+ record_visit_at over 300 calls on the bulk data: min 6.90 ms, median 7.59 ms, p95 10.73 ms, max 12.25 ms
 (1 row)
 
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:106: NOTICE:  ok - p95 latency of record_visit_at stays under a generous 250 ms on 60,000 visits (measured values are in the evidence log)
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:107: NOTICE:  ok - all 300 measured calls were recorded
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:110: NOTICE:  ok - a too-short key is still refused with data loaded [22023]
-psql:supabase/tests/rewards/08_bounds_timing.test.sql:111: NOTICE:  checks: 10 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:106: NOTICE:  ok - p95 latency of record_visit_at stays under a generous 250 ms on 60,000 visits (measured values are in the evidence log)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:107: NOTICE:  ok - all 300 measured calls were recorded
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:110: NOTICE:  ok - a too-short key is still refused with data loaded [22023]
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/08_bounds_timing.test.sql:111: NOTICE:  checks: 10 passed, 0 failed
 PASS 10_ledger_gate_matrix.test.sql (14 ok lines)
             state            |   kind    | expected |  got  
 -----------------------------+-----------+----------+-------
@@ -519,21 +520,21 @@ PASS 10_ledger_gate_matrix.test.sql (14 ok lines)
  enabled, budget unset       | spendable | RW011    | RW011
 (8 rows)
 
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:56: NOTICE:  ok - disabled / unset: a direct LIFETIME award is refused by the gate (RW010)
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:57: NOTICE:  ok - disabled / unset: a direct SPENDABLE award is refused by the gate (RW010)
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:59: NOTICE:  ok - disabled with a configured budget: both kinds refused (RW010)
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:60: NOTICE:  ok - enabled / budget UNSET: a direct LIFETIME award is refused by the gate (RW011)
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:61: NOTICE:  ok - enabled / budget UNSET: a direct SPENDABLE award is refused by the gate (RW011)
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:63: NOTICE:  ok - enabled / budget configured: the SAME otherwise valid rows pass every rule, so the refusals above came only from the gate
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:64: NOTICE:  ok - the whole matrix matches the expectation (4 states x 2 kinds)
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:90: NOTICE:  ok - enabled / budget configured: a complete valid writer transaction commits for a lifetime award AND for a spendable award
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:98: NOTICE:  ok - enabled / configured but EXHAUSTED: through record_visit the lifetime award is still issued and the spendable award is not
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:100: NOTICE:  ok - exhausted budget: exactly one lifetime row and no spendable row
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:101: NOTICE:  ok - exhausted budget: a direct lifetime award is NOT refused by the gate (independence of lifetime from the spendable budget)
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:102: NOTICE:  ok - the exhausted counter never moved
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:109: NOTICE:  ok - enabled / unset through record_visit: budget_unset and nothing issued (either kind)
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:110: NOTICE:  ok - and no ledger row exists
-psql:supabase/tests/rewards/10_ledger_gate_matrix.test.sql:112: NOTICE:  checks: 14 passed, 0 failed
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:56: NOTICE:  ok - disabled / unset: a direct LIFETIME award is refused by the gate (RW010)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:57: NOTICE:  ok - disabled / unset: a direct SPENDABLE award is refused by the gate (RW010)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:59: NOTICE:  ok - disabled with a configured budget: both kinds refused (RW010)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:60: NOTICE:  ok - enabled / budget UNSET: a direct LIFETIME award is refused by the gate (RW011)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:61: NOTICE:  ok - enabled / budget UNSET: a direct SPENDABLE award is refused by the gate (RW011)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:63: NOTICE:  ok - enabled / budget configured: the SAME otherwise valid rows pass every rule, so the refusals above came only from the gate
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:64: NOTICE:  ok - the whole matrix matches the expectation (4 states x 2 kinds)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:90: NOTICE:  ok - enabled / budget configured: a complete valid writer transaction commits for a lifetime award AND for a spendable award
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:98: NOTICE:  ok - enabled / configured but EXHAUSTED: through record_visit the lifetime award is still issued and the spendable award is not
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:100: NOTICE:  ok - exhausted budget: exactly one lifetime row and no spendable row
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:101: NOTICE:  ok - exhausted budget: a direct lifetime award is NOT refused by the gate (independence of lifetime from the spendable budget)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:102: NOTICE:  ok - the exhausted counter never moved
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:109: NOTICE:  ok - enabled / unset through record_visit: budget_unset and nothing issued (either kind)
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:110: NOTICE:  ok - and no ledger row exists
+psql:/tmp/os-rw.VWwsBq/src/supabase/tests/rewards/10_ledger_gate_matrix.test.sql:112: NOTICE:  checks: 14 passed, 0 failed
 PASS 09_concurrency.sh (31 ok lines)
 ok - same key from two sessions: both end with the same visit id
 ok - the first session recorded it, the second replayed it

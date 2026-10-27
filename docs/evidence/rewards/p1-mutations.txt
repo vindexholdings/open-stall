@@ -17,7 +17,12 @@ ok - isolation: probe environment: HOME is the harness's own temporary HOME
 ok - isolation: probe environment: the only connection variables are the explicit socket and the timeout
 ok - isolation: probe environment: PGHOST is the explicit harness-owned socket path
 ok - isolation: real psql, inherited service poisoned: it still tried ONLY the explicit socket
-ok - isolation: control: an UNCLEAN psql run is redirected by the inherited service (so the leak would be detected)
+ok - isolation: control: a deliberately service-poisoned psql run is redirected by the service (so the leak would be detected)
+ok - isolation: unclean control: the stub ran and recorded its environment
+ok - isolation: unclean control: only the synthetic service, service file, socket and timeout variables are present
+ok - isolation: unclean control: no caller credential, URL or cloud variable arrives
+ok - isolation: unclean control: HOME is the harness's own temporary HOME
+ok - isolation: unclean control: the service file is the harness-created synthetic file
 ok - isolation: postmaster.pid lists the throwaway socket directory
 ok - isolation: postmaster.pid lists no TCP listen address
 ok - isolation: the cluster holds only its own default databases

@@ -1,4 +1,6 @@
-$ node scripts/check-rewards-boundary.mjs --selftest
+# Boundary evidence, source 9443482200ea6523f66bc9b0ec2bed467a6e6975 (Claude-run, Linux, no OS sandbox claimed)
+
+## selftest
 ok - selftest: the clean tree passes
 ok - selftest: caught "a migration references a rewards table"
 ok - selftest: caught "rewards-wip re-creates a name from migrations"
@@ -13,7 +15,7 @@ ok - selftest: caught "an environment-file reference"
 ok - selftest: caught "a hosted host name"
 selftest: 12 passed, 0 failed
 
-$ node scripts/check-rewards-boundary.mjs --against 90a07e8   # 90a07e8 = the owner authorization commit
+## --against 90a07e8 (original authorization commit; raw result preserved)
 ok - no file in supabase/migrations/ references a rewards table, function or role
 ok - all rewards SQL lives under supabase/rewards-wip/
 ok - rewards-wip holds 4 source files
@@ -33,7 +35,33 @@ ok - nothing in rewards-wip sets a budget
 ok - nothing grants write access to the settings
 ok - nothing deletes settings
 ok - rewards-wip uses no foreign server, dblink, extension, COPY PROGRAM or ALTER SYSTEM
-ok - every changed or untracked path since 90a07e8 is on the allowed list
+not ok - every changed or untracked path since 90a07e8 is on the allowed list: M CLAUDE.md; A GOVERNANCE.md; M SECURITY.md
+ok - package.json differs only by the test:db:rewards script
+ok - no existing migration was changed and none was added
+ok - apps/, packages/ and CI workflows are untouched
+boundary: 22 passed, 1 failed
+
+## --against 2294595 (incremental check only)
+ok - no file in supabase/migrations/ references a rewards table, function or role
+ok - all rewards SQL lives under supabase/rewards-wip/
+ok - rewards-wip holds 4 source files
+ok - rewards-wip creates no object name that supabase/migrations/ already creates
+ok - no rewards-wip file name exists in supabase/migrations/
+ok - no rewards file contains a connection string
+ok - no rewards file contains a hosted Supabase host
+ok - no rewards file contains a JWT-looking key
+ok - no rewards file contains a Supabase API key
+ok - no rewards file contains an environment-file reference
+ok - no rewards file contains a 20-letter lowercase token (project-reference shape)
+ok - rewards-wip seeds the settings exactly once, as disabled and unset (false, NULL)
+ok - no other insert into the settings table
+ok - no statement updates the settings
+ok - nothing in rewards-wip enables rewards
+ok - nothing in rewards-wip sets a budget
+ok - nothing grants write access to the settings
+ok - nothing deletes settings
+ok - rewards-wip uses no foreign server, dblink, extension, COPY PROGRAM or ALTER SYSTEM
+ok - every changed or untracked path since 2294595 is on the allowed list
 ok - package.json differs only by the test:db:rewards script
 ok - no existing migration was changed and none was added
 ok - apps/, packages/ and CI workflows are untouched

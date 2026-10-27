@@ -50,6 +50,18 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## 2026-10-27 — P1 validation delivered (Claude-run, PG16.13); workflow pending Work's SHAs
+
+Jake sent `resume build`; I treated it as his instruction to run the validation sequence. Source under test: `9443482` (SQL/tests unchanged since `7ffda1c`). Run in the Linux container on PostgreSQL 16.13, constructed allowlist environments, isolated temp HOME, no production connection. No OS sandbox or device/VoiceOver/TalkBack claim.
+
+- `--isolation`: 27 ok, 0 failed.
+- Full suite (`SHOW_LOG=1`): 10 test files, 0 failed, 333 ok lines, 0 not ok.
+- `--mutations`: 23 killed, 1 documented equivalent, 0 survived unexpectedly, 0 invalid.
+- Boundary: selftest 12/12; `--against 90a07e8` raw 22/23 (only the governance docs `CLAUDE.md` `8105203`, `SECURITY.md` `0b0fba2`, `GOVERNANCE.md` `96eafc4`, all Work-authored, guard not weakened); `--against 2294595` 23/23 (incremental only).
+- Evidence regenerated: `p1-test-run.txt`, `p1-mutations.txt`, `p1-boundary.txt`, README. `p1-failclosed.txt` NOT regenerated (still `0e69c5f`; code paths unchanged).
+
+Not done: `.github/workflows/rewards-p1-validation.yml`. You said you supply the verified action SHAs and tag-only is not allowed; I have not written it. Send the SHAs, or tell me to use run-step `git clone` with no third-party actions. It is delivered for your review before any execution. Work has not reproduced any of this; P1 is not accepted. P2-P4 not started. Stale published handoff/SHA256 not reconciled yet; tell me which file you mean.
+
 ## Acknowledgement of a516726; source-only checks and P2 dependency checklist (planning only) — 2026-10-19 (Claude)
 
 **Status: BLOCKED on the single platform gate OS-WORK-PG16-RUNTIME (unchanged). Nothing denied was replayed; no repeated request.**
