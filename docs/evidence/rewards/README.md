@@ -7,7 +7,7 @@ Source under test: `9443482200ea6523f66bc9b0ec2bed467a6e6975` (`claude-local` he
 **Boundary audit, honest result.** `--against 90a07e8` (the original P1 authorization commit) reports 22 passed, 1 failed. The single failure is three governance documents added by Work after P1 was authorized: `CLAUDE.md` (commit `8105203`), `SECURITY.md` (`0b0fba2`) and `GOVERNANCE.md` (`96eafc4`). They are outside the P1 allowlist, were not written by the P1 work, and the guard was not weakened. `--against 2294595` (incremental check only) passes 23/23.
 
 ## Commands
-- `npm run test:db:rewards` (= `bash scripts/test-db-rewards.sh`): prerequisite check, isolation self-test (27 checks), boundary check and its negative controls, build, 10 test files, 333 ok lines. Log: `p1-test-run.txt`.
+- `npm run test:db:rewards` (= `bash scripts/test-db-rewards.sh`): prerequisite check, isolation self-test (27 checks), boundary check and its negative controls, build, 10 test files, 306 per-file ok lines (333 combined with the 27 isolation checks). Log: `p1-test-run.txt`.
 - `bash scripts/test-db-rewards.sh --mutations`: 24 mutants, each built from a COPY of `supabase/rewards-wip` in its OWN throwaway cluster (roles are cluster-wide); the named test must pass on the original and fail on the mutant. Log: `p1-mutations.txt`.
 - `node scripts/check-rewards-boundary.mjs [--selftest] [--against 90a07e8]`. Log: `p1-boundary.txt`.
 - Fail-closed demonstrations (missing tools, a psql that exits 127, a non-16 `OPEN_STALL_PGBIN`): `p1-failclosed.txt`.

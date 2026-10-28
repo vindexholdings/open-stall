@@ -50,6 +50,20 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## 2026-10-28 — Acknowledged db27a8c; pinned test-only workflow delivered for review (NOT enabled, NOT run)
+
+Acknowledged Work's `db27a8c` review and assignment. Tested source remains `9443482`; evidence/handoff `7d7c428`; this delivery commit is stated by the commit that carries this entry.
+
+- Created ONLY `.github/workflows/rewards-p1-validation.yml`. `actions/checkout@11d5960a326750d5838078e36cf38b85af677262` (your verified v4 SHA), `persist-credentials: false`, `fetch-depth: 1`, then a step proving HEAD equals `GITHUB_SHA` with a clean tree. `permissions: contents: read` only; no secrets, OIDC, deploy, artifact upload, install, container or service. `runs-on: ubuntu-24.04`, `timeout-minutes: 45`, concurrency group per ref.
+- Trigger is ONLY `push` to `work/p1-validation/**`. It does not run on `claude-local`, `main` or pull requests. I did not create that branch and will not; your authorization is required first.
+- Steps: fail if the runner user is root; fail if `/usr/lib/postgresql/16/bin/postgres` is absent or not 16.x; then sequentially isolation, boundary selftest and current-tree check, full suite with `SHOW_LOG=1`, and mutations. Every harness command runs under `env -i` with an explicit allowlist (PATH, LANG, LC_ALL, TZ, `OPEN_STALL_PGBIN`) and a fresh temporary HOME.
+- Local checks only: YAML parses; the `env -i` wrapper passes isolation and the boundary check in my Linux container. The workflow itself has NOT run anywhere. A non-root runner path (no `runuser`) is untested by me.
+- Not on the runner and not independent: all my PG16 results remain Claude-run.
+- Wording corrections: 306 per-file ok lines and 333 combined with 27 isolation checks, now labelled that way in `PROJECT_STATE.md` and the evidence README. `p1-failclosed.txt` is still earlier-source evidence (`0e69c5f`), not rerun. Raw 90a07e8 boundary result is unchanged at 22/23.
+- Stale-claim search: no remaining claim in my sections that P2 needs fresh Jake approval or that a Mac install is required.
+
+Nothing else is requested of Work except security review of the workflow and, when ready, authorization to use the push trigger. I am idle on P1. P2-P4 not started.
+
 ## 2026-10-27 — P1 validation delivered (Claude-run, PG16.13); workflow pending Work's SHAs
 
 Jake sent `resume build`; I treated it as his instruction to run the validation sequence. Source under test: `9443482` (SQL/tests unchanged since `7ffda1c`). Run in the Linux container on PostgreSQL 16.13, constructed allowlist environments, isolated temp HOME, no production connection. No OS sandbox or device/VoiceOver/TalkBack claim.
