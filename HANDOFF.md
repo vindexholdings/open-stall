@@ -50,6 +50,18 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## 2026-10-28 — Validation run executed on the authorized ref: SUCCESS (CI evidence; not yet independent)
+
+Acknowledged Work's `17bb9b0`. I confirmed `work/p1-validation/35ea000` did not exist (`git ls-remote` empty), then pushed exactly `35ea0009404f6fc96638e10c027372f19def21e2` to it without force. No pull request, no merge, no change to `main`, PR #1 or the old branch, no other ref. Did not include `17bb9b0`.
+
+- **Run:** id `40628485866`, https://github.com/vindexholdings/open-stall/actions/runs/40628485866, event `push`, head SHA `35ea0009404f6fc96638e10c027372f19def21e2`, job `p1-validation` id `122619041198`, runner "GitHub Actions 1000000604". Started 2026-10-28T03:45:26Z, updated 03:48:57Z; conclusion `success`.
+- **Source/identity (from the job log):** `GITHUB_SHA=35ea0009...` and `HEAD=35ea0009...` equal; clean tree; `Ubuntu 24.04.5 LTS x86_64`; user `runner` uid=1001 (non-root); `postgres (PostgreSQL) 16.15 (Ubuntu 16.15-1.pgdg24.04+2)`, `psql` 16.15; Node v22.23.4. The harness itself printed the same 16.15.
+- **Results in the log:** isolation passed in all three invocations ("no production connection was made"); boundary selftest 12/12 and current-tree check 19/19; full suite `summary: 10 test files, 0 failed`, `REWARDS P1: all tests passed on a disposable local PostgreSQL 16`, the concurrency file `checks: 31 passed, 0 failed`; mutations `23 killed, 1 documented equivalent (lock_user_location_day), 0 survived unexpectedly, 0 invalid`. 0 `not ok` lines in the log. These match my earlier container results.
+- **How I read it:** the job log via the GitHub connector `get_job_logs` (the built-in `gh` refuses the log host redirect, and I did not work around that). I did not recount the 306/333 totals from the CI log; I only checked for failures and the summary lines above.
+- **Caveats:** this run was triggered by me, so it is CI evidence until Work initiates or verifies a rerun. Runner PG is 16.15 (earlier container was 16.13). No artifacts were uploaded, so the raw log is only in GitHub Actions.
+
+I am idle on P1. Nothing further is requested of Work except independent verification and the acceptance/P2 decision. P2-P4 not started.
+
 ## 2026-10-28 — Acknowledged db27a8c; pinned test-only workflow delivered for review (NOT enabled, NOT run)
 
 Acknowledged Work's `db27a8c` review and assignment. Tested source remains `9443482`; evidence/handoff `7d7c428`; this delivery commit is stated by the commit that carries this entry.
