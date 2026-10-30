@@ -341,8 +341,9 @@ begin
   if (select user_id from rewards.visits where id = p_visit) is distinct from u then
     raise exception 'visit not found or its account was deleted' using errcode = 'RW030';
   end if;
-  if not exists (select 1 from rewards.reward_ledger where visit_id = p_visit and entry_type = 'award') then
-    raise exception 'the visit has no award to reverse' using errcode = 'RW034';
+  if not exists (select 1 from rewards.reward_ledger a where a.visit_id = p_visit and a.entry_type = 'award'
+                   and not exists (select 1 from rewards.reward_ledger r where r.reverses_entry_id = a.id)) then
+    raise exception 'the visit has no unreversed award' using errcode = 'RW034';
   end if;
   insert into rewards.reward_decisions (decision_type, admin_id, subject_user_id, visit_id, reason)
     values ('recommend_reversal', a, u, p_visit, p_reason) returning id into did;
@@ -366,10 +367,16 @@ begin
       into n, s, l from rewards.reward_ledger where reward_decision_id = fin.id and entry_type = 'reversal';
     return jsonb_build_object('decision_id', fin.id, 'replayed', true, 'reversed_entries', n, 'reversed_spendable', s, 'reversed_lifetime', l);
   end if;
+  if not exists (select 1 from rewards.reward_ledger a where a.visit_id = rec.visit_id and a.entry_type = 'award'
+                   and not exists (select 1 from rewards.reward_ledger r where r.reverses_entry_id = a.id)) then
+    raise exception 'the visit has no unreversed award' using errcode = 'RW034';
+  end if;
   insert into rewards.reward_decisions (decision_type, admin_id, subject_user_id, visit_id, recommendation_id, reason)
     values ('final_reversal', a, rec.subject_user_id, rec.visit_id, rec.id, p_reason) returning id into did;
-  for o in select id, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount from rewards.reward_ledger
-           where visit_id = rec.visit_id and entry_type = 'award' order by location_id, policy_day_local, id loop
+  for o in select a.id, a.visit_id, a.user_id, a.location_id, a.policy_day_local, a.policy_version_id, a.kind, a.amount from rewards.reward_ledger a
+           where a.visit_id = rec.visit_id and a.entry_type = 'award'
+             and not exists (select 1 from rewards.reward_ledger r where r.reverses_entry_id = a.id)
+           order by a.location_id, a.policy_day_local, a.id loop
     perform pg_advisory_xact_lock(hashtextextended('rewards:uld:' || o.user_id::text || ':' || o.location_id::text || ':' || o.policy_day_local::text, 0));
     insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason,
         reverses_entry_id, reward_decision_id)
