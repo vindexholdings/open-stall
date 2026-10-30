@@ -360,6 +360,9 @@ begin
   if rec.subject_user_id is null then raise exception 'the account was deleted' using errcode = 'RW030'; end if;
   if rec.subject_user_id = a then raise exception 'administrators cannot adjudicate their own account' using errcode = '42501'; end if;
   perform pg_advisory_xact_lock(hashtextextended('rewards:user:' || rec.subject_user_id::text, 0));
+  -- re-read under the lock: the account may have been deleted (severed) while this call waited
+  select * into rec from rewards.reward_decisions where id = p_recommendation;
+  if rec.subject_user_id is null then raise exception 'the account was deleted' using errcode = 'RW030'; end if;
   -- retry/race: an existing final decision returns the identical result
   select * into fin from rewards.reward_decisions where recommendation_id = p_recommendation and decision_type = 'final_reversal';
   if fin.id is not null then
