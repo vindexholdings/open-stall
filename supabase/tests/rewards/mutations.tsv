@@ -64,3 +64,5 @@ p2_grant_service_role_admin_rpc	append:grant execute on function public.admin_re
 p2_grant_purge_schema_to_client	append:grant usage on schema rewards to authenticated;	p2_04_privileges_catalog.test.sql	kill	p2
 p2_writer_loses_admin_gate	append:revoke execute on function public.require_admin() from reward_writer_owner;	p2_01_admin_paths.test.sql	kill	p2
 p2_purge_member_of_client	append:grant reward_purge_owner to authenticated;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_clear_day_locks_removed	p2_clear_day_locks	p2_08_lock_order_races.sh	kill	p2
+p2_purge_month_locks_removed	p2_purge_month_locks	p2_08_lock_order_races.sh	kill	p2

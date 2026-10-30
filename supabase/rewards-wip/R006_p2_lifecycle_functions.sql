@@ -312,13 +312,24 @@ end $$;
 
 create function public.admin_reward_clear_hold(p_user uuid, p_reason text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare a uuid := public.require_admin(); did uuid; h rewards.reward_holds%rowtype; hv record; r jsonb; n integer := 0; s bigint := 0; l bigint := 0;
+declare a uuid := public.require_admin(); did uuid; h rewards.reward_holds%rowtype; hv record; dd record; r jsonb; n integer := 0; s bigint := 0; l bigint := 0;
 begin
   if p_user is null then raise exception 'account required' using errcode = '22023'; end if;
   if p_user = a then raise exception 'administrators cannot adjudicate their own account' using errcode = '42501'; end if;
   perform pg_advisory_xact_lock(hashtextextended('rewards:user:' || p_user::text, 0));
   select * into h from rewards.reward_holds where user_id = p_user and cleared_at is null for update;
   if h.id is null then raise exception 'the account has no active hold' using errcode = 'RW032'; end if;
+  -- Shared-key order: clearance touches the global counter of every UTC day its held visits fall on, and holds each until commit. A
+  -- per-account location order is not a global order, so EVERY issuance day this clearance can touch is serialized UP FRONT, in
+  -- ascending day order, before any counter row is taken. Two clearances (any accounts) therefore queue instead of crossing.
+  -- MUTABLE:p2_clear_day_locks begin
+  for dd in select distinct v.issuance_day_utc as d from rewards.visits v
+            where v.user_id = p_user and v.spendable_outcome = 'held'
+              and not exists (select 1 from rewards.visit_clearances c where c.visit_id = v.id)
+            order by 1 loop
+    perform pg_advisory_xact_lock(hashtextextended('rewards:gday:' || dd.d::text, 0));
+  end loop;
+  -- MUTABLE:p2_clear_day_locks end
   insert into rewards.reward_decisions (decision_type, admin_id, subject_user_id, reason) values ('clear_hold', a, p_user, p_reason) returning id into did;
   update rewards.reward_holds set cleared_decision_id = did, cleared_at = clock_timestamp() where id = h.id;
   -- held visits in a deterministic order, each from its own frozen day
@@ -427,13 +438,25 @@ end $$;
 -- severed from the account. Nothing is inserted into visits or the ledger.
 create function rewards.purge_my_reward_data() returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare uid uuid := auth.uid(); keep uuid[]; n_l bigint := 0; n_v bigint := 0; n_c bigint; n_sv bigint; n_sl bigint; n_sd bigint; n_sh bigint;
+declare uid uuid := auth.uid(); keep uuid[]; mm record; n_l bigint := 0; n_v bigint := 0; n_c bigint; n_sv bigint; n_sl bigint; n_sd bigint; n_sh bigint;
 begin
   if uid is null then raise exception 'not authenticated' using errcode = '28000'; end if;
   perform pg_advisory_xact_lock(hashtextextended('rewards:user:' || uid::text, 0));
   perform 1 from rewards.visits where user_id = uid order by id for update;
   perform 1 from rewards.reward_ledger where user_id = uid order by id for update;
   select coalesce(array_agg(v.id order by v.id), '{}') into keep from rewards.visits v where v.user_id = uid and rewards.visit_is_retained(v.id);
+
+  -- Shared-key order: the anonymous aggregate rows are shared by every account. Every month the removable rows can touch (a ledger
+  -- row's month is its visit's month, so the visit months are the complete union, awards-only and recorded-only months alike) is
+  -- created if absent and locked UP FRONT in ascending order, before either aggregation phase writes. Amounts still come only
+  -- from DELETE ... RETURNING below; a zero row created here rolls back with the transaction.
+  -- MUTABLE:p2_purge_month_locks begin
+  for mm in select distinct date_trunc('month', v.issuance_day_utc)::date as m from rewards.visits v
+            where v.user_id = uid and v.id <> all (keep) order by 1 loop
+    insert into rewards.reward_deleted_aggregate_month (month_utc) values (mm.m) on conflict (month_utc) do nothing;
+    perform 1 from rewards.reward_deleted_aggregate_month where month_utc = mm.m for update;
+  end loop;
+  -- MUTABLE:p2_purge_month_locks end
 
   with gone as (
     delete from rewards.reward_ledger l using rewards.visits v
