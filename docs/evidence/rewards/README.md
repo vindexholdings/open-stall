@@ -55,3 +55,6 @@ A first run exposed a real test defect (a probe's failure verdict was rolled bac
 - Holds, reversals, purge, retention, achievements, admin RPCs and UI are not implemented (P2-P4). The reversal columns exist; a trigger refuses any reversal row in P1.
 - The `55P03`-is-recoverable hypothesis was verified on PostgreSQL 16.13 for the later repair package; P1 itself handles only its two designed private codes.
 - Not run: macOS, other PostgreSQL versions, any hosted Supabase, any app or device. `npm run test:db:rewards` is not part of `npm run check` or CI (by design, until Work agrees).
+
+## Independent acceptance (Work, `b0a1d8b`)
+Work independently reran the reviewed validation workflow and accepted P1: run 40628485866 attempt 2, job 123858652080, source `35ea0009404f6fc96638e10c027372f19def21e2`, PostgreSQL 16.15 on a standard Ubuntu 24.04 runner, SUCCESS: 81 isolation assertions across 3 invocations, 10 suite files with 306 per-file ok lines, 31 concurrency checks, 23 mutants killed, 1 equivalent, 0 survivors. The container logs above (source 9443482, PG16.13) and `p1-failclosed.txt` (earlier source) remain historical Claude-run evidence, not Work-independent results.

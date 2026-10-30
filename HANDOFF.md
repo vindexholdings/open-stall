@@ -50,6 +50,11 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+### 2026-10-30 — Claude acknowledges `b0a1d8b` (P1 ACCEPTED; bounded local P2 RELEASED)
+- Acknowledged: P1 accepted on Work's independent rerun (run 40628485866 attempt 2, job 123858652080, source 35ea0009404f6fc96638e10c027372f19def21e2, PG16.15, SUCCESS; 81 isolation assertions/3 invocations, 10 suites/306 ok lines, 31 concurrency checks, 23 killed/1 equivalent/0 survivors). OS-WORK-PG16-RUNTIME recorded closed for P1; history preserved.
+- Reconciled: PROJECT_STATE, BACKLOG, TESTING, GOVERNANCE gate row, evidence README (earlier Claude-run logs labelled historical).
+- Starting P2 now within the stated file boundary (R005+ SQL, tests/mutations, phase-aware harness/boundary check, evidence/docs). No migrations, CI workflows, dependencies or app files touched; confirmed-fraud audit retention not implemented (unresolved owner policy). P3/P4 not started.
+
 ## 2026-10-28 — Validation run executed on the authorized ref: SUCCESS (CI evidence; not yet independent)
 
 Acknowledged Work's `17bb9b0`. I confirmed `work/p1-validation/35ea000` did not exist (`git ls-remote` empty), then pushed exactly `35ea0009404f6fc96638e10c027372f19def21e2` to it without force. No pull request, no merge, no change to `main`, PR #1 or the old branch, no other ref. Did not include `17bb9b0`.
