@@ -190,12 +190,16 @@ echo "isolation: all checks passed (no production connection was made)"
 [ "$MODE" != "--isolation" ] || exit 0
 
 # ---------------------------------------------------------------- build a template database from sources
-build_template() {  # build_template <dbname> <wip dir>
-  local db="$1" wip="$2" f
+# Phases: p1 builds only R001-R004 (the accepted P1 sources, byte-for-byte); p2 (default) builds every file, including the additive P2 files.
+build_template() {  # build_template <dbname> <wip dir> [p1|p2]
+  local db="$1" wip="$2" phase="${3:-p2}" f
   psqlc -d postgres -c "create database $db" >/dev/null
   psqlc -d "$db" -f "$SRC/supabase/tests/bootstrap.sql" >/dev/null
   for f in "$SRC"/supabase/migrations/*.sql; do psqlc -d "$db" -f "$f" >/dev/null; done
-  for f in "$wip"/*.sql; do echo "rewards-wip: $(basename "$f")"; psqlc -d "$db" -f "$f" >/dev/null; done
+  for f in "$wip"/*.sql; do
+    case "$phase:$(basename "$f")" in p1:R00[1-4]_*|p2:*) ;; p1:*) continue ;; esac
+    echo "rewards-wip ($phase): $(basename "$f")"; psqlc -d "$db" -f "$f" >/dev/null
+  done
   psqlc -d postgres -c "alter database $db is_template true" >/dev/null
 }
 
@@ -236,16 +240,40 @@ if [ "$MODE" = "run" ]; then
   command -v node >/dev/null 2>&1 || { echo "node is required for the boundary check" >&2; exit 2; }
   echo "boundary: file-inspection checks (no database, no network)"
   (cd "$ROOT" && node scripts/check-rewards-boundary.mjs --selftest | tail -1 && node scripts/check-rewards-boundary.mjs | tail -1)
-  build_template os_template "$SRC/supabase/rewards-wip"
+  # Roles are cluster-wide, so the P1-only build and the full P2 build each get their OWN brand-new throwaway cluster.
+  build_template os_template "$SRC/supabase/rewards-wip" p1
   echo "run: $(psqlc -d postgres -A -t -c 'select version()')"
   failed=0
+  # P1 tests (everything not named p2_*) run unchanged on the P1-only build (main cluster); P2 tests run on the full build (own cluster).
   for f in "$SRC"/supabase/tests/rewards/*.test.sql "$SRC"/supabase/tests/rewards/*.sh; do
     [ -e "$f" ] || continue
+    case "$(basename "$f")" in p2_*) continue ;; esac
+    [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
     run_one os_template "$f" || failed=$((failed+1))
+  done
+  P2PORT=$((MAIN_PORT + 90))
+  start_cluster "$WORK/p2" "$P2PORT"; use_cluster "$WORK/p2" "$P2PORT"
+  build_template os_template "$SRC/supabase/rewards-wip" p2
+  echo "p2 build: $(psqlc -d postgres -A -t -c 'show server_version')"
+  for f in "$SRC"/supabase/tests/rewards/p2_*.test.sql "$SRC"/supabase/tests/rewards/p2_*.sh; do
+    [ -e "$f" ] || continue
+    [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
+    run_one os_template "$f" || failed=$((failed+1))
+  done
+  # P1 regression on the FINAL (P2) source: the same P1 files, same checks, against the full build. A P1 check whose subject
+  # P2 deliberately supersedes carries a phase-aware branch inside the test file (never a deletion or a weaker assertion).
+  for f in "$SRC"/supabase/tests/rewards/*.test.sql "$SRC"/supabase/tests/rewards/*.sh; do
+    [ -e "$f" ] || continue
+    case "$(basename "$f")" in p2_*) continue ;; esac
+    [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
+    # 04 is an EXACT P1 object inventory; on the P2 build it is superseded by the complete P2 inventory p2_04_privileges_catalog
+    # (it still runs unchanged on the P1 build above).
+    case "$(basename "$f")" in 04_privileges_catalog.test.sql) echo "SKIP p1-on-p2: 04_privileges_catalog (exact P1 inventory; superseded by p2_04_privileges_catalog on the P2 build)"; continue ;; esac
+    echo "p1-on-p2:"; run_one os_template "$f" || failed=$((failed+1))
   done
   echo "summary: $N test files, $failed failed"
   [ "$failed" = 0 ] || exit 1
-  echo "REWARDS P1: all tests passed on a disposable local PostgreSQL 16 (no production connection was made)"
+  echo "REWARDS P1+P2: all tests passed on a disposable local PostgreSQL 16 (no production connection was made)"
   exit 0
 fi
 

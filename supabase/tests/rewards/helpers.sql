@@ -3,6 +3,8 @@
 -- Result rows of the assertion helpers are noise; notices (ok / not ok) and errors still print. Use \o to show evidence output.
 \o /dev/null
 create temp table _t (ok boolean not null, name text not null);
+-- Phase detection: true when the additive P2 sources (R005+) are installed. P1 assertions keep their strength in both phases.
+select to_regclass('rewards.reward_holds') is not null as p2 \gset
 create function pg_temp.ok(c boolean, name text) returns void language plpgsql as $$
 begin
   insert into _t values (coalesce(c, false), name);

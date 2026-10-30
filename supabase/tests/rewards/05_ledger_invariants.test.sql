@@ -82,7 +82,8 @@ select pg_temp.fails($$insert into rewards.reward_ledger (entry_type, visit_id, 
 select pg_temp.fails($$insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason, reverses_entry_id)
   select 'award', vid, user_id, location_id, policy_day_local, policy_version_id, 'spendable', 5, 'x', gen_random_uuid() from _tmpl$$, '23514,23503', 'an award that claims to reverse something is refused');
 select pg_temp.fails($$insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason)
-  select 'reversal', vid, user_id, location_id, policy_day_local, policy_version_id, 'spendable', -5, 'x' from _tmpl$$, '0A000', 'a reversal row is refused in P1 (reversals are P2)');
+  select 'reversal', vid, user_id, location_id, policy_day_local, policy_version_id, 'spendable', -5, 'x' from _tmpl$$, case when :'p2' = 't' then '23514' else '0A000' end,
+  case when :'p2' = 't' then 'a reversal row without a decision/original is refused (P2 admits only validated reversals)' else 'a reversal row is refused in P1 (reversals are P2)' end);
 select pg_temp.ok((select count(*) from rewards.reward_ledger) = 8, 'no refused insert left a row');
 
 -- ---------------------------------------------------------------- visit / ledger consistency (checked at commit)

@@ -35,6 +35,9 @@ if (args.includes('--selftest')) {
     ['a budget is set', { 'supabase/rewards-wip/R002.sql': 'select 1 where global_budget_utc_day = 500;\n' }],
     ['write access granted on the settings', { 'supabase/rewards-wip/R002.sql': 'grant update on rewards.reward_settings to someone;\n' }],
     ['a second settings insert', { 'supabase/rewards-wip/R002.sql': 'insert into rewards.reward_settings values (true, true, 5);\n' }],
+    ['delete_my_account replaced outside R006', { 'supabase/migrations/002_b.sql': 'create function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n', 'supabase/rewards-wip/R007.sql': 'create or replace function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n' }],
+    ['R006 replaces another existing function', { 'supabase/migrations/002_b.sql': 'create function public.log_moderation() returns void language sql as $$ select 1 $$;\n', 'supabase/rewards-wip/R006_p2_lifecycle_functions.sql': 'create or replace function public.log_moderation() returns void language sql as $$ select 1 $$;\n' }],
+    ['R006 CREATES (not replaces) delete_my_account', { 'supabase/migrations/002_b.sql': 'create function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n', 'supabase/rewards-wip/R006_p2_lifecycle_functions.sql': 'create function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n' }],
     ['a network feature', { 'supabase/rewards-wip/R002.sql': 'create extension dblink;\n' }],
     ['a JWT-shaped key', { 'supabase/tests/rewards/b.test.sql': 'select \'' + 'eyJ' + 'hbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc\';\n' }],
     ['an environment-file reference', { 'supabase/tests/rewards/b.test.sql': 'select 1; -- reads ' + '.' + 'env' + '.local\n' }],
@@ -50,11 +53,13 @@ if (args.includes('--selftest')) {
   };
   const clean = run(base);
   if (clean.status === 0) console.log('ok - selftest: the clean tree passes'); else { bad += 1; console.log('not ok - selftest: the clean tree should pass\n' + clean.stdout); }
+  const okReplace = run({ ...base, 'supabase/migrations/002_b.sql': 'create function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n', 'supabase/rewards-wip/R006_p2_lifecycle_functions.sql': 'create or replace function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n' });
+  if (okReplace.status === 0) console.log('ok - selftest: the single permitted replacement in R006 passes'); else { bad += 1; console.log('not ok - selftest: the permitted R006 replacement should pass\n' + okReplace.stdout); }
   for (const [name, extra] of cases) {
     const r = run({ ...base, ...extra });
     if (r.status === 1 && /not ok/.test(r.stdout)) console.log(`ok - selftest: caught "${name}"`); else { bad += 1; console.log(`not ok - selftest: did NOT catch "${name}"`); }
   }
-  console.log(`selftest: ${cases.length + 1 - bad} passed, ${bad} failed`);
+  console.log(`selftest: ${cases.length + 2 - bad} passed, ${bad} failed`);
   process.exit(bad === 0 ? 0 : 1);
 }
 let failures = 0;
@@ -101,8 +106,15 @@ const created = (files) => {
 };
 const wipCreated = created(wipFiles);
 const migCreated = created(migrations);
-const collisions = [...wipCreated].filter((n) => migCreated.has(n));
-ok(collisions.length === 0, 'rewards-wip creates no object name that supabase/migrations/ already creates', collisions.join(', '));
+// P2 exception, exactly one: the account-deletion function is REPLACED (create or replace, baseline copied from the migration)
+// so the purge can be called from the existing deletion path. It may be defined only in R006_p2_lifecycle_functions.sql.
+const replaced = 'function delete_my_account';
+const replacementFiles = wipFiles.filter((p) => created([p]).has(replaced)).map(rel);
+const replacementOk = replacementFiles.length === 0
+  || (replacementFiles.length === 1 && replacementFiles[0] === 'supabase/rewards-wip/R006_p2_lifecycle_functions.sql'
+      && /create\s+or\s+replace\s+function\s+public\.delete_my_account\s*\(/i.test(stripSqlComments(read(wipFiles.find((p) => rel(p) === replacementFiles[0])))));
+const collisions = [...wipCreated].filter((n) => migCreated.has(n) && !(n === replaced && replacementOk));
+ok(collisions.length === 0, 'rewards-wip creates no object name that supabase/migrations/ already creates (sole exception: the P2 replacement of delete_my_account in R006)', collisions.join(', '));
 const migBase = new Set(migrations.map((p) => p.split('/').pop()));
 ok(wipFiles.every((p) => !migBase.has(p.split('/').pop())), 'no rewards-wip file name exists in supabase/migrations/');
 
@@ -140,7 +152,7 @@ if (against) {
   const changed = git(['diff', '--name-status', against]).split('\n').filter(Boolean).map((l) => l.split('\t'));
   const untracked = git(['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean).map((p) => ['??', p]);
   const allowedPrefix = ['supabase/rewards-wip/', 'supabase/tests/rewards/', 'docs/evidence/rewards/'];
-  const allowedFile = new Set(['scripts/test-db-rewards.sh', 'scripts/check-rewards-boundary.mjs', 'package.json', 'PROJECT_STATE.md', 'BACKLOG.md', 'TESTING.md', 'HANDOFF.md']);
+  const allowedFile = new Set(['scripts/test-db-rewards.sh', 'scripts/check-rewards-boundary.mjs', 'package.json', 'PROJECT_STATE.md', 'BACKLOG.md', 'TESTING.md', 'HANDOFF.md', 'SECURITY.md', 'DATABASE.md', 'GOVERNANCE.md', 'REWARDS_IMPLEMENTATION_PROPOSAL.md']);
   const outside = [...changed, ...untracked].filter(([status, p]) => {
     if (status.startsWith('D') || status.startsWith('R')) return true;
     return !(allowedFile.has(p) || allowedPrefix.some((a) => p.startsWith(a)));
