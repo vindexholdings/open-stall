@@ -125,4 +125,12 @@ select pg_temp.fails_as('reward_purge_owner', :'q'::uuid, 'aal1', $$update rewar
 -- retained evidence of a DELETED account can no longer be adjudicated, and the held visit can never be cleared
 select pg_temp.fails_as('authenticated', :'a1'::uuid, 'aal2', format($$select public.admin_reward_recommend_reversal(%L::uuid, 'after deletion')$$, :'pc'), 'RW030', 'a severed visit cannot be recommended for reversal');
 select pg_temp.fails_as('authenticated', :'a1'::uuid, 'aal2', format($$select public.admin_reward_clear_hold(%L::uuid, 'after deletion')$$, :'p'), 'RW032', 'the severed hold can no longer be cleared (no active hold for any account)');
+-- a DISABLED administrator who authored decisions can still delete their own account, and the decisions keep their admin id (no foreign key)
+select pg_temp.mkadmin(5003, true) as dadm \gset
+select pg_temp.mkuser(5103) as dsub \gset
+insert into rewards.reward_decisions (decision_type, admin_id, subject_user_id, reason) values ('hold_user', :'dadm', :'dsub', 'fixture by a later-disabled admin') returning id as ddec \gset
+select pg_temp.as_role('authenticated', :'dadm'::uuid, 'aal1', $$select public.delete_my_account('DELETE')::text$$) as r \gset
+select pg_temp.ok(not exists (select 1 from auth.users where id = :'dadm') and (select admin_id from rewards.reward_decisions where id = :'ddec'::uuid) = :'dadm'::uuid,
+                  'a disabled administrator can delete their account and their decisions keep the admin id as provenance');
+select pg_temp.fails_as('authenticated', :'a1'::uuid, 'aal2', format($$select public.admin_reward_hold_user(%L::uuid, 'active admin self')$$, :'a1'), '42501', 'an active administrator still cannot be adjudicated by themselves');
 select pg_temp.finish();

@@ -35,6 +35,10 @@ select pg_temp.fails_as('reward_writer_owner', null, null, format($$delete from 
 select pg_temp.fails_as('reward_purge_owner', :'u3'::uuid, 'aal1', format($$delete from rewards.reward_holds where id = %L::uuid$$, :'h1'), '42501', 'the purge owner cannot delete holds at all');
 select pg_temp.fails_as('authenticated', :'u1'::uuid, 'aal1', $$select rewards.expire_cleared_holds()::text$$, '42501', 'a client cannot invoke expiry');
 select pg_temp.fails_as('service_role', :'u1'::uuid, 'aal1', $$select rewards.expire_cleared_holds()::text$$, '42501', 'service_role cannot invoke expiry');
+select pg_temp.fails_as('reward_writer_owner', null, null, format($$update rewards.reward_holds set cleared_decision_id = hold_decision_id, cleared_at = clock_timestamp() where id = %L::uuid$$, :'hact'), '42501',
+                        'the writer cannot clear a hold with a decision that is not a clear_hold for the same account');
+select pg_temp.fails_as('reward_writer_owner', null, null, format($$update rewards.reward_holds set cleared_decision_id = (select id from rewards.reward_decisions where decision_type = 'clear_hold' and subject_user_id = %L::uuid), cleared_at = clock_timestamp() where id = %L::uuid$$, :'u3', :'hact'), '42501',
+                        'the writer cannot clear a hold with another account''s clear_hold decision');
 select pg_temp.fails($$update rewards.reward_holds set cleared_at = cleared_at - interval '100 days'$$, '42501', 'a clearance time cannot be back-dated to make a hold expire');
 select pg_temp.ok((select count(*) from rewards.reward_holds) = 4, 'no refused attempt deleted a hold');
 
@@ -57,6 +61,13 @@ select pg_temp.ok((select array_agg(p.proname::text order by p.proname::text) fr
                   = array['expire_cleared_holds', 'guard_holds_change']
               and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'rewards' and p.prosrc ~* 'interval\s+''[0-9]+\s+(day|month|year|week)' and p.prosrc !~* '90 days'),
                   'the only retention interval in the rewards function sources is the approved 90 days on cleared holds');
+-- a VALID clearance still works for the writer (the guard admits exactly one clear_hold decision of the same account, once)
+select pg_temp.mkuser(6105) as u5 \gset
+select pg_temp.mkhold(:'u5', null) as h5 \gset
+insert into rewards.reward_decisions (decision_type, admin_id, subject_user_id, reason) values ('clear_hold', :'a1', :'u5', 'valid clearance') returning id as d5 \gset
+select pg_temp.as_role('reward_writer_owner', null, null, format($$update rewards.reward_holds set cleared_decision_id = %L::uuid, cleared_at = clock_timestamp() where id = %L::uuid returning id::text$$, :'d5', :'h5')) as upd \gset
+select pg_temp.ok((select cleared_decision_id = :'d5'::uuid and cleared_at is not null from rewards.reward_holds where id = :'h5'::uuid), 'a valid clearance (clear_hold decision of the same account) is accepted for the writer');
+select pg_temp.fails_as('reward_writer_owner', null, null, format($$update rewards.reward_holds set cleared_decision_id = %L::uuid, cleared_at = clock_timestamp() - interval '100 days' where id = %L::uuid$$, :'d5', :'h5'), '42501', 'an already cleared hold cannot be cleared again or back-dated');
 -- null / low accuracy: stored as weak signals only, never an automatic hold or action
 select pg_temp.mkloc(49.0) as l \gset
 select pg_temp.mkuser(6201) as w \gset

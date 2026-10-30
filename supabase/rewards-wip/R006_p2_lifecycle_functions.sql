@@ -19,10 +19,12 @@ begin
       -- an award written at hold clearance: only for a held visit of the cleared account, under a clear_hold decision
       select * into d from rewards.reward_decisions where id = new.reward_decision_id;
       select * into v from rewards.visits where id = new.visit_id;
+      -- MUTABLE:p2_cleared_award begin
       if d.decision_type is distinct from 'clear_hold' or d.subject_user_id is distinct from new.user_id
          or v.id is null or v.spendable_outcome <> 'held' then
         raise exception 'a cleared-hold award needs a clear_hold decision for the same account and a held visit' using errcode = '23514';
       end if;
+      -- MUTABLE:p2_cleared_award end
     elsif new.reason = 'cleared_hold_award' then
       raise exception 'a cleared-hold award needs its decision' using errcode = '23514';
     end if;

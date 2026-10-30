@@ -16,7 +16,9 @@ grant usage on schema auth to reward_purge_owner;   -- auth.uid() only
 create table rewards.reward_decisions (
   id uuid primary key default gen_random_uuid(),
   decision_type text not null check (decision_type in ('hold_user', 'clear_hold', 'recommend_reversal', 'final_reversal')),
-  admin_id uuid not null references auth.users (id) on delete restrict,
+  -- Plain id, no foreign key (like moderation_decisions.reviewer_id): a disabled administrator may later delete their own account
+  -- and the decision keeps the provenance. Active administrators cannot delete their account (existing delete_my_account rule).
+  admin_id uuid not null,
   -- NULL only after the subject deleted their account (identity severing); the row itself is permanent audit.
   subject_user_id uuid references auth.users (id) on delete restrict,
   visit_id uuid references rewards.visits (id) on delete restrict,
@@ -207,7 +209,9 @@ begin
   if current_user = 'reward_writer_owner' and old.cleared_at is null and new.cleared_decision_id is not null and new.cleared_at is not null
      and (to_jsonb(new) - array['cleared_decision_id', 'cleared_at']) = (to_jsonb(old) - array['cleared_decision_id', 'cleared_at']) then
     select * into d from rewards.reward_decisions where id = new.cleared_decision_id;
+    -- MUTABLE:p2_hold_clear_validity begin
     if d.decision_type = 'clear_hold' and d.subject_user_id is not distinct from old.user_id then return new; end if;
+    -- MUTABLE:p2_hold_clear_validity end
   end if;
   raise exception 'rewards.reward_holds is append-only except one valid clearance (% refused for %)', tg_op, current_user using errcode = '42501';
 end $$;

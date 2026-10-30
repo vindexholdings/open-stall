@@ -118,5 +118,18 @@ select pg_temp.set_settings(false, 1000000);
 select pg_temp.fails_as('reward_writer_owner', null, null, $$insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason, reward_decision_id)
   select 'award', v.id, v.user_id, v.location_id, v.policy_day_local, v.policy_version_id, 'spendable', 5, 'cleared_hold_award', (select id from rewards.reward_decisions limit 1) from rewards.visits v limit 1$$, 'RW010', 'the ledger gate refuses a cleared-hold award while rewards are disabled');
 select pg_temp.set_settings(true, 1000000);
+-- a cleared-hold style award is refused unless it cites a clear_hold decision of the SAME account for a HELD visit
+select pg_temp.fails_as('reward_writer_owner', null, null, $$insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason, reward_decision_id)
+  select 'award', v.id, v.user_id, v.location_id, v.policy_day_local, v.policy_version_id, 'spendable', 5, 'cleared_hold_award', (select id from rewards.reward_decisions where decision_type = 'hold_user' limit 1) from rewards.visits v where v.spendable_outcome = 'held' limit 1$$,
+  '23514', 'a cleared-hold award citing a HOLD decision (not a clear_hold) is refused');
+select pg_temp.fails_as('reward_writer_owner', null, null, $$insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason, reward_decision_id)
+  select 'award', v.id, v.user_id, v.location_id, v.policy_day_local, v.policy_version_id, 'spendable', 5, 'cleared_hold_award', (select id from rewards.reward_decisions where decision_type = 'clear_hold' and subject_user_id <> v.user_id limit 1) from rewards.visits v where v.spendable_outcome = 'held' limit 1$$,
+  '23514', 'a cleared-hold award citing another account''s clear_hold decision is refused');
+select pg_temp.fails_as('reward_writer_owner', null, null, $$insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason, reward_decision_id)
+  select 'award', v.id, v.user_id, v.location_id, v.policy_day_local, v.policy_version_id, 'spendable', 5, 'cleared_hold_award', (select id from rewards.reward_decisions where decision_type = 'clear_hold' and subject_user_id = v.user_id limit 1) from rewards.visits v where v.spendable_outcome <> 'held' and exists (select 1 from rewards.reward_decisions d where d.decision_type = 'clear_hold' and d.subject_user_id = v.user_id) limit 1$$,
+  '23514', 'a cleared-hold award for a visit that was NOT held is refused');
+select pg_temp.fails_as('reward_writer_owner', null, null, $$insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason)
+  select 'award', v.id, v.user_id, v.location_id, v.policy_day_local, v.policy_version_id, 'spendable', 5, 'cleared_hold_award' from rewards.visits v limit 1$$,
+  '23514', 'a cleared-hold award with no decision at all is refused');
 select pg_temp.fails($$select rewards.award_held_visit(gen_random_uuid(), gen_random_uuid())$$, 'RW030', 'an unknown visit cannot be awarded');
 select pg_temp.finish();

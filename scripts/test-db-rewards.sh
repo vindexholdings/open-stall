@@ -197,7 +197,7 @@ build_template() {  # build_template <dbname> <wip dir> [p1|p2]
   psqlc -d "$db" -f "$SRC/supabase/tests/bootstrap.sql" >/dev/null
   for f in "$SRC"/supabase/migrations/*.sql; do psqlc -d "$db" -f "$f" >/dev/null; done
   for f in "$wip"/*.sql; do
-    case "$phase:$(basename "$f")" in p1:R00[1-4]_*|p2:*) ;; p1:*) continue ;; esac
+    case "$phase:$(basename "$f")" in p1:R00[1-4]_*|p2:*|p1:R999_mutant.sql) ;; p1:*) continue ;; esac   # R999_mutant.sql exists only inside a mutant copy
     echo "rewards-wip ($phase): $(basename "$f")"; psqlc -d "$db" -f "$f" >/dev/null
   done
   psqlc -d postgres -c "alter database $db is_template true" >/dev/null
@@ -285,13 +285,20 @@ if [ "$MODE" = "run" ]; then
 fi
 
 # ---------------------------------------------------------------- mutation checks
-# supabase/tests/rewards/mutations.tsv: name <TAB> marker <TAB> test file <TAB> kill|equivalent
+# supabase/tests/rewards/mutations.tsv: name <TAB> marker <TAB> test file <TAB> kill|equivalent <TAB> phase (p1 default | p2)
 # A mutant either deletes the region between "-- MUTABLE:<marker> begin" and "-- MUTABLE:<marker> end" in a COPY of rewards-wip, builds it
 # in its OWN brand-new throwaway cluster (roles are cluster-wide), and the named test must then fail. The unmutated build is
 # tested first in the main cluster, so a mutant can only be "killed" by a test that passes on the original.
-build_template os_template "$SRC/supabase/rewards-wip" >/dev/null
+# Mutants carry a phase (default p1): p1 mutants are built from R001-R004 only and judged against the P1 build in the main cluster;
+# p2 mutants are built from every file and judged against a P2 baseline cluster (roles are cluster-wide, so it is its own cluster).
+build_template os_template "$SRC/supabase/rewards-wip" p1 >/dev/null
+P2BASE="$WORK/p2base"; P2BASE_PORT=$((MAIN_PORT + 95))
+start_cluster "$P2BASE" "$P2BASE_PORT"; use_cluster "$P2BASE" "$P2BASE_PORT"
+build_template os_template "$SRC/supabase/rewards-wip" p2 >/dev/null
+use_cluster "$WORK/main" "$MAIN_PORT"
 survived=0; killed=0; equivalent=0; bad=0; idx=0
-while IFS=$'\t' read -r name marker tfile expect; do
+while IFS=$'\t' read -r name marker tfile expect phase; do
+  phase="${phase:-p1}"
   case "$name" in ''|'#'*) continue ;; esac
   [ -z "${2:-}" ] || [ "$name" = "$2" ] || continue
   idx=$((idx+1))
@@ -304,14 +311,14 @@ while IFS=$'\t' read -r name marker tfile expect; do
   esac
   cat "$mdir"/*.sql > "$WORK/mut.cat"
   if cmp -s "$WORK/orig.cat" "$WORK/mut.cat"; then echo "BAD   $name: the mutation changed nothing (marker or text '$marker' not found)"; bad=$((bad+1)); continue; fi
-  # baseline: the test passes on the unmutated build (main cluster), checked once per test file
-  use_cluster "$WORK/main" "$MAIN_PORT"
-  if [ ! -e "$WORK/base_${tfile}.ok" ]; then
-    if run_one os_template "$SRC/supabase/tests/rewards/$tfile" >/dev/null 2>&1; then : > "$WORK/base_${tfile}.ok"; else echo "BAD   $name: baseline test $tfile does not pass"; bad=$((bad+1)); continue; fi
+  # baseline: the test passes on the unmutated build of the SAME phase, checked once per phase and test file
+  if [ "$phase" = p2 ]; then use_cluster "$P2BASE" "$P2BASE_PORT"; else use_cluster "$WORK/main" "$MAIN_PORT"; fi
+  if [ ! -e "$WORK/base_${phase}_${tfile}.ok" ]; then
+    if run_one os_template "$SRC/supabase/tests/rewards/$tfile" >/dev/null 2>&1; then : > "$WORK/base_${phase}_${tfile}.ok"; else echo "BAD   $name: baseline test $tfile does not pass ($phase)"; bad=$((bad+1)); continue; fi
   fi
   mc="$WORK/mc_${idx}"; mport=$((MAIN_PORT + idx))
   start_cluster "$mc" "$mport"; use_cluster "$mc" "$mport"
-  build_template os_mut "$mdir" >/dev/null
+  build_template os_mut "$mdir" "$phase" >/dev/null
   rc=0; run_one os_mut "$SRC/supabase/tests/rewards/$tfile" >/dev/null 2>&1 || rc=$?
   stop_cluster "$mc"; rm -rf "$mc"; use_cluster "$WORK/main" "$MAIN_PORT"
   if [ "$rc" != 0 ]; then
@@ -322,4 +329,4 @@ while IFS=$'\t' read -r name marker tfile expect; do
 done < "$SRC/supabase/tests/rewards/mutations.tsv"
 echo "mutations: $killed killed, $equivalent documented equivalent, $survived survived unexpectedly, $bad invalid"
 [ "$survived" = 0 ] && [ "$bad" = 0 ] || exit 1
-echo "REWARDS P1 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)"
+echo "REWARDS P1+P2 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)"
