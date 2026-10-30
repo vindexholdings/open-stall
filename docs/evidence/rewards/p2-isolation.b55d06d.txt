@@ -1,0 +1,2 @@
+# source: b55d06d4b1f0e32153dce75ca80e7ae996b795cb (P2 implementation); container PostgreSQL 16.13; Claude-run, not Work-independent
+isolation: all checks passed (no production connection was made)

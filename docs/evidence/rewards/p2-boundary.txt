@@ -1,4 +1,4 @@
-# source: b55d06d4b1f0e32153dce75ca80e7ae996b795cb
+# source: 2467abaa0570725115f68fe4b8eb0951643601c2
 ok - selftest: the clean tree passes
 ok - selftest: the single permitted replacement in R006 passes
 ok - selftest: caught "a migration references a rewards table"

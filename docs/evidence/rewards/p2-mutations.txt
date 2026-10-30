@@ -1,5 +1,5 @@
-# source: b55d06d4b1f0e32153dce75ca80e7ae996b795cb
-harness: postgres (PostgreSQL) 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
+# source: 2467abaa0570725115f68fe4b8eb0951643601c2
+harness: postgres (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
 isolation: all checks passed (no production connection was made)
 KILLED   prospective_policy (marker prospective_policy) by 03_record_visit_flow.test.sql
 KILLED   visits_append_only (marker visits_append_only) by 05_ledger_invariants.test.sql
@@ -65,6 +65,8 @@ KILLED   p2_grant_service_role_admin_rpc (marker append:grant execute on functio
 KILLED   p2_grant_purge_schema_to_client (marker append:grant usage on schema rewards to authenticated;) by p2_04_privileges_catalog.test.sql
 KILLED   p2_writer_loses_admin_gate (marker append:revoke execute on function public.require_admin() from reward_writer_owner;) by p2_01_admin_paths.test.sql
 KILLED   p2_purge_member_of_client (marker append:grant reward_purge_owner to authenticated;) by p2_04_privileges_catalog.test.sql
-mutations: 62 killed, 2 documented equivalent, 0 survived unexpectedly, 0 invalid
+KILLED   p2_clear_day_locks_removed (marker p2_clear_day_locks) by p2_08_lock_order_races.sh
+KILLED   p2_purge_month_locks_removed (marker p2_purge_month_locks) by p2_08_lock_order_races.sh
+mutations: 64 killed, 2 documented equivalent, 0 survived unexpectedly, 0 invalid
 REWARDS P1+P2 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)
 EXIT=0
