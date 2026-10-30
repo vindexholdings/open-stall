@@ -271,6 +271,13 @@ if [ "$MODE" = "run" ]; then
     case "$(basename "$f")" in 04_privileges_catalog.test.sql) echo "SKIP p1-on-p2: 04_privileges_catalog (exact P1 inventory; superseded by p2_04_privileges_catalog on the P2 build)"; continue ;; esac
     echo "p1-on-p2:"; run_one os_template "$f" || failed=$((failed+1))
   done
+  # The repository's own pre-existing database suites (account deletion, moderation, reviews, RLS, two-session concurrency) against
+  # the P2 build: proves the replacement public.delete_my_account and every other existing behavior are preserved.
+  for f in "$SRC"/supabase/tests/*.test.sql "$SRC"/supabase/tests/concurrency.sh; do
+    [ -e "$f" ] || continue
+    [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
+    echo "legacy-on-p2:"; run_one os_template "$f" || failed=$((failed+1))
+  done
   echo "summary: $N test files, $failed failed"
   [ "$failed" = 0 ] || exit 1
   echo "REWARDS P1+P2: all tests passed on a disposable local PostgreSQL 16 (no production connection was made)"

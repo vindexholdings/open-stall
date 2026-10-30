@@ -89,6 +89,17 @@ begin
     execute format('alter table rewards.reward_ledger drop constraint %I', c.conname);
   end loop;
 end $$;
+-- The P1 foreign key to public.moderation_decisions made TRUNCATE on that existing table fail earlier (0A000 instead of its own 55000
+-- append-only guard). Rewards never use that column (the check below keeps it NULL), so the dependency is dropped and the existing
+-- moderation behavior is restored exactly.
+do $$
+declare c record;
+begin
+  for c in select conname from pg_constraint where conrelid = 'rewards.reward_ledger'::regclass and contype = 'f'
+             and confrelid = 'public.moderation_decisions'::regclass loop
+    execute format('alter table rewards.reward_ledger drop constraint %I', c.conname);
+  end loop;
+end $$;
 alter table rewards.reward_ledger add constraint reward_ledger_entry_shape check (
   (entry_type = 'award' and amount > 0 and reverses_entry_id is null and moderation_decision_id is null
      and ((reward_decision_id is null) or reason = 'cleared_hold_award'))
