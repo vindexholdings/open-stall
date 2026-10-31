@@ -12,6 +12,11 @@ type AuthValue = {
   status: AuthStatus;
   /** Private: never display publicly. */
   email: string | null;
+  /**
+   * Private, stable account identity (the session's user id). It exists ONLY so per-account client state (such as rewards progress) is
+   * partitioned by account and can never carry over from one account to the next. Never display it, log it or send it as a parameter.
+   */
+  userId: string | null;
   /** True after the user opened a password-recovery link; they must set a new password. */
   recovery: boolean;
   clearRecovery: () => void;
@@ -27,6 +32,7 @@ const Ctx = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>(authClient ? 'loading' : 'unavailable');
   const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
@@ -34,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const apply = (session: Session | null) => {
       setStatus(session ? 'signed-in' : 'signed-out');
       setEmail(session?.user.email ?? null);
+      setUserId(session?.user.id ?? null);
     };
     void authClient.auth.getSession().then(({ data }) => apply(data.session));
     const { data } = authClient.auth.onAuthStateChange((event, session) => {
@@ -62,13 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       status,
       email,
+      userId,
       recovery,
       clearRecovery: () => setRecovery(false),
       client: authClient as unknown as AuthClientLike | null,
       rpc: status === 'signed-in' ? (authClient as unknown as RpcClientLike | null) : null,
       redirectUrl: Linking.createURL('auth/callback'),
     }),
-    [status, email, recovery],
+    [status, email, userId, recovery],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

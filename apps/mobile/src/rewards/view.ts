@@ -41,8 +41,12 @@ export function applyFirstPage(prev: Fetched, page: ProgressPage): Fetched {
   };
 }
 
-/** A further page is appended below what is shown (no duplicates, no reordering). */
+/**
+ * A further page is appended below what is shown (no duplicates, no reordering). A server that turned DISABLED between pages clears the whole
+ * view (items, cursor, announcement and the loading state): nothing old stays visible and no action is left spinning.
+ */
 export function applyMorePage(prev: Fetched, page: ProgressPage): Fetched {
-  if (prev.phase !== 'ready' || page.state !== 'ready') return prev;
+  if (page.state === 'disabled') return { phase: 'disabled' };
+  if (prev.phase !== 'ready') return prev;
   return { ...prev, items: mergePages(prev.items, page.items), nextCursor: page.nextCursor, loadingMore: false, moreError: false };
 }
