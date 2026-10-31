@@ -38,6 +38,7 @@ if (args.includes('--selftest')) {
     ['delete_my_account replaced outside R006', { 'supabase/migrations/002_b.sql': 'create function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n', 'supabase/rewards-wip/R007.sql': 'create or replace function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n' }],
     ['R006 replaces another existing function', { 'supabase/migrations/002_b.sql': 'create function public.log_moderation() returns void language sql as $$ select 1 $$;\n', 'supabase/rewards-wip/R006_p2_lifecycle_functions.sql': 'create or replace function public.log_moderation() returns void language sql as $$ select 1 $$;\n' }],
     ['R006 CREATES (not replaces) delete_my_account', { 'supabase/migrations/002_b.sql': 'create function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n', 'supabase/rewards-wip/R006_p2_lifecycle_functions.sql': 'create function public.delete_my_account(p text) returns void language sql as $$ select 1 $$;\n' }],
+    ['an achievement catalog row is seeded', { 'supabase/rewards-wip/R002.sql': "insert into rewards.achievement_definitions (achievement_key, version) values ('x', 1);\n" }],
     ['a network feature', { 'supabase/rewards-wip/R002.sql': 'create extension dblink;\n' }],
     ['a JWT-shaped key', { 'supabase/tests/rewards/b.test.sql': 'select \'' + 'eyJ' + 'hbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc\';\n' }],
     ['an environment-file reference', { 'supabase/tests/rewards/b.test.sql': 'select 1; -- reads ' + '.' + 'env' + '.local\n' }],
@@ -141,6 +142,8 @@ ok(!/rewards_enabled\s*(=|:=)\s*true/i.test(wipSql) && !/set\s+rewards_enabled/i
 ok(!/global_budget_utc_day\s*(=|:=)\s*[0-9]/i.test(wipSql) && !/set\s+global_budget_utc_day/i.test(wipSql), 'nothing in rewards-wip sets a budget');
 ok(!/grant\s+[^;]*\b(insert|update|delete|truncate|all)\b[^;]*reward_settings/i.test(wipSql), 'nothing grants write access to the settings');
 ok(!/delete\s+from\s+rewards\.reward_settings/i.test(wipSql), 'nothing deletes settings');
+// P3: no achievement catalog row is ever seeded by rewards-wip (tests insert synthetic definitions inside their own throwaway clone only)
+ok(!/insert\s+into\s+rewards\.achievement_definitions\b/i.test(wipSql), 'no achievement catalog row is seeded by rewards-wip');
 
 // 5. no network feature inside the SQL
 const net = /\b(create\s+server|create\s+foreign|dblink|postgres_fdw|create\s+extension|copy\s+[^;]*\bprogram\b|alter\s+system|\\connect|\\c\s)/i;

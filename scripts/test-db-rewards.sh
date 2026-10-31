@@ -190,14 +190,14 @@ echo "isolation: all checks passed (no production connection was made)"
 [ "$MODE" != "--isolation" ] || exit 0
 
 # ---------------------------------------------------------------- build a template database from sources
-# Phases: p1 builds only R001-R004 (the accepted P1 sources, byte-for-byte); p2 (default) builds every file, including the additive P2 files.
-build_template() {  # build_template <dbname> <wip dir> [p1|p2]
-  local db="$1" wip="$2" phase="${3:-p2}" f
+# Phases: p1 builds only R001-R004 (the accepted P1 sources, byte-for-byte); p2 builds R001-R006 (the accepted P2 sources); p3 (default) builds every file.
+build_template() {  # build_template <dbname> <wip dir> [p1|p2|p3]
+  local db="$1" wip="$2" phase="${3:-p3}" f
   psqlc -d postgres -c "create database $db" >/dev/null
   psqlc -d "$db" -f "$SRC/supabase/tests/bootstrap.sql" >/dev/null
   for f in "$SRC"/supabase/migrations/*.sql; do psqlc -d "$db" -f "$f" >/dev/null; done
   for f in "$wip"/*.sql; do
-    case "$phase:$(basename "$f")" in p1:R00[1-4]_*|p2:*|p1:R999_mutant.sql) ;; p1:*) continue ;; esac   # R999_mutant.sql exists only inside a mutant copy
+    case "$phase:$(basename "$f")" in p1:R00[1-4]_*|p2:R00[1-6]_*|p3:*|p1:R999_mutant.sql|p2:R999_mutant.sql) ;; p1:*|p2:*) continue ;; esac   # R999_mutant.sql exists only inside a mutant copy
     echo "rewards-wip ($phase): $(basename "$f")"; psqlc -d "$db" -f "$f" >/dev/null
   done
   psqlc -d postgres -c "alter database $db is_template true" >/dev/null
@@ -247,7 +247,7 @@ if [ "$MODE" = "run" ]; then
   # P1 tests (everything not named p2_*) run unchanged on the P1-only build (main cluster); P2 tests run on the full build (own cluster).
   for f in "$SRC"/supabase/tests/rewards/*.test.sql "$SRC"/supabase/tests/rewards/*.sh; do
     [ -e "$f" ] || continue
-    case "$(basename "$f")" in p2_*) continue ;; esac
+    case "$(basename "$f")" in p2_*|p3_*) continue ;; esac
     [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
     run_one os_template "$f" || failed=$((failed+1))
   done
@@ -264,7 +264,7 @@ if [ "$MODE" = "run" ]; then
   # P2 deliberately supersedes carries a phase-aware branch inside the test file (never a deletion or a weaker assertion).
   for f in "$SRC"/supabase/tests/rewards/*.test.sql "$SRC"/supabase/tests/rewards/*.sh; do
     [ -e "$f" ] || continue
-    case "$(basename "$f")" in p2_*) continue ;; esac
+    case "$(basename "$f")" in p2_*|p3_*) continue ;; esac
     [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
     # 04 is an EXACT P1 object inventory; on the P2 build it is superseded by the complete P2 inventory p2_04_privileges_catalog
     # (it still runs unchanged on the P1 build above).
@@ -278,9 +278,31 @@ if [ "$MODE" = "run" ]; then
     [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
     echo "legacy-on-p2:"; run_one os_template "$f" || failed=$((failed+1))
   done
+  # ---- P3 build (R001-R007+): its own cluster. P3 tests first, then EVERY earlier suite again on the final build (P1, P2, legacy).
+  P3PORT=$((MAIN_PORT + 92))
+  start_cluster "$WORK/p3" "$P3PORT"; use_cluster "$WORK/p3" "$P3PORT"
+  build_template os_template "$SRC/supabase/rewards-wip" p3
+  echo "p3 build: $(psqlc -d postgres -A -t -c 'show server_version')"
+  for f in "$SRC"/supabase/tests/rewards/p3_*.test.sql "$SRC"/supabase/tests/rewards/p3_*.sh; do
+    [ -e "$f" ] || continue
+    [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
+    run_one os_template "$f" || failed=$((failed+1))
+  done
+  for f in "$SRC"/supabase/tests/rewards/*.test.sql "$SRC"/supabase/tests/rewards/*.sh; do
+    [ -e "$f" ] || continue
+    case "$(basename "$f")" in p3_*) continue ;; esac
+    [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
+    case "$(basename "$f")" in 04_privileges_catalog.test.sql|p2_04_privileges_catalog.test.sql) echo "SKIP on p3: $(basename "$f") (exact earlier-phase object inventory; superseded by p3_04_privileges_catalog on the P3 build)"; continue ;; esac
+    echo "all-phases-on-p3:"; run_one os_template "$f" || failed=$((failed+1))
+  done
+  for f in "$SRC"/supabase/tests/*.test.sql "$SRC"/supabase/tests/concurrency.sh; do
+    [ -e "$f" ] || continue
+    [ -z "${ONLY:-}" ] || case "$(basename "$f")" in $ONLY) ;; *) continue ;; esac
+    echo "legacy-on-p3:"; run_one os_template "$f" || failed=$((failed+1))
+  done
   echo "summary: $N test files, $failed failed"
   [ "$failed" = 0 ] || exit 1
-  echo "REWARDS P1+P2: all tests passed on a disposable local PostgreSQL 16 (no production connection was made)"
+  echo "REWARDS P1+P2+P3: all tests passed on a disposable local PostgreSQL 16 (no production connection was made)"
   exit 0
 fi
 
@@ -290,11 +312,15 @@ fi
 # in its OWN brand-new throwaway cluster (roles are cluster-wide), and the named test must then fail. The unmutated build is
 # tested first in the main cluster, so a mutant can only be "killed" by a test that passes on the original.
 # Mutants carry a phase (default p1): p1 mutants are built from R001-R004 only and judged against the P1 build in the main cluster;
-# p2 mutants are built from every file and judged against a P2 baseline cluster (roles are cluster-wide, so it is its own cluster).
+# p2 mutants are built from R001-R006 and judged against a P2 baseline cluster; p3 mutants are built from every file and judged
+# against a P3 baseline cluster (roles are cluster-wide, so each is its own cluster).
 build_template os_template "$SRC/supabase/rewards-wip" p1 >/dev/null
 P2BASE="$WORK/p2base"; P2BASE_PORT=$((MAIN_PORT + 95))
 start_cluster "$P2BASE" "$P2BASE_PORT"; use_cluster "$P2BASE" "$P2BASE_PORT"
 build_template os_template "$SRC/supabase/rewards-wip" p2 >/dev/null
+P3BASE="$WORK/p3base"; P3BASE_PORT=$((MAIN_PORT + 96))
+start_cluster "$P3BASE" "$P3BASE_PORT"; use_cluster "$P3BASE" "$P3BASE_PORT"
+build_template os_template "$SRC/supabase/rewards-wip" p3 >/dev/null
 use_cluster "$WORK/main" "$MAIN_PORT"
 survived=0; killed=0; equivalent=0; bad=0; idx=0
 while IFS=$'\t' read -r name marker tfile expect phase; do
@@ -312,7 +338,7 @@ while IFS=$'\t' read -r name marker tfile expect phase; do
   cat "$mdir"/*.sql > "$WORK/mut.cat"
   if cmp -s "$WORK/orig.cat" "$WORK/mut.cat"; then echo "BAD   $name: the mutation changed nothing (marker or text '$marker' not found)"; bad=$((bad+1)); continue; fi
   # baseline: the test passes on the unmutated build of the SAME phase, checked once per phase and test file
-  if [ "$phase" = p2 ]; then use_cluster "$P2BASE" "$P2BASE_PORT"; else use_cluster "$WORK/main" "$MAIN_PORT"; fi
+  case "$phase" in p3) use_cluster "$P3BASE" "$P3BASE_PORT" ;; p2) use_cluster "$P2BASE" "$P2BASE_PORT" ;; *) use_cluster "$WORK/main" "$MAIN_PORT" ;; esac
   if [ ! -e "$WORK/base_${phase}_${tfile}.ok" ]; then
     if run_one os_template "$SRC/supabase/tests/rewards/$tfile" >/dev/null 2>&1; then : > "$WORK/base_${phase}_${tfile}.ok"; else echo "BAD   $name: baseline test $tfile does not pass ($phase)"; bad=$((bad+1)); continue; fi
   fi
@@ -329,4 +355,4 @@ while IFS=$'\t' read -r name marker tfile expect phase; do
 done < "$SRC/supabase/tests/rewards/mutations.tsv"
 echo "mutations: $killed killed, $equivalent documented equivalent, $survived survived unexpectedly, $bad invalid"
 [ "$survived" = 0 ] && [ "$bad" = 0 ] || exit 1
-echo "REWARDS P1+P2 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)"
+echo "REWARDS P1+P2+P3 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)"
