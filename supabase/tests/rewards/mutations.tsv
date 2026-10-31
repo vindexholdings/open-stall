@@ -66,3 +66,30 @@ p2_writer_loses_admin_gate	append:revoke execute on function public.require_admi
 p2_purge_member_of_client	append:grant reward_purge_owner to authenticated;	p2_04_privileges_catalog.test.sql	kill	p2
 p2_clear_day_locks_removed	p2_clear_day_locks	p2_08_lock_order_races.sh	kill	p2
 p2_purge_month_locks_removed	p2_purge_month_locks	p2_08_lock_order_races.sh	kill	p2
+p3_events_guard_removed	p3_events_guard	p3_05_purge.test.sql	kill	p3
+p3_chains_guard_removed	p3_chains_guard	p3_05_purge.test.sql	kill	p3
+p3_purge_chains_removed	p3_purge_chains	p3_05_purge.test.sql	kill	p3
+p3_purge_sever_removed	p3_purge_sever	p3_05_purge.test.sql	kill	p3
+p3_hook_visit_removed	p3_hook_visit	p3_02_engine_cases.test.sql	kill	p3
+p3_hook_clear_removed	p3_hook_clear	p3_02_engine_cases.test.sql	kill	p3
+p3_hook_reversal_removed	p3_hook_reversal	p3_02_engine_cases.test.sql	kill	p3
+p3_metric_counts_reversed	replace:and not exists (select 1 from rewards.reward_ledger r where r.reverses_entry_id = l.id)=>and true	p3_02_engine_cases.test.sql	kill	p3
+p3_version_awarded_ignored	replace:    if ev.event = 'award' then=>    if false then	p3_03_versions_windows_zones.test.sql	kill	p3
+p3_version_window_start_removed	p3_version_window_start	p3_02_engine_cases.test.sql	kill	p3
+p3_queue_cap_removed	p3_queue_cap	p3_08_queue_progress_bounds.test.sql	kill	p3
+p3_recoverable_handler_removed	p3_recoverable_handler	p3_06_failure_classes.test.sql	kill	p3
+p3_chain_lock_removed	p3_chain_lock	p3_07_cancel_lock_races.sh	kill	p3
+p3_chain_bound_removed	p3_chain_bound	p3_08_queue_progress_bounds.test.sql	kill	p3
+p3_progress_states_removed	p3_progress_states	p3_02_engine_cases.test.sql	kill	p3
+p3_progress_gate_removed	replace:if st.rewards_enabled is not true or st.global_budget_utc_day is null then=>if false then	p3_08_queue_progress_bounds.test.sql	kill	p3
+p3_repair_waits_for_user_lock	replace:if not pg_try_advisory_xact_lock(=>if false and not pg_try_advisory_xact_lock(	p3_07_cancel_lock_races.sh	kill	p3
+p3_repair_skipped_use_slots	replace:exit when done + failed >= lim;=>exit when done + failed + skipped >= lim;	p3_07_cancel_lock_races.sh	kill	p3
+p3_grant_purge_update_events	append:grant update on rewards.achievement_events to reward_purge_owner;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_grant_client_chains	append:grant select on rewards.achievement_chains to authenticated;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_grant_client_engine	append:grant execute on function rewards.evaluate_achievements(uuid, text[], uuid, date) to authenticated;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_grant_anon_progress	append:grant execute on function public.get_my_progress(text, integer) to anon;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_grant_writer_insert_definitions	append:grant insert on rewards.achievement_definitions to reward_writer_owner;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_events_rls_not_forced	append:alter table rewards.achievement_events no force row level security;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_purge_month_locks_removed	p2_purge_month_locks	p2_08_lock_order_races.sh	kill	p3
+p3_clear_day_locks_removed	p2_clear_day_locks	p2_08_lock_order_races.sh	kill	p3
+p3_hold_read_removed	p2_hold_read	p2_02_hold_clear.test.sql	kill	p3
