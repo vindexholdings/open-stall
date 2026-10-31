@@ -151,7 +151,7 @@ begin
   perform rewards.ach_calc_step(pg_temp.f('uk'), '|', null, null, 5000);
   raise exception 'forced failure after a calculation step' using errcode = 'RW999';
 end $$;
-select pg_temp.fails('select pg_temp.step_then_fail()', 'RW999', 'a failure (or cancellation) after a calculation step aborts the enclosing transaction');
+select pg_temp.fails('select pg_temp.step_then_fail()', 'RW999', 'a FORCED error (RW999, a synthetic failure, not a real cancellation; real pg_cancel_backend is proven in p3_14) after a calculation step aborts the enclosing transaction');
 select pg_temp.ok((select steps = :'st0'::int and cursor_id = :'cur0'::uuid from rewards.achievement_calc_state where user_id = :'uk'::uuid and window_key = '|'), 'the rolled-back step left the saved state exactly as it was (cursor and counters), so a retry cannot double count');
 select pg_temp.mkuser(13131) as uz \gset
 insert into rewards.achievement_calc_state (user_id, window_key, pass) values (:'uz', '|', 'days');

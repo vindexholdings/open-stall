@@ -441,16 +441,21 @@ begin
   select array_agg(user_id) into cand from (
     select user_id from rewards.achievement_eval_queue order by last_attempt_at nulls first, first_failed_at, user_id limit 100) s;
   foreach u in array coalesce(cand, '{}') loop
-    -- the BATCH is capped too: each user step reads at most 5,000 (+1 sentinel) raw award rows, and the batch stops once 20,000 have been read (so at most 25,001)
+    -- the BATCH is capped too, PERMISSIVELY (a scheduling allowance, not a hard 20,000): each user step is charged 5,001 up front (reserved, refunded to the measured count on success), and the batch stops once 20,000 are charged, so stop-after-user can reach 25,001
     -- MUTABLE:p3_repair_batch_cap begin
     exit when done + failed >= lim or batch_scanned >= 20000;
     -- MUTABLE:p3_repair_batch_cap end
     if not pg_try_advisory_xact_lock(hashtextextended('rewards:user:' || u::text, 0)) then skipped := skipped + 1; continue; end if;
     select * into q from rewards.achievement_eval_queue where user_id = u for update;
     if q.user_id is null or (cardinality(q.dirty_scope) = 0 and not q.overflow) then continue; end if;
+    -- The user step's MAXIMUM work (5,000 raw rows + the sentinel) is RESERVED before the recoverable block: an exception unwinds the callee's own
+    -- counters, so a late failure after thousands of rows read must still be charged. Only a successful, measured return refunds the unused part.
+    -- MUTABLE:p3_repair_reserve begin
+    batch_scanned := batch_scanned + 5001;
+    -- MUTABLE:p3_repair_reserve end
     begin
       pr := rewards.ach_process_queue(u);
-      batch_scanned := batch_scanned + coalesce((pr ->> 'scanned')::integer, 0);
+      batch_scanned := batch_scanned - 5001 + coalesce((pr ->> 'scanned')::integer, 0);
       done := done + 1;
     exception
       when sqlstate '55P03' then perform rewards.ach_enqueue(u, '{}', 'repair', '55P03', 1); failed := failed + 1;
@@ -480,6 +485,11 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('rewards:user:' || uid::text, 0));
   -- read-repair: only the caller's own queue row, user lock first
   if exists (select 1 from rewards.achievement_eval_queue where user_id = uid) then
+    -- the repair step's whole budget is RESERVED before the recoverable block (a failure unwinds the callee's counters, so a late 55P03/OSA01 after
+    -- thousands of rows read must leave the request charged); a successful, measured return replaces the reservation with the real count
+    -- MUTABLE:p3_progress_reserve begin
+    scanned := 5000;
+    -- MUTABLE:p3_progress_reserve end
     begin
       -- ONE logical request budget (5,000 raw award rows): the read-repair step draws on it, and the display below spends only what remains
       -- MUTABLE:p3_progress_shared_budget begin
