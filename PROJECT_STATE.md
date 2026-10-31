@@ -1,5 +1,5 @@
 # Project State
-Last updated: 2026-10-30 (P2 corrected after Work's 59c4f36 review; corrected delivery 2467aba awaiting Work review; P3/P4 not started)
+Last updated: 2026-10-31 (P2 corrected source 2467aba validated on CI run 41208328366, PG16.15, success; awaiting Work verification/acceptance; P3/P4 not started)
 Authority and single decision register: GOVERNANCE.md; latest CHATGPT REVIEW supplies the bounded current assignment. Older completed/historical entries below preserve provenance and do not reopen superseded owner gates.
 Current milestone: VIP Points P1 local secure core. D3 iPhone visual design owner-APPROVED2026-10-17; unperformed native/device/reader release tests remain open.
 Active blocker: none for P1. OS-WORK-PG16-RUNTIME is CLOSED for P1 (Work's independent PG16.15 rerun). It stays a standing constraint for P2: tests run on disposable PG16 only; no hosted DB, production rewards or migration promotion.
