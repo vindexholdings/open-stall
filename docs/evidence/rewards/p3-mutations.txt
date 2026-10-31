@@ -1,6 +1,3 @@
-# source: tests, harness, isolation, boundary and 109 of 110 mutants were executed at implementation commit 328661f68fa76d77c68d54b316eadf2b6d38850c; one mutant (p3_repair_skipped_use_slots) had a stale text pattern fixed in supabase/tests/rewards/mutations.tsv at 60e3eb4c8c730eeba28f8b9e1d13eebf803dbff8 (the ONLY difference between the two commits) and was re-run there (see the end of p3-mutations.txt)
-# Claude-run, container PostgreSQL 16.15, env -i allowlist/temp HOME/socket-only throwaway clusters (environment cleanup, not OS sandboxing); NOT an independent Work run
-# Supersedes p3-*.e3f3bd0.txt and p3-*.681147d.txt (kept unchanged with their own source provenance)
 harness: postgres (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
 ok - isolation: no connection override reaches a child process
 ok - isolation: server has no TCP address (inet_server_addr is NULL)
@@ -111,7 +108,7 @@ KILLED   p3_chain_lock_removed (marker p3_chain_lock) by p3_07_cancel_lock_races
 KILLED   p3_progress_states_removed (marker p3_progress_states) by p3_02_engine_cases.test.sql
 KILLED   p3_progress_gate_removed (marker replace:if st.rewards_enabled is not true or st.global_budget_utc_day is null then=>if false then) by p3_08_queue_progress_bounds.test.sql
 KILLED   p3_repair_waits_for_user_lock (marker replace:if not pg_try_advisory_xact_lock(=>if false and not pg_try_advisory_xact_lock() by p3_07_cancel_lock_races.sh
-BAD   p3_repair_skipped_use_slots: the mutation changed nothing (marker or text 'replace:exit when done + failed >= lim;=>exit when done + failed + skipped >= lim;' not found)
+KILLED   p3_repair_skipped_use_slots (marker replace:exit when done + failed >= lim or batch_scanned >= 20000;=>exit when done + failed + skipped >= lim or batch_scanned >= 20000;) by p3_07_cancel_lock_races.sh
 KILLED   p3_grant_purge_update_events (marker append:grant update on rewards.achievement_events to reward_purge_owner;) by p3_04_privileges_catalog.test.sql
 KILLED   p3_grant_client_chains (marker append:grant select on rewards.achievement_chains to authenticated;) by p3_04_privileges_catalog.test.sql
 KILLED   p3_grant_anon_progress (marker append:grant execute on function public.get_my_progress(text, integer) to anon;) by p3_04_privileges_catalog.test.sql
@@ -140,8 +137,7 @@ KILLED   p3_calc_partial_exposed (marker replace:from rewards.achievement_calc_s
 KILLED   p3_purge_calc_removed (marker p3_purge_calc) by p3_05_purge.test.sql
 KILLED   p3_repair_batch_cap_removed (marker p3_repair_batch_cap) by p3_13_work_accounting.test.sql
 KILLED   p3_planner_pin_removed (marker replace:set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off=>set enable_bitmapscan = on) by p3_13_work_accounting.test.sql
-mutations: 107 killed, 2 documented equivalent, 0 survived unexpectedly, 1 invalid
-
-# re-run at 60e3eb4c8c730eeba28f8b9e1d13eebf803dbff8 of the one mutant whose pattern was corrected:
-KILLED   p3_repair_skipped_use_slots (marker replace:exit when done + failed >= lim or batch_scanned >= 20000;=>exit when done + failed + sk
-mutations: 1 killed, 0 documented equivalent, 0 survived unexpectedly, 0 invalid
+KILLED   p3_progress_failure_uncharged (marker p3_progress_reserve) by p3_14_failure_budget_cancel.sh
+KILLED   p3_repair_failure_uncharged (marker p3_repair_reserve) by p3_14_failure_budget_cancel.sh
+mutations: 110 killed, 2 documented equivalent, 0 survived unexpectedly, 0 invalid
+REWARDS P1+P2+P3 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)

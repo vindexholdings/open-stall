@@ -1,6 +1,3 @@
-# source: tests, harness, isolation, boundary and 109 of 110 mutants were executed at implementation commit 328661f68fa76d77c68d54b316eadf2b6d38850c; one mutant (p3_repair_skipped_use_slots) had a stale text pattern fixed in supabase/tests/rewards/mutations.tsv at 60e3eb4c8c730eeba28f8b9e1d13eebf803dbff8 (the ONLY difference between the two commits) and was re-run there (see the end of p3-mutations.txt)
-# Claude-run, container PostgreSQL 16.15, env -i allowlist/temp HOME/socket-only throwaway clusters (environment cleanup, not OS sandboxing); NOT an independent Work run
-# Supersedes p3-*.e3f3bd0.txt and p3-*.681147d.txt (kept unchanged with their own source provenance)
 ok - selftest: the clean tree passes
 ok - selftest: the single permitted replacement in R006 passes
 ok - selftest: caught "a migration references a rewards table"
