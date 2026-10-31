@@ -1,0 +1,171 @@
+# source: 328661f68fa76d77c68d54b316eadf2b6d38850c (p3_09/p3_12/p3_13). Part 1: EXPLAIN (ANALYZE, BUFFERS) of the SIMPLIFIED standalone read. Part 2: EXPLAIN of one exact-calculation days-pass step on the heavily reversed account. Part 3: whole-call work measured INDEPENDENTLY from pg_stat_xact_user_tables (heap tuples read + index scans started). Bulk data seeded with triggers disabled for the SEED ONLY.
+==== EVIDENCE: standing-award read for the big user (3,285 lifetime rows), whole history
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=2.601..2.603 rows=1 loops=1)
+   Buffers: shared hit=78
+   ->  Sort (actual time=1.851..2.017 rows=3285 loops=1)
+         Sort Key: l.location_id
+         Sort Method: quicksort  Memory: 250kB
+         Buffers: shared hit=78
+         ->  Hash Right Anti Join (actual time=1.135..1.396 rows=3285 loops=1)
+               Hash Cond: (r.reverses_entry_id = l.id)
+               Buffers: shared hit=78
+               ->  Index Only Scan using reward_ledger_one_reversal_per_entry on reward_ledger r (actual time=0.002..0.002 rows=0 loops=1)
+                     Heap Fetches: 0
+                     Buffers: shared hit=1
+               ->  Hash (actual time=1.129..1.129 rows=3285 loops=1)
+                     Buckets: 4096  Batches: 1  Memory Usage: 263kB
+                     Buffers: shared hit=77
+                     ->  Bitmap Heap Scan on reward_ledger l (actual time=0.101..0.699 rows=3285 loops=1)
+                           Recheck Cond: ((user_id = '00000000-0000-0000-0000-000000009001'::uuid) AND (kind = 'lifetime'::text))
+                           Filter: (entry_type = 'award'::text)
+                           Heap Blocks: exact=73
+                           Buffers: shared hit=77
+                           ->  Bitmap Index Scan on reward_ledger_user_kind_idx (actual time=0.050..0.050 rows=3285 loops=1)
+                                 Index Cond: ((user_id = '00000000-0000-0000-0000-000000009001'::uuid) AND (kind = 'lifetime'::text))
+                                 Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=49
+ Planning Time: 0.279 ms
+ Execution Time: 2.629 ms
+(27 rows)
+
+==== EVIDENCE: the same read for ONE of the 2,000 small users (30 rows) inside a 63,285-row ledger
+                                                                 QUERY PLAN                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=0.347..0.348 rows=1 loops=1)
+   Buffers: shared hit=166
+   InitPlan 1 (returns $0)
+     ->  Limit (actual time=0.249..0.250 rows=1 loops=1)
+           Buffers: shared hit=74
+           ->  Seq Scan on reward_ledger (actual time=0.249..0.249 rows=1 loops=1)
+                 Filter: (user_id <> '00000000-0000-0000-0000-000000009001'::uuid)
+                 Rows Removed by Filter: 3285
+                 Buffers: shared hit=74
+   ->  Sort (actual time=0.335..0.337 rows=30 loops=1)
+         Sort Key: l.location_id
+         Sort Method: quicksort  Memory: 26kB
+         Buffers: shared hit=166
+         ->  Nested Loop Anti Join (actual time=0.267..0.327 rows=30 loops=1)
+               Buffers: shared hit=166
+               ->  Bitmap Heap Scan on reward_ledger l (actual time=0.264..0.305 rows=30 loops=1)
+                     Recheck Cond: ((user_id = $0) AND (kind = 'lifetime'::text))
+                     Filter: (entry_type = 'award'::text)
+                     Heap Blocks: exact=30
+                     Buffers: shared hit=106
+                     ->  Bitmap Index Scan on reward_ledger_user_kind_idx (actual time=0.258..0.258 rows=30 loops=1)
+                           Index Cond: ((user_id = $0) AND (kind = 'lifetime'::text))
+                           Buffers: shared hit=76
+               ->  Index Only Scan using reward_ledger_one_reversal_per_entry on reward_ledger r (actual time=0.000..0.000 rows=0 loops=30)
+                     Index Cond: (reverses_entry_id = l.id)
+                     Heap Fetches: 0
+                     Buffers: shared hit=60
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.215 ms
+ Execution Time: 0.381 ms
+
+==== EVIDENCE: one days-pass step of the exact calculation on the heavily reversed user (EXPLAIN ANALYZE, BUFFERS): 5,000 raw rows, one reversal probe each
+                                                      QUERY PLAN                                                      
+----------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual rows=1 loops=1)
+   Buffers: shared hit=19988
+   CTE raw
+     ->  Limit (actual rows=5000 loops=1)
+           Buffers: shared hit=4988
+           ->  Index Scan using reward_ledger_standing_day_idx on reward_ledger l (actual rows=5000 loops=1)
+                 Index Cond: (user_id = '00000000-0000-0000-0000-000000013102'::uuid)
+                 Buffers: shared hit=4988
+   ->  Nested Loop Anti Join (actual rows=0 loops=1)
+         Buffers: shared hit=19988
+         ->  CTE Scan on raw r (actual rows=5000 loops=1)
+               Buffers: shared hit=4988
+         ->  Index Only Scan using reward_ledger_one_reversal_per_entry on reward_ledger x (actual rows=1 loops=5000)
+               Index Cond: (reverses_entry_id = r.id)
+               Heap Fetches: 5000
+               Buffers: shared hit=15000
+ Planning Time: 0.149 ms
+ Execution Time: 7.932 ms
+
+# assertion results from the same run (p3_09 to p3_13)
+ok - seeded: 3,285 awards for the big user over 36 months, 63,285 ledger rows in all (60,000 for 2,000 other users)
+ok - setup: 109 chains of scope (36 months x 3 keys + the lifetime key)
+ok - the SIMPLIFIED standalone read plan (not a whole engine call) examines 3285 ledger rows for the 3,285-award user; the whole-call bound is measured in the second half of this file
+ok - one evaluation of 50 chains for the big user took 19 ms (< the 2 s hypothesis bound)
+ok - the evaluation awarded real chains from the seeded history
+ok - a second page of 50 chains took 14 ms (< 2 s)
+ok - a 50-chain progress page for the big user took 28 ms (< 2 s)
+ok - the 2,000 small users are present
+ok - evaluating four chains for each of 2,000 users took 1681 ms in total (0.84 ms per user)
+ok - the small users earned real chains from their seeded history
+ok - a 109-chain backlog (this is a SIMPLE timing of three bounded steps; the exact whole-call accounting follows) drained in 22 ms, then the queue row was deleted
+ok - fifty lifetime definitions on the 3,285-award user: all 50 chains evaluated in ONE call that read the history ONCE (scanned 3285, not 50 x 3,285)
+ok - thresholds 250..12,500 vs 16,425 lifetime points: all 50 lifetime chains are earned (exact)
+ok - 36 monthly windows read 3,285 awards; the lifetime probe reads the 1,716 rows left in the budget (sentinel included) and is CHARGED, so the call reports scanned 5001 = budget + the sentinel, and returns exactly the lifetime chain as remaining
+ok - the resumed call finishes the remaining chain exactly (fresh budget)
+ok - setup: 624 old dirty windows, capped at 500 with the overflow flag
+ok - the backlog drained in 21 bounded steps (10 for the 500 dirty entries, the rest the paged re-scan with budget stops) and the queue row was deleted only at the end
+ok - EXACT completion: for all 519 candidate chains the final award state equals the reference eligibility computed from the ledger (no chain skipped by a budget stop, none approximated)
+ok - many chains were really awarded by the drain (so the exactness check is not vacuous)
+ok - setup: 6,006 standing awards for one user
+ok - progress on the 6,006-award user: a lifetime chain is unavailable (never a partial number)
+ok - bounded steps: 4 steps, none read more than 5,001 raw rows (max 5000)
+ok - the saved state advanced through exactly four bounded steps (days pass 5,000 + 1,006 rows, locations pass 5,000 + 1,006 rows): resumed, never restarted
+ok - the over-budget lifetime chain COMPLETED exactly (30,030 points = 6,006 x 5), the queue row was deleted only then
+ok - the exact accumulated state (points, awards, DISTINCT days by day transitions, DISTINCT locations by location transitions) equals the truth: 30,030 / 6,006 / 858 / 7
+ok - the unbudgeted reference metrics agree
+ok - progress now shows the exact number from the finished calculation (no rescan)
+ok - candidate enumeration for the big user (distinct months by loose index probes) took 3 ms (< 2 s)
+ok - measured, unbudgeted exact lifetime read: 4.5 ms for 3,285 standing awards and 9.3 ms for 6,006 (the budget is a safety bound chosen by Work, not a measured cost limit)
+ok - episode 1: 510 dirty windows capped at 500, overflow set, no cursor yet
+ok - the dirty part drained; the overflow flag keeps the row (a re-scan is still owed)
+ok - one re-scan page evaluated 50 windows (2026-03 to 2026-07) and left the cursor at ox10|2026-07
+ok - the late 2025-11 award is committed, its chains are queued dirty, nothing is evaluated yet, and the cursor still sits past 2026-07
+ok - episode 2: the cap kept 500 and DROPPED the 2025-11 entries (they sort after the older windows)
+ok - the new truncation REWOUND the re-scan cursor (a stale cursor would hide the dropped windows)
+ok - drained in 12 bounded steps (10 dirty + the full re-scan pages), then the row was deleted
+ok - all ten 2025-11 chains (the entries the cap dropped) were awarded by the rewound re-scan
+ok - every 2026 chain exists as well and no queue row remains
+ok - setup: 501 dirty windows, capped at 500 with the overflow flag
+ok - the dirty windows drained; the re-scan is still owed
+ok - the 36 real monthly windows were awarded by the dirty drain; no lifetime chain exists yet
+ok - the page stopped on the budget: the cursor is the last PROCESSED entry (mkx|2026-10), not the end of the page, and no lifetime chain was evaluated yet
+ok - the next step resumes at the first unprocessed entry, finishes the re-scan, and only then is the row deleted
+ok - all three lifetime chains were awarded exactly (none skipped by the budget stop)
+ok - H1: the real visit is awarded (30,005 points, exactly the threshold)
+ok - H1: the oversized chain was NOT lost: a queue row was created by the hook although none existed before
+ok - H1: no partial event, and the resumable calculation was started
+ok - H1: while pending, progress shows unavailable and NO number
+ok - H1: repair alone (no further visit) drained the queue in 2 bounded repair calls
+ok - H1: the final award is exact (30,005 of 30,005)
+ok - H2: the held visit awards nothing and queues nothing
+ok - H2: the clearance committed its award and its hook persisted the oversized chain as pending work (no queue existed before), with no partial event
+ok - H2: repair completed the chain exactly (30,005) and cleaned the queue
+ok - H3: setup: the chain is earned at 30,005
+ok - H3: the reversal committed; its hook invalidated the stale exact state and persisted the oversized chain; the old award event still stands (not yet judged)
+ok - H3: meanwhile progress never shows the stale badge as earned (unavailable, no number)
+ok - H3: repair appended the exact revoke (30,000 below 30,005) citing the reversal entry and its final decision, and cleaned the queue
+ok - no duplicate or phantom events: exactly four in total (one award each for accounts 1 and 2, an award and a revoke for account 3)
+ok - progress, 50 lifetime chains plus a second over-budget window (a fixed season) on a 6,000-award user, NO queue and no saved state: 5002 ledger tuples+scans in the whole call = ONE charged sentinel probe (the earlier shape read 50 x 5,001 raw rows; the bound for an all-over-budget request is 5,001 + 600, because an over-budget probe is not followed by reversal probes)
+ok - every over-budget chain (fifty lifetime chains AND the second over-budget window, the fixed season) was reported unavailable with no partial number
+ok - progress WITH read-repair: 5002 tuples+scans in the whole call (repair and display share ONE budget; a separate display budget would read about 10,000)
+ok - read-repair of the season window AND a display of non-pending over-budget lifetime chains in ONE request: 5002 tuples+scans = one shared budget (a separate display budget would add about 5,001 more)
+ok - the non-pending lifetime chains are reported unavailable once the shared budget is spent (no partial number)
+ok - evaluator, 50 lifetime chains on the same user: 5002 index tuples read (one shared window, one charged sentinel probe)
+ok - repair then completed all 50 lifetime chains exactly (thresholds 250..12,500 vs 30,000 points) in 7 bounded calls
+ok - setup: 8,000 raw awards, 7,900 reversed
+ok - setup: the reference standing set is exactly 100 awards (500 points)
+ok - the bounded probe counts RAW candidate rows: 8,000 raw rows exceed the budget although only 100 stand
+ok - heavily reversed history: exact completion in 4 bounded steps, the most index tuples read in one step was 15001 (<= 3 x 5,000 + 600: per raw row at most one raw tuple, one reversal-probe scan and one probe heap tuple)
+ok - the exact result equals the reference over the 100 STANDING awards only (500 points, 13 days, 8 locations)
+ok - one public repair call over 7 oversized accounts stopped at the batch cap: processed 4 of 7, counter 20004 <= 25,001; the rest stay queued
+ok - the batch really read 20008 ledger index tuples (<= 2 x 25,001 + 3,000): measured independently of the counter
+ok - repeated bounded batches eventually complete every account exactly (all 7 have their lt01 chain, the queue is empty)
+ok - setup: a finished exact state holds 30,000 points
+ok - a real award invalidated the saved exact state in the same transaction (the stale 30,000 cannot be reused)
+ok - the recomputation is exact on the new history: 30,005
+ok - a failure (or cancellation) after a calculation step aborts the enclosing transaction [RW999]
+ok - the rolled-back step left the saved state exactly as it was (cursor and counters), so a retry cannot double count
+ok - the purge role with the subject of ANOTHER account cannot delete a calculation state [42501]
+ok - the other account's state is still there

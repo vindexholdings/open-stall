@@ -1,5 +1,5 @@
 # Project State
-Last updated: 2026-10-31 (P3 CORRECTED after Work 7c58095 and re-delivered: implementation e3f3bd0729763543c2cc17854a2a64dd3ace7d22, 70 test-file runs 0 failed, 101 mutants 99 killed/2 equivalent/0 survived; P4 not started)
+Last updated: 2026-10-31 (P3 CORRECTED again after Work f930574 and re-delivered: implementation 60e3eb4c8c730eeba28f8b9e1d13eebf803dbff8, 72 test-file runs 0 failed, 110 mutants 108 killed/2 equivalent/0 survived; P4 not started)
 Authority and single decision register: GOVERNANCE.md; latest CHATGPT REVIEW supplies the bounded current assignment. Older completed/historical entries below preserve provenance and do not reopen superseded owner gates.
 Current milestone: VIP Points P1 local secure core. D3 iPhone visual design owner-APPROVED2026-10-17; unperformed native/device/reader release tests remain open.
 Active blocker: none for P1. OS-WORK-PG16-RUNTIME is CLOSED for P1 (Work's independent PG16.15 rerun). It stays a standing constraint for P2: tests run on disposable PG16 only; no hosted DB, production rewards or migration promotion.
