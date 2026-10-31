@@ -367,7 +367,7 @@ begin
         -- MUTABLE:p3_progress_states end
         late := state = 'earned' and we is not null and (ev.created_at at time zone 'UTC')::date > we;
         item := jsonb_build_object('achievement', k, 'period', per, 'state', state, 'copy', df.copy, 'metric', df.metric);
-        if state in ('in_progress', 'updating', 'earned') then
+        if state in ('in_progress', 'updating', 'earned', 'removed') then
           item := item || jsonb_build_object('value', val, 'threshold', df.threshold);
         end if;
         if state = 'earned' then item := item || jsonb_build_object('earned_at', ev.created_at, 'earned_late', late); end if;
