@@ -2,6 +2,8 @@
 
 Status: PROPOSAL, written 2026-10-11 for Work's assignment (`ad52d11`). **A proposal is not permission to implement.** Nothing here authorizes rewards code, schema, SQL, RPC, UI, a migration apply, activation, a production connection, deployment, merge, merchant redemption, a dependency, a service or any cost. It sequences the accepted designs in `VIP_REWARDS_PLAN.md` (G2) and `ACHIEVEMENTS_PLAN.md` (G3) into the smallest substantial local package first. Settled product rules are not reopened: no cooldown; first local-day visit +5 spendable and +5 lifetime; visits 2-4 +5 spendable only; 5+ recorded without points; provisional 60 spendable per account UTC day; reversals never restore capacity; held visits keep their original policy, day and ordinal; production rewards DISABLED and the global production budget unset. Security/privacy review is a required implementation gate, not settled by documentation acceptance. Work accepted this as a planning proposal for owner authorization (`c5f8173`); the review constraints in section 10 are reconciled here and are implemented only after P1 approval.
 
+**P3 status (2026-10-31):** implemented locally in `R007`-`R009` with tests `p3_01`-`p3_09` and 27 P3 mutants; delivered to Work for independent review. Measured bounds (EXPLAIN ANALYZE/BUFFERS, `docs/evidence/rewards/p3-bounds-explain.txt`) are far inside the proposed 5,000-row/2-second hypothesis for the tested volumes. P4 (local mock UI) not started.
+
 ## 1. Package sequence
 | Pkg | Scope | Depends on | Not included |
 |---|---|---|---|

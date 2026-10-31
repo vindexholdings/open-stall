@@ -4,7 +4,7 @@
 #     queue row COMMITS (a hypothesis proven here, not assumed). Repair then completes the chain.
 #  2. 57014 from a real statement_timeout and from a real pg_cancel_backend PROPAGATE: the whole visit is aborted (no visit, no ledger row, no
 #     queue row). No claim is made that a SET LOCAL statement_timeout bounds a running RPC beyond what is demonstrated here.
-#  3. repair vs reversal interleavings: repair only TRIES the user lock (never waits), a skipped user keeps its row, a reversal that waits behind a
+#  3. repair vs reversal, clearance and account-deletion interleavings: repair only TRIES the user lock (never waits), a skipped user keeps its row, a reversal that waits behind a
 #     held user lock then revokes (final state equals a serial run), no deadlock; a repeatedly locked user does not starve the others.
 # Usage: p3_07_cancel_lock_races.sh <psql command...>   (the harness appends the database name)
 set -uo pipefail
@@ -132,6 +132,49 @@ PB2=$!
 wait $PB1; wait $PB2
 eq "two concurrent repair calls: no deadlock victim, no error" "$(cat "$T/b1" "$T/b2" | grep -c '40P01')/$(err "$T/b1")$(err "$T/b2")" "0/"
 eq "no duplicate event: 11 First Stop events in total (1 + 2 revoked + 2 revoked + 1 + 1 + 4 seeded users) and the queue is empty" "$(q "select count(*) from rewards.achievement_eval_queue")/$(q "select count(*) from rewards.achievement_events e join rewards.achievement_chains c using (chain_id) where c.achievement_key = 'first_stop'")" "0/11"
+
+# (v) clearance vs repair: the clearance holds the user lock (slow clearance insert); repair only TRIES it, skips, the row stays; the clearance's own hook awards
+U8="$(mkuser 9722)"; L8="$(mkloc 22)"
+quick "$T/hold8" adm_sql "$A1" "public.admin_reward_hold_user('$U8', 'hold for race')"
+quick "$T/hv8" visit_sql "$U8" "$L8" "c7-held-0000000000000008"
+eq "(setup) the held visit awarded nothing and created no event" "$(q "select (select count(*) from rewards.reward_ledger where user_id = '$U8') || '/' || (select count(*) from rewards.achievement_events e join rewards.achievement_chains c using (chain_id) where c.user_id = '$U8')")" "0/0"
+q "insert into rewards.achievement_eval_queue (user_id, reason, dirty_scope) values ('$U8', 'seed', array['first_stop|lifetime'])" >/dev/null
+q "create trigger zz_clr_delay after insert on rewards.visit_clearances for each row execute function public.zz_delay()" >/dev/null
+quick "$T/cl8" adm_sql "$A2" "public.admin_reward_clear_hold('$U8', 'clear for race')" &
+PC=$!; sleep 0.7
+quick "$T/rp8" adm_sql "$A1" "public.repair_achievements(5)"
+eq "repair while a clearance holds the user lock: skipped, row retained" "$(grep -o '"skipped_locked": [0-9]*' "$T/rp8")/$(q "select count(*) from rewards.achievement_eval_queue where user_id = '$U8'")" '"skipped_locked": 1/1'
+wait $PC
+q "drop trigger zz_clr_delay on rewards.visit_clearances" >/dev/null
+eq "the clearance committed and its own hook awarded First Stop (no deadlock)" "$(events_of "$U8")/$(err "$T/cl8")" "award#1/"
+quick "$T/rp8b" adm_sql "$A1" "public.repair_achievements(5)"
+eq "the next repair clears the retained row without a duplicate event" "$(events_of "$U8")/$(q "select count(*) from rewards.achievement_eval_queue where user_id = '$U8'")" "award#1/0"
+
+# (vi) account deletion vs repair: the purge holds the user lock; repair skips; afterwards nothing user-linked is recreated
+del_sql() { hdr "$1" aal1; echo "select public.delete_my_account('DELETE')::text;"; }
+U9="$(seed_user 23)"
+q "insert into rewards.achievement_eval_queue (user_id, reason, dirty_scope) values ('$U9', 'seed', array['first_stop|lifetime'])" >/dev/null
+q "create trigger zz_purge_delay after delete on rewards.reward_ledger for each statement execute function public.zz_delay()" >/dev/null
+quick "$T/pg9" del_sql "$U9" &
+PP=$!; sleep 0.7
+quick "$T/rp9" adm_sql "$A1" "public.repair_achievements(5)"
+eq "repair while the account is being purged: skipped, never waits" "$(grep -o '"skipped_locked": [0-9]*' "$T/rp9")" '"skipped_locked": 1'
+wait $PP
+q "drop trigger zz_purge_delay on rewards.reward_ledger" >/dev/null
+eq "the purge committed: queue row, chain and events are gone and no error" "$(q "select (select count(*) from rewards.achievement_eval_queue where user_id = '$U9') || '/' || (select count(*) from rewards.achievement_chains where user_id = '$U9') || '/' || (select count(*) from auth.users where id = '$U9')")/$(err "$T/pg9")" "0/0/0/"
+quick "$T/rp9b" adm_sql "$A1" "public.repair_achievements(5)"
+eq "a later repair recreates nothing for the deleted account" "$(q "select count(*) from rewards.achievement_chains where user_id = '$U9'")/$(q "select count(*) from rewards.achievement_eval_queue where user_id = '$U9'")" "0/0"
+
+# (vii) account deletion vs a waiting reversal: the reversal waits for the purge's user lock, then is refused cleanly (the account is gone); no deadlock
+U10="$(seed_user 24)"
+REC10="$(recommend 10 "$(visit_of "$U10")")"
+q "create trigger zz_purge_delay2 after delete on rewards.reward_ledger for each statement execute function public.zz_delay()" >/dev/null
+quick "$T/pg10" del_sql "$U10" &
+PP=$!; sleep 0.7
+quick "$T/f10" finalize_sql "$REC10"
+wait $PP
+q "drop trigger zz_purge_delay2 on rewards.reward_ledger" >/dev/null
+eq "the reversal that waited behind the purge is refused with RW030 (account deleted); no 40P01, and no reversal row was added (still the 4 rows of the two earlier reversals)" "$(err "$T/f10")/$(grep -c 40P01 "$T/f10")/$(q "select count(*) from rewards.reward_ledger where entry_type = 'reversal'")" "RW030/0/4"
 
 echo "checks: $((CHECKS - FAILS)) passed, $FAILS failed"
 [ "$FAILS" = 0 ]
