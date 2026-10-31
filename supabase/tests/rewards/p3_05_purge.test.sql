@@ -30,6 +30,7 @@ select chain_id as cb from rewards.achievement_chains where user_id = :'ub' and 
 select pg_temp.ok(:'ca' <> :'cb', 'the two chains have different opaque ids (no cross-user key/period matching)');
 select (select jsonb_agg(to_jsonb(e) order by seq) from rewards.achievement_events e where chain_id = :'ca'::uuid) as ev_before \gset
 insert into rewards.achievement_eval_queue (user_id, reason, dirty_scope) values (:'ua', 'test', array['explorer|2026-08']);
+insert into rewards.achievement_calc_state (user_id, window_key, pass, points) values (:'ua', '2026-08-01|2026-08-31', 'days', 10), (:'ub', '2026-08-01|2026-08-31', 'done', 25);
 select pg_temp.ok((select count(*) from rewards.achievement_chains where user_id = :'ua') = 2, 'setup: A has two chains (First Stop award-only, Explorer with a revoke)');
 
 -- ============================================================ guards (by current_user and the auth.uid subject; nothing else works)
@@ -65,6 +66,8 @@ select pg_temp.ok((select user_id is null and achievement_key = 'explorer' and p
 select pg_temp.ok((select jsonb_agg(to_jsonb(e) order by seq) from rewards.achievement_events e where chain_id = :'ca'::uuid) = :'ev_before'::jsonb, 'every event of the retained chain is byte-for-byte unchanged (award, then revoke with its reversal and decision)');
 select pg_temp.ok((select count(*) from rewards.achievement_events e join rewards.reward_ledger l on l.id = e.basis_entry_id join rewards.reward_decisions d on d.id = e.decision_id where e.chain_id = :'ca'::uuid and e.event = 'revoke') = 1,
                   'the retained revoke still resolves to its reversal ledger entry and decision (kept together)');
+select pg_temp.ok(not exists (select 1 from rewards.achievement_calc_state where user_id = :'ua'::uuid) and (select count(*) from rewards.achievement_calc_state where user_id = :'ub'::uuid) = 1,
+                  'A''s temporary calculation state was ALWAYS deleted (never retained as audit) and B''s is untouched by A''s purge');
 select pg_temp.ok((select count(*) from rewards.achievement_chains where chain_id = :'cb'::uuid and user_id = :'ub'::uuid) = 1 and (select count(*) from rewards.achievement_events where chain_id = :'cb'::uuid) = 1,
                   'B''s chain for the SAME key and period is untouched by A''s purge');
 select (select count(*) from rewards.achievement_events) as ne, (select count(*) from rewards.achievement_chains) as nc \gset
@@ -76,6 +79,7 @@ select pg_temp.ok((select count(*) from rewards.achievement_events) = :'ne'::int
 -- ============================================================ B's deletion, and the severed chain stays out of every later account's reach
 select pg_temp.as_role('authenticated', :'ub'::uuid, 'aal1', $$select public.delete_my_account('DELETE')::text$$) as r2 \gset
 select pg_temp.ok((select count(*) from rewards.achievement_chains where chain_id = :'cb'::uuid) = 0 and (select count(*) from rewards.achievement_events where chain_id = :'cb'::uuid) = 0, 'B''s chain and events are deleted');
+select pg_temp.ok(not exists (select 1 from rewards.achievement_calc_state), 'B''s calculation state is deleted by B''s purge: no calculation state of any deleted account remains');
 select pg_temp.ok((select count(*) from rewards.achievement_chains where chain_id = :'ca'::uuid and user_id is null) = 1, 'the severed chain remains, matched by no one');
 select pg_temp.ok(not exists (select 1 from rewards.achievement_chains c where c.user_id is not null and not exists (select 1 from auth.users u where u.id = c.user_id)), 'no chain references a deleted account');
 -- a deleted/unknown subject never recreates user-linked state

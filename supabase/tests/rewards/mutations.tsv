@@ -73,7 +73,6 @@ p3_purge_sever_removed	p3_purge_sever	p3_05_purge.test.sql	kill	p3
 p3_hook_visit_removed	p3_hook_visit	p3_02_engine_cases.test.sql	kill	p3
 p3_hook_clear_removed	p3_hook_clear	p3_02_engine_cases.test.sql	kill	p3
 p3_hook_reversal_removed	p3_hook_reversal	p3_02_engine_cases.test.sql	kill	p3
-p3_metric_counts_reversed	replace:and not exists (select 1 from rewards.reward_ledger r where r.reverses_entry_id = l.id)=>and true	p3_02_engine_cases.test.sql	kill	p3
 p3_version_awarded_ignored	replace:    if ev.event = 'award' then=>    if false then	p3_03_versions_windows_zones.test.sql	kill	p3
 p3_version_window_start_removed	p3_version_window_start	p3_02_engine_cases.test.sql	kill	p3
 p3_queue_cap_removed	p3_queue_cap	p3_08_queue_progress_bounds.test.sql	kill	p3
@@ -85,7 +84,6 @@ p3_repair_waits_for_user_lock	replace:if not pg_try_advisory_xact_lock(=>if fals
 p3_repair_skipped_use_slots	replace:exit when done + failed >= lim;=>exit when done + failed + skipped >= lim;	p3_07_cancel_lock_races.sh	kill	p3
 p3_grant_purge_update_events	append:grant update on rewards.achievement_events to reward_purge_owner;	p3_04_privileges_catalog.test.sql	kill	p3
 p3_grant_client_chains	append:grant select on rewards.achievement_chains to authenticated;	p3_04_privileges_catalog.test.sql	kill	p3
-p3_grant_client_engine	append:grant execute on function rewards.evaluate_achievements(uuid, text[], uuid, date) to authenticated;	p3_04_privileges_catalog.test.sql	kill	p3
 p3_grant_anon_progress	append:grant execute on function public.get_my_progress(text, integer) to anon;	p3_04_privileges_catalog.test.sql	kill	p3
 p3_grant_writer_insert_definitions	append:grant insert on rewards.achievement_definitions to reward_writer_owner;	p3_04_privileges_catalog.test.sql	kill	p3
 p3_events_rls_not_forced	append:alter table rewards.achievement_events no force row level security;	p3_04_privileges_catalog.test.sql	kill	p3
@@ -97,7 +95,18 @@ p3_budget_unlimited	replace:rewards.ach_metrics(p_user, ws, we, row_budget - sca
 p3_metrics_cache_removed	p3_metrics_cache	p3_09_bounds_timing.test.sql	kill	p3
 p3_rule_invariant_removed	p3_rule_invariant	p3_03_versions_windows_zones.test.sql	kill	p3
 p3_queue_rewind_removed	replace:rescan_cursor = case when rewind then null else rewards.achievement_eval_queue.rescan_cursor end,=>rescan_cursor = rewards.achievement_eval_queue.rescan_cursor,	p3_10_overflow_rewind.test.sql	kill	p3
-p3_deferred_dropped	replace:deferred := deferred || entry; scanned := row_budget; continue;=>scanned := row_budget; continue;	p3_09_bounds_timing.test.sql	kill	p3
 p3_cursor_page_end	replace:lastdone := page[cardinality(page) - coalesce(cardinality(newrem), 0)];=>lastdone := page[cardinality(page)];	p3_11_rescan_budget_stop.test.sql	kill	p3
-p3_repair_spins_on_deferred	replace:if q.user_id is null or (cardinality(q.dirty_scope) = 0 and not q.overflow) then continue; end if;=>if q.user_id is null then continue; end if;	p3_09_bounds_timing.test.sql	kill	p3
 p3_progress_budget_unlimited	replace:rewards.ach_metrics(uid, ws, we, 5000 - scanned)=>rewards.ach_metrics(uid, ws, we, 2147483000)	p3_09_bounds_timing.test.sql	kill	p3
+p3_metric_counts_reversed	replace:not exists (select 1 from rewards.reward_ledger x where x.reverses_entry_id = r.id)=>true	p3_02_engine_cases.test.sql	kill	p3
+p3_grant_client_engine	append:grant execute on function rewards.evaluate_achievements(uuid, text[], uuid, date, integer) to authenticated;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_run_persist_remaining_removed	p3_run_persist_remaining	p3_12_oversized_hooks.test.sql	kill	p3
+p3_calc_invalidate_removed	p3_calc_invalidate	p3_13_work_accounting.test.sql	kill	p3
+p3_progress_separate_budget	replace:scanned := coalesce((rr ->> 'scanned')::integer, 0);=>scanned := 0;	p3_13_work_accounting.test.sql	kill	p3
+p3_progress_probe_uncharged	p3_progress_charge	p3_13_work_accounting.test.sql	kill	p3
+p3_calc_cursor_not_saved	replace:cursor_day = coalesce(a.lday, cursor_day), cursor_id = coalesce(a.lid, cursor_id), steps = steps + 1,=>steps = steps + 1,	p3_09_bounds_timing.test.sql	kill	p3
+p3_calc_days_double_counted	replace:where policy_day_local is distinct from st.last_day=>where true	p3_09_bounds_timing.test.sql	kill	p3
+p3_calc_locs_double_counted	replace:where location_id is distinct from st.last_loc=>where true	p3_09_bounds_timing.test.sql	kill	p3
+p3_calc_partial_exposed	replace:from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck and pass = 'done'=>from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck	p3_12_oversized_hooks.test.sql	kill	p3
+p3_purge_calc_removed	p3_purge_calc	p3_05_purge.test.sql	kill	p3
+p3_repair_batch_cap_removed	p3_repair_batch_cap	p3_13_work_accounting.test.sql	kill	p3
+p3_planner_pin_removed	replace:set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off=>set enable_bitmapscan = on	p3_13_work_accounting.test.sql	kill	p3

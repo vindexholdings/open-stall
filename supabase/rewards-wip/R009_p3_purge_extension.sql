@@ -13,6 +13,10 @@ begin
   -- the moderated reversal/original/decision dependencies it cites are already kept together) and is only severed; every other chain and its
   -- events are deleted. Taken after the per-user lock, before any ledger/visit row work, like every other writer.
   delete from rewards.achievement_eval_queue where user_id = uid;                                get diagnostics n_q = row_count;
+  -- the private resumable calculation state is temporary operational data: ALWAYS deleted, never retained as audit
+  -- MUTABLE:p3_purge_calc begin
+  delete from rewards.achievement_calc_state where user_id = uid;
+  -- MUTABLE:p3_purge_calc end
   -- MUTABLE:p3_purge_chains begin
   delete from rewards.achievement_events e using rewards.achievement_chains c
     where c.user_id = uid and e.chain_id = c.chain_id

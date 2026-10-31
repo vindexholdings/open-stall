@@ -50,7 +50,18 @@ select pg_temp.fails($q$ delete from rewards.achievement_chains $q$, '42501', 'a
 insert into rewards.achievement_eval_queue (user_id, reason) values (:'u1', 'test');
 select pg_temp.fails($q$ insert into rewards.achievement_eval_queue (user_id, reason) select pg_temp.f('u1'), 'dup' $q$, '23505', 'one queue row per user');
 select pg_temp.fails_as('reward_writer_owner', null, null, $q$ update rewards.achievement_eval_queue set last_sqlstate = 'bad' $q$, '23514', 'a SQLSTATE must be five characters');
-select pg_temp.fails_as('reward_writer_owner', null, null, $q$ update rewards.achievement_eval_queue set deferred = array(select 'k|' || g from generate_series(1, 501) g) $q$, '23514', 'the deferred set is capped at 500 by the database itself');
+-- the private calculation state: window key shape, pass values, non-negative counters, at most 50 rows per account, writer-only mutation
+insert into rewards.achievement_calc_state (user_id, window_key, pass) values (:'u1', '2026-08-01|2026-08-31', 'days');
+select pg_temp.fails($q$ insert into rewards.achievement_calc_state (user_id, window_key, pass) select pg_temp.f('u1'), 'k', 'bogus' $q$, '23514', 'a calculation pass must be days, locs or done');
+select pg_temp.fails($q$ insert into rewards.achievement_calc_state (user_id, window_key, pass, points) select pg_temp.f('u1'), 'k2', 'days', -1 $q$, '23514', 'calculation counters cannot be negative');
+select pg_temp.fails($q$ insert into rewards.achievement_calc_state (user_id, window_key, pass) select pg_temp.f('u1'), '2026-08-01|2026-08-31', 'days' $q$, '23505', 'one calculation state per account and window');
+insert into rewards.achievement_calc_state (user_id, window_key, pass) select :'u1', 'w' || g, 'days' from generate_series(1, 49) g;
+select pg_temp.fails($q$ insert into rewards.achievement_calc_state (user_id, window_key, pass) select pg_temp.f('u1'), 'w50', 'days' $q$, '23514', 'the 51st calculation state for an account is refused (at most 50)');
+select pg_temp.fails($q$ update rewards.achievement_calc_state set steps = 9 $q$, '42501', 'the owner path cannot update calculation state (only the writer)');
+select pg_temp.fails($q$ delete from rewards.achievement_calc_state $q$, '42501', 'the owner path cannot delete calculation state (only the writer and the purge role)');
+select pg_temp.fails($q$ truncate rewards.achievement_calc_state $q$, '42501,55000', 'calculation state cannot be truncated');
+select pg_temp.fails_as('reward_writer_owner', null, null, $q$ update rewards.achievement_calc_state set window_key = 'moved' $q$, '42501', 'even the writer cannot change the identity of a calculation state');
+select pg_temp.fails_as('reward_purge_owner', null, null, $q$ delete from rewards.achievement_calc_state $q$, '42501', 'the purge role deletes only the subject account''s state (no subject claim: refused)');
 select pg_temp.fails_as('reward_writer_owner', null, null, $q$ update rewards.achievement_eval_queue set dirty_scope = (select array_agg('k|' || g) from generate_series(1, 501) g) $q$, '23514', 'dirty scope is capped at 500');
 select pg_temp.fails($q$ delete from rewards.achievement_eval_queue $q$, '42501', 'the postgres owner path cannot delete queue rows (only the writer and purge roles)');
 select pg_temp.ok((select count(*) from rewards.achievement_eval_queue) = 1, 'the queue row remains');

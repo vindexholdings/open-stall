@@ -61,25 +61,124 @@ begin
   return d;
 end $$;
 
--- ONE budgeted pass over the user's STANDING lifetime awards in a window: returns all four metrics, or {"over": true} when the window holds more
--- than p_budget standing awards (a partial metric is NEVER returned). "rows" is the number of standing awards actually read (never above p_budget).
+-- ONE budgeted pass over the user's award rows in a window: all four metrics for the STANDING (non-reversed) ones, or {"over": true, "rows": budget + 1}
+-- when the window holds more than p_budget raw award rows (a partial metric is NEVER returned).
 create function rewards.ach_metrics(p_user uuid, p_from date, p_to date, p_budget integer) returns jsonb
-language sql stable set search_path = '' as $$
-  select case when count(*) > p_budget then jsonb_build_object('over', true, 'rows', p_budget)
-    else jsonb_build_object('lifetime_points_total', coalesce(sum(s.amount), 0), 'distinct_locations', count(distinct s.location_id),
-           'qualifying_awards', count(*), 'distinct_active_days', count(distinct s.policy_day_local), 'rows', count(*)) end
-  from (
-    -- MUTABLE:p3_metric_standing begin
-    select l.amount, l.location_id, l.policy_day_local from rewards.reward_ledger l
+-- The planner is pinned (no bitmap scan, no seq scan, no sort, no hash/merge join) to ordered index scans with LIMIT and nested-loop reversal probes: a bitmap scan + sort or a hash anti-join would read every
+-- remaining award or every reversal of the account, so the stated work model (raw rows <= budget, one probe per raw row) would not hold. jit is off
+-- because the disabled-sort cost of the aggregates would otherwise push the plan over the JIT threshold (about 270 ms per call).
+language sql stable set search_path = '' set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off as $$
+  -- The bounded read is over RAW candidate award rows in the window (standing OR reversed), so heavily reversed histories cannot hide work behind the
+  -- standing filter; the sentinel row (budget + 1) detects an over-budget window. Reversal probes are one unique-index lookup per raw row read.
+  with raw as materialized (
+    select l.id, l.amount, l.location_id, l.policy_day_local from rewards.reward_ledger l
      where l.user_id = p_user and l.kind = 'lifetime' and l.entry_type = 'award'
-       and not exists (select 1 from rewards.reward_ledger r where r.reverses_entry_id = l.id)
-    -- MUTABLE:p3_metric_standing end
-       and (p_from is null or l.policy_day_local between p_from and p_to)
+       and l.policy_day_local between coalesce(p_from, date '0001-01-01') and coalesce(p_to, date '9999-12-31')
+     order by l.policy_day_local, l.id
      -- MUTABLE:p3_budget_probe begin
      limit p_budget + 1
      -- MUTABLE:p3_budget_probe end
-  ) s
+  ), cnt as (select count(*) as n from raw),
+  std as (
+    -- MUTABLE:p3_metric_standing begin
+    select r.* from raw r where (select n from cnt) <= p_budget
+       and not exists (select 1 from rewards.reward_ledger x where x.reverses_entry_id = r.id)
+    -- MUTABLE:p3_metric_standing end
+  )
+  select case when (select n from cnt) > p_budget then jsonb_build_object('over', true, 'rows', p_budget + 1)
+    else jsonb_build_object('lifetime_points_total', coalesce((select sum(amount) from std), 0), 'distinct_locations', (select count(distinct location_id) from std),
+           'qualifying_awards', (select count(*) from std), 'distinct_active_days', (select count(distinct policy_day_local) from std), 'rows', (select n from cnt)) end
 $$;
+-- ---------------------------------------------------------------- resumable exact calculation for a window larger than one call's budget
+create function rewards.ach_calc_invalidate(p_user uuid) returns void language sql security definer set search_path = '' as $$
+  delete from rewards.achievement_calc_state where user_id = p_user
+$$;
+create function rewards.ach_calc_pass(p_user uuid, p_ck text) returns text language sql stable security definer set search_path = '' as $$
+  select pass from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck
+$$;
+create function rewards.ach_calc_get(p_user uuid, p_ck text) returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('lifetime_points_total', points, 'distinct_locations', locs, 'qualifying_awards', awards, 'distinct_active_days', days, 'rows', 0)
+    from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck and pass = 'done'
+$$;
+-- Starts (never restarts) the calculation for a window; the oldest FINISHED states make room (at most 50 per account). Returns false when no room.
+create function rewards.ach_calc_start(p_user uuid, p_ck text) returns boolean language plpgsql security definer set search_path = '' as $$
+declare n integer;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('rewards:user:' || p_user::text, 0));
+  if exists (select 1 from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck) then return true; end if;
+  select count(*) into n from rewards.achievement_calc_state where user_id = p_user;
+  if n >= 50 then
+    delete from rewards.achievement_calc_state s where s.user_id = p_user and s.pass = 'done'
+      and s.window_key in (select window_key from rewards.achievement_calc_state where user_id = p_user and pass = 'done' order by created_at limit n - 49);
+    select count(*) into n from rewards.achievement_calc_state where user_id = p_user;
+    if n >= 50 then return false; end if;
+  end if;
+  insert into rewards.achievement_calc_state (user_id, window_key, pass) values (p_user, p_ck, 'days');
+  return true;
+end $$;
+-- One bounded step (at most p_budget RAW award rows) of the exact calculation. Returns {"done", "rows", "metrics"}; "rows" is what was read.
+create function rewards.ach_calc_step(p_user uuid, p_ck text, p_from date, p_to date, p_budget integer) returns jsonb
+language plpgsql security definer set search_path = '' set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off set plan_cache_mode = force_custom_plan as $$
+declare st rewards.achievement_calc_state%rowtype; a record;
+  zero uuid := '00000000-0000-0000-0000-000000000000';
+  wf date := coalesce(p_from, date '0001-01-01'); wt date := coalesce(p_to, date '9999-12-31');
+  cd date; ci uuid; cl uuid; ci2 uuid;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('rewards:user:' || p_user::text, 0));
+  select * into st from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck for update;
+  -- Cursors and window bounds are SENTINELS, never `is null or ...` alternatives: an OR would stop the predicates from being index conditions in a
+  -- cached generic plan and the step would re-read everything before the cursor.
+  cd := coalesce(st.cursor_day, date '0001-01-01'); ci := coalesce(st.cursor_id, zero); cl := coalesce(st.cursor_loc, zero); ci2 := coalesce(st.cursor_id2, zero);
+  if st.user_id is null then return jsonb_build_object('done', false, 'rows', 0, 'missing', true); end if;
+  if st.pass = 'done' then return jsonb_build_object('done', true, 'rows', 0, 'metrics', rewards.ach_calc_get(p_user, p_ck)); end if;
+  if p_budget < 1 then return jsonb_build_object('done', false, 'rows', 0); end if;
+  if st.pass = 'days' then
+    with raw as materialized (
+      select l.id, l.amount, l.location_id, l.policy_day_local from rewards.reward_ledger l
+       where l.user_id = p_user and l.kind = 'lifetime' and l.entry_type = 'award'
+         and l.policy_day_local between wf and wt
+         and (l.policy_day_local, l.id) > (cd, ci)
+       order by l.policy_day_local, l.id limit p_budget),
+    std as (select r.* from raw r where not exists (select 1 from rewards.reward_ledger x where x.reverses_entry_id = r.id))
+    select (select count(*) from raw) as n_raw,
+           (select r.policy_day_local from raw r order by r.policy_day_local desc, r.id desc limit 1) as lday,
+           (select r.id from raw r order by r.policy_day_local desc, r.id desc limit 1) as lid,
+           coalesce((select sum(amount) from std), 0) as pts, (select count(*) from std) as aw,
+           (select count(distinct policy_day_local) from std where policy_day_local is distinct from st.last_day) as dn,
+           (select max(policy_day_local) from std) as maxd
+      into a;
+    update rewards.achievement_calc_state set
+        points = points + a.pts, awards = awards + a.aw, days = days + a.dn, last_day = coalesce(a.maxd, last_day),
+        cursor_day = coalesce(a.lday, cursor_day), cursor_id = coalesce(a.lid, cursor_id), steps = steps + 1,
+        pass = case when a.n_raw < p_budget then 'locs' else 'days' end
+      where user_id = p_user and window_key = p_ck;
+    return jsonb_build_object('done', false, 'rows', a.n_raw);
+  end if;
+  -- pass 'locs': ordered by location (the window filter is applied AFTER the raw read so the raw rows read are exactly what is charged)
+  with raw as materialized (
+    select l.id, l.location_id, l.policy_day_local from rewards.reward_ledger l
+     where l.user_id = p_user and l.kind = 'lifetime' and l.entry_type = 'award'
+       and (l.location_id, l.id) > (cl, ci2)
+     order by l.location_id, l.id limit p_budget),
+  std as (select r.* from raw r where r.policy_day_local between wf and wt
+            and not exists (select 1 from rewards.reward_ledger x where x.reverses_entry_id = r.id))
+  select (select count(*) from raw) as n_raw,
+         (select r.location_id from raw r order by r.location_id desc, r.id desc limit 1) as lloc,
+         (select r.id from raw r order by r.location_id desc, r.id desc limit 1) as lid,
+         (select count(distinct location_id) from std where location_id is distinct from st.last_loc) as ln,
+         (select s.location_id from std s order by s.location_id desc limit 1) as maxl
+    into a;
+  update rewards.achievement_calc_state set
+      locs = locs + a.ln, last_loc = coalesce(a.maxl, last_loc),
+      cursor_loc = coalesce(a.lloc, cursor_loc), cursor_id2 = coalesce(a.lid, cursor_id2), steps = steps + 1,
+      pass = case when a.n_raw < p_budget then 'done' else 'locs' end
+    where user_id = p_user and window_key = p_ck;
+  if a.n_raw < p_budget then
+    return jsonb_build_object('done', true, 'rows', a.n_raw, 'metrics', rewards.ach_calc_get(p_user, p_ck));
+  end if;
+  return jsonb_build_object('done', false, 'rows', a.n_raw);
+end $$;
+
 -- The exact reference for one metric (no budget): used by tests and diagnostics; the engine uses ach_metrics with its call budget.
 create function rewards.ach_metric_value(p_user uuid, p_metric text, p_from date, p_to date) returns integer
 language sql stable set search_path = '' as $$
@@ -159,14 +258,14 @@ end $$;
 -- ---------------------------------------------------------------- the evaluator: ONE rule, recompute eligibility, append only on a state change
 -- Runs under the caller's per-user advisory lock (taken again here; it is re-entrant) BEFORE any chain or queue row. The function-level
 -- lock_timeout is the real bounded wait whose expiry (55P03) the hooks treat as recoverable. At most 50 chains per call, oldest window first.
-create function rewards.evaluate_achievements(p_user uuid, p_scope text[], p_basis uuid default null, p_today date default null) returns jsonb
+create function rewards.evaluate_achievements(p_user uuid, p_scope text[], p_basis uuid default null, p_today date default null, p_budget integer default 5000) returns jsonb
 language plpgsql security definer set search_path = '' set lock_timeout = '250ms' as $$
 declare
   today date := coalesce(p_today, rewards.ach_today());
-  row_budget constant integer := 5000;   -- standing awards one call may read (released technical maximum, measured in p3_09)
+  row_budget integer := p_budget;   -- RAW award rows one call may read (released starting budget 5000; the request's remaining budget when called from the progress read)
   scanned integer := 0; cache jsonb := '{}'::jsonb; ck text; m jsonb;
   ordered text[]; n integer; i integer := 0; entry text; k text; per text; rule text; ws date; we date;
-  deferred text[] := '{}';
+  cs text; r jsonb; fresh boolean;
   d rewards.achievement_definitions%rowtype; c rewards.achievement_chains%rowtype; last_ev rewards.achievement_events%rowtype;
   val integer; eligible boolean; awarded boolean; nseq integer; basis rewards.reward_ledger%rowtype;
   processed integer := 0; appended integer := 0;
@@ -190,14 +289,30 @@ begin
     ck := coalesce(ws::text, '') || '|' || coalesce(we::text, '');
     m := cache -> ck;
     if m is null then
-      m := rewards.ach_metrics(p_user, ws, we, row_budget - scanned);
-      if (m ->> 'over')::boolean is true then
-        if scanned = 0 then
-          deferred := deferred || entry; scanned := row_budget; continue;   -- the probe itself spent the budget
+      m := rewards.ach_calc_get(p_user, ck);                       -- an exact FINISHED calculation (valid until a relevant change invalidates it)
+      if m is null then
+        cs := rewards.ach_calc_pass(p_user, ck);
+        if cs is not null then
+          -- a resumable exact calculation is in progress for this window: advance it by what the budget allows, otherwise stop here
+          if row_budget - scanned <= 0 then i := i - 1; exit; end if;
+          r := rewards.ach_calc_step(p_user, ck, ws, we, row_budget - scanned);
+          scanned := scanned + (r ->> 'rows')::integer;
+          if (r ->> 'done')::boolean is not true then i := i - 1; exit; end if;   -- unfinished: stays pending (remaining), no number, no event
+          m := r -> 'metrics';
+        else
+          if row_budget - scanned <= 0 then i := i - 1; exit; end if;
+          fresh := scanned = 0;
+          m := rewards.ach_metrics(p_user, ws, we, row_budget - scanned);
+          if (m ->> 'over')::boolean is true then
+            -- the probe really read budget + 1 raw rows: CHARGED, including the sentinel. A window that alone exceeds a fresh budget starts its
+            -- resumable exact calculation (persisted, so the next call steps it instead of probing again); either way the chain stays pending.
+            scanned := scanned + (m ->> 'rows')::integer;
+            if fresh then perform rewards.ach_calc_start(p_user, ck); end if;
+            i := i - 1; exit;
+          end if;
+          scanned := scanned + (m ->> 'rows')::integer;
         end if;
-        i := i - 1; exit;                                                   -- budget spent: this chain resumes in the next call
       end if;
-      scanned := scanned + (m ->> 'rows')::integer;
       -- MUTABLE:p3_metrics_cache begin
       cache := cache || jsonb_build_object(ck, m);
       -- MUTABLE:p3_metrics_cache end
@@ -245,7 +360,7 @@ begin
     end if;
   end loop;
   return jsonb_build_object('processed', processed, 'appended', appended, 'scanned', scanned,
-    'remaining', to_jsonb(coalesce(ordered[i + 1:], '{}')), 'deferred', to_jsonb(deferred));
+    'remaining', to_jsonb(coalesce(ordered[i + 1:], '{}')));
 end $$;
 -- The hook wrapper: its own savepoint. ONLY an explicitly listed recoverable class is caught (55P03 under the bounded lock_timeout, and
 -- the private OSA01); there is NO catch-all handler. Everything else (42501, class 23, XX, OSA02, 40001, 40P01, 57014) propagates and
@@ -254,10 +369,18 @@ create function rewards.ach_run(p_user uuid, p_scope text[], p_basis uuid, p_rea
 language plpgsql security definer set search_path = '' as $$
 declare r jsonb; rem text[];
 begin
+  -- A real award/reversal changed this account's standing awards: every saved exact calculation is stale. This runs OUTSIDE the savepoint below, so a
+  -- recoverable evaluation failure cannot roll the invalidation back and leave a stale exact number alive.
+  -- MUTABLE:p3_calc_invalidate begin
+  perform rewards.ach_calc_invalidate(p_user);
+  -- MUTABLE:p3_calc_invalidate end
   begin
     r := rewards.evaluate_achievements(p_user, p_scope, p_basis);
     rem := array(select jsonb_array_elements_text(r -> 'remaining'));
+    -- every unfinished chain (budget stop, or an exact calculation still in progress) is PERSISTED atomically, also when no queue row existed before
+    -- MUTABLE:p3_run_persist_remaining begin
     if cardinality(rem) > 0 then perform rewards.ach_enqueue(p_user, rem, 'bounded', null, 1); end if;
+    -- MUTABLE:p3_run_persist_remaining end
   -- MUTABLE:p3_recoverable_handler begin
   exception
     when sqlstate '55P03' then perform rewards.ach_enqueue(p_user, p_scope, p_reason, '55P03', 1);
@@ -265,53 +388,44 @@ begin
   -- MUTABLE:p3_recoverable_handler end
   end;
 end $$;
-
 -- One bounded step of repair for ONE user whose lock the caller already holds: a slice of dirty scope, else one page of the full re-scan.
-create function rewards.ach_process_queue(p_user uuid) returns jsonb
+create function rewards.ach_process_queue(p_user uuid, p_budget integer default 5000) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare q rewards.achievement_eval_queue%rowtype; r jsonb; newrem text[]; newdef text[]; page text[]; lastdone text; rescan_done boolean := false; trunc boolean := false;
+declare q rewards.achievement_eval_queue%rowtype; r jsonb; newrem text[]; page text[]; lastdone text; rescan_done boolean := false;
 begin
   perform pg_advisory_xact_lock(hashtextextended('rewards:user:' || p_user::text, 0));
   select * into q from rewards.achievement_eval_queue where user_id = p_user for update;
-  if q.user_id is null then return jsonb_build_object('state', 'none'); end if;
+  if q.user_id is null then return jsonb_build_object('state', 'none', 'scanned', 0); end if;
   if cardinality(q.dirty_scope) > 0 then
-    r := rewards.evaluate_achievements(p_user, q.dirty_scope, null);
+    r := rewards.evaluate_achievements(p_user, q.dirty_scope, null, null, p_budget);
     newrem := array(select jsonb_array_elements_text(r -> 'remaining'));
+    update rewards.achievement_eval_queue
+       set dirty_scope = newrem, attempts = attempts + 1, last_attempt_at = clock_timestamp()
+     where user_id = p_user;
   elsif q.overflow then
     select array_agg(c order by split_part(c, '|', 2), c) into page from (
       select c from rewards.ach_candidate_chains(p_user) c
        where (q.rescan_cursor is null or (split_part(c, '|', 2), c) > (split_part(q.rescan_cursor, '|', 2), q.rescan_cursor))
-         and c <> all (q.deferred)
        order by split_part(c, '|', 2), c limit 50) s;
     if page is null then
-      rescan_done := true; r := jsonb_build_object('remaining', '[]'::jsonb, 'deferred', '[]'::jsonb);
+      rescan_done := true; r := jsonb_build_object('remaining', '[]'::jsonb, 'scanned', 0);
     else
-      r := rewards.evaluate_achievements(p_user, page, null);
+      r := rewards.evaluate_achievements(p_user, page, null, null, p_budget);
       newrem := array(select jsonb_array_elements_text(r -> 'remaining'));
       -- the cursor is the last entry actually PROCESSED (a budget stop leaves the tail of the page unprocessed), never the end of the page
       lastdone := page[cardinality(page) - coalesce(cardinality(newrem), 0)];
       rescan_done := cardinality(newrem) = 0 and cardinality(page) < 50;
     end if;
-  else
-    return jsonb_build_object('state', 'none');
-  end if;
-  -- chains that are individually over the call budget are DEFERRED: never partial, kept pending, never retried in a loop
-  select coalesce(array_agg(x order by split_part(x, '|', 2), x), '{}') into newdef
-    from (select distinct unnest(q.deferred || array(select jsonb_array_elements_text(r -> 'deferred'))) as x) s;
-  if cardinality(newdef) > 500 then newdef := newdef[1:500]; trunc := true; end if;
-  if cardinality(q.dirty_scope) > 0 then
     update rewards.achievement_eval_queue
-       set dirty_scope = newrem, deferred = newdef, overflow = overflow or trunc, attempts = attempts + 1, last_attempt_at = clock_timestamp()
-     where user_id = p_user;
-  else
-    update rewards.achievement_eval_queue
-       set deferred = newdef, attempts = attempts + 1, last_attempt_at = clock_timestamp(),
-           overflow = case when rescan_done then trunc else true end,
+       set attempts = attempts + 1, last_attempt_at = clock_timestamp(),
+           overflow = not rescan_done,
            rescan_cursor = case when rescan_done then null else coalesce(lastdone, q.rescan_cursor) end
      where user_id = p_user;
+  else
+    return jsonb_build_object('state', 'none', 'scanned', 0);
   end if;
-  delete from rewards.achievement_eval_queue where user_id = p_user and cardinality(dirty_scope) = 0 and not overflow and cardinality(deferred) = 0;
-  return jsonb_build_object('state', 'processed');
+  delete from rewards.achievement_eval_queue where user_id = p_user and cardinality(dirty_scope) = 0 and not overflow;
+  return jsonb_build_object('state', 'processed', 'scanned', coalesce((r ->> 'scanned')::integer, 0));
 end $$;
 -- ---------------------------------------------------------------- admin repair (mechanical recomputation only; never edits ledger or adjudication)
 -- Candidate selection is a plain NON-LOCKING read; each candidate's user lock is only TRIED (never waited for), so repair cannot form a
@@ -320,25 +434,30 @@ end $$;
 create function public.repair_achievements(p_limit integer default 20) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare a uuid := public.require_admin(); lim integer; cand uuid[]; u uuid; done integer := 0; skipped integer := 0; failed integer := 0; q record;
+  batch_scanned integer := 0; pr jsonb;
 begin
   if p_limit is null or p_limit < 1 then raise exception 'invalid limit' using errcode = '22023'; end if;
   lim := least(p_limit, 20);
   select array_agg(user_id) into cand from (
     select user_id from rewards.achievement_eval_queue order by last_attempt_at nulls first, first_failed_at, user_id limit 100) s;
   foreach u in array coalesce(cand, '{}') loop
-    exit when done + failed >= lim;
+    -- the BATCH is capped too: each user step reads at most 5,000 (+1 sentinel) raw award rows, and the batch stops once 20,000 have been read (so at most 25,001)
+    -- MUTABLE:p3_repair_batch_cap begin
+    exit when done + failed >= lim or batch_scanned >= 20000;
+    -- MUTABLE:p3_repair_batch_cap end
     if not pg_try_advisory_xact_lock(hashtextextended('rewards:user:' || u::text, 0)) then skipped := skipped + 1; continue; end if;
     select * into q from rewards.achievement_eval_queue where user_id = u for update;
     if q.user_id is null or (cardinality(q.dirty_scope) = 0 and not q.overflow) then continue; end if;
     begin
-      perform rewards.ach_process_queue(u);
+      pr := rewards.ach_process_queue(u);
+      batch_scanned := batch_scanned + coalesce((pr ->> 'scanned')::integer, 0);
       done := done + 1;
     exception
       when sqlstate '55P03' then perform rewards.ach_enqueue(u, '{}', 'repair', '55P03', 1); failed := failed + 1;
       when sqlstate 'OSA01' then perform rewards.ach_enqueue(u, '{}', 'repair', 'OSA01', 1); failed := failed + 1;
     end;
   end loop;
-  return jsonb_build_object('processed', done, 'skipped_locked', skipped, 'failed', failed,
+  return jsonb_build_object('processed', done, 'skipped_locked', skipped, 'failed', failed, 'scanned', batch_scanned,
     'queue_remaining', (select count(*) from rewards.achievement_eval_queue));
 end $$;
 
@@ -348,7 +467,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   uid uuid := auth.uid(); st record; today date := rewards.ach_today(); entries text[]; more boolean := false; e text;
   items jsonb := '[]'::jsonb; pend text[]; ov boolean; k text; per text; rule text; ws date; we date;
-  scanned integer := 0; cache jsonb := '{}'::jsonb; ck text; m jsonb; df rewards.achievement_definitions%rowtype; val integer; eligible boolean; ev record; state text; stale text[] := '{}'; late boolean; item jsonb;
+  scanned integer := 0; rr jsonb; cache jsonb := '{}'::jsonb; ck text; m jsonb; df rewards.achievement_definitions%rowtype; val integer; eligible boolean; ev record; state text; stale text[] := '{}'; late boolean; item jsonb;
 begin
   if uid is null then raise exception 'not authenticated' using errcode = '28000'; end if;
   if p_limit is null or p_limit < 1 or p_limit > 50 then raise exception 'invalid page size' using errcode = '22023'; end if;
@@ -362,13 +481,17 @@ begin
   -- read-repair: only the caller's own queue row, user lock first
   if exists (select 1 from rewards.achievement_eval_queue where user_id = uid) then
     begin
-      perform rewards.ach_process_queue(uid);
+      -- ONE logical request budget (5,000 raw award rows): the read-repair step draws on it, and the display below spends only what remains
+      -- MUTABLE:p3_progress_shared_budget begin
+      rr := rewards.ach_process_queue(uid, 5000);
+      scanned := coalesce((rr ->> 'scanned')::integer, 0);
+      -- MUTABLE:p3_progress_shared_budget end
     exception
       when sqlstate '55P03' then perform rewards.ach_enqueue(uid, '{}', 'progress', '55P03', 1);
       when sqlstate 'OSA01' then perform rewards.ach_enqueue(uid, '{}', 'progress', 'OSA01', 1);
     end;
   end if;
-  select dirty_scope || deferred, overflow into pend, ov from rewards.achievement_eval_queue where user_id = uid;
+  select dirty_scope, overflow into pend, ov from rewards.achievement_eval_queue where user_id = uid;
   select array_agg(x) into entries from (
     select x from (
       with keys as (select achievement_key as kk, (array_agg(window_rule order by version desc))[1] as rl
@@ -399,15 +522,26 @@ begin
         ws := rewards.ach_window_start(rule, per);
         df := rewards.ach_select_version(uid, k, per, today);
         we := case rule when 'calendar_month' then ((ws + interval '1 month')::date - 1) when 'fixed' then df.window_ends_on else null end;
-        -- one call reads at most 5,000 standing awards in total (cached per window); a chain that does not fit is reported UNAVAILABLE (never a
-        -- partial number) and queued for the bounded evaluator
+        -- ONE request budget across read-repair and display: cache hits cost nothing; a finished exact calculation is read for free; a probe that
+        -- finds the window over budget is CHARGED (sentinel included) and its outcome is cached, so it is never repeated inside the request; a window that
+        -- does not fit is reported UNAVAILABLE (never a partial number) and queued for the bounded evaluator.
         ck := coalesce(ws::text, '') || '|' || coalesce(we::text, '');
         m := cache -> ck;
         if m is null then
-          m := rewards.ach_metrics(uid, ws, we, 5000 - scanned);
-          if (m ->> 'over')::boolean is true then m := null;
-          else scanned := scanned + (m ->> 'rows')::integer; cache := cache || jsonb_build_object(ck, m); end if;
+          m := rewards.ach_calc_get(uid, ck);
+          if m is null then
+            if 5000 - scanned <= 0 then
+              m := jsonb_build_object('over', true, 'rows', 0);
+            else
+              m := rewards.ach_metrics(uid, ws, we, 5000 - scanned);
+              -- MUTABLE:p3_progress_charge begin
+              scanned := scanned + (m ->> 'rows')::integer;
+              -- MUTABLE:p3_progress_charge end
+            end if;
+          end if;
+          cache := cache || jsonb_build_object(ck, m);
         end if;
+        if (m ->> 'over')::boolean is true then m := null; end if;
         if m is null then
           item := jsonb_build_object('achievement', k, 'period', per, 'state', 'unavailable');
           stale := stale || e;
@@ -699,28 +833,33 @@ alter function rewards.ach_rule(text) owner to reward_writer_owner;
 alter function rewards.ach_window_start(text, text) owner to reward_writer_owner;
 alter function rewards.ach_select_version(uuid, text, text, date) owner to reward_writer_owner;
 alter function rewards.ach_metrics(uuid, date, date, integer) owner to reward_writer_owner;
+alter function rewards.ach_calc_invalidate(uuid) owner to reward_writer_owner;
+alter function rewards.ach_calc_pass(uuid, text) owner to reward_writer_owner;
+alter function rewards.ach_calc_get(uuid, text) owner to reward_writer_owner;
+alter function rewards.ach_calc_start(uuid, text) owner to reward_writer_owner;
+alter function rewards.ach_calc_step(uuid, text, date, date, integer) owner to reward_writer_owner;
 alter function rewards.ach_metric_value(uuid, text, date, date) owner to reward_writer_owner;
 alter function rewards.ach_scope_for_day(date, date) owner to reward_writer_owner;
 alter function rewards.ach_candidate_chains(uuid) owner to reward_writer_owner;
 alter function rewards.ach_enqueue(uuid, text[], text, text, integer) owner to reward_writer_owner;
-alter function rewards.evaluate_achievements(uuid, text[], uuid, date) owner to reward_writer_owner;
+alter function rewards.evaluate_achievements(uuid, text[], uuid, date, integer) owner to reward_writer_owner;
 alter function rewards.ach_run(uuid, text[], uuid, text) owner to reward_writer_owner;
-alter function rewards.ach_process_queue(uuid) owner to reward_writer_owner;
+alter function rewards.ach_process_queue(uuid, integer) owner to reward_writer_owner;
 alter function public.repair_achievements(integer) owner to reward_writer_owner;
 alter function public.get_my_progress(text, integer) owner to reward_writer_owner;
 revoke create on schema rewards from reward_writer_owner;
 revoke create on schema public from reward_writer_owner;
 
 revoke all on function rewards.ach_today(), rewards.ach_rule(text), rewards.ach_window_start(text, text),
-  rewards.ach_select_version(uuid, text, text, date), rewards.ach_metric_value(uuid, text, date, date), rewards.ach_metrics(uuid, date, date, integer), rewards.ach_scope_for_day(date, date),
+  rewards.ach_select_version(uuid, text, text, date), rewards.ach_metric_value(uuid, text, date, date), rewards.ach_metrics(uuid, date, date, integer), rewards.ach_calc_invalidate(uuid), rewards.ach_calc_pass(uuid, text), rewards.ach_calc_get(uuid, text), rewards.ach_calc_start(uuid, text), rewards.ach_calc_step(uuid, text, date, date, integer), rewards.ach_scope_for_day(date, date),
   rewards.ach_candidate_chains(uuid), rewards.ach_enqueue(uuid, text[], text, text, integer),
-  rewards.evaluate_achievements(uuid, text[], uuid, date), rewards.ach_run(uuid, text[], uuid, text), rewards.ach_process_queue(uuid),
+  rewards.evaluate_achievements(uuid, text[], uuid, date, integer), rewards.ach_run(uuid, text[], uuid, text), rewards.ach_process_queue(uuid, integer),
   public.repair_achievements(integer), public.get_my_progress(text, integer)
   from public, anon, authenticated, service_role;
 grant execute on function rewards.ach_today(), rewards.ach_rule(text), rewards.ach_window_start(text, text),
-  rewards.ach_select_version(uuid, text, text, date), rewards.ach_metric_value(uuid, text, date, date), rewards.ach_metrics(uuid, date, date, integer), rewards.ach_scope_for_day(date, date),
+  rewards.ach_select_version(uuid, text, text, date), rewards.ach_metric_value(uuid, text, date, date), rewards.ach_metrics(uuid, date, date, integer), rewards.ach_calc_invalidate(uuid), rewards.ach_calc_pass(uuid, text), rewards.ach_calc_get(uuid, text), rewards.ach_calc_start(uuid, text), rewards.ach_calc_step(uuid, text, date, date, integer), rewards.ach_scope_for_day(date, date),
   rewards.ach_candidate_chains(uuid), rewards.ach_enqueue(uuid, text[], text, text, integer),
-  rewards.evaluate_achievements(uuid, text[], uuid, date), rewards.ach_run(uuid, text[], uuid, text), rewards.ach_process_queue(uuid)
+  rewards.evaluate_achievements(uuid, text[], uuid, date, integer), rewards.ach_run(uuid, text[], uuid, text), rewards.ach_process_queue(uuid, integer)
   to reward_writer_owner;
 -- the only client entry points: the caller's own progress (authenticated) and the admin-gated repair (identity and aal2 are checked INSIDE)
 grant execute on function public.get_my_progress(text, integer), public.repair_achievements(integer) to authenticated;

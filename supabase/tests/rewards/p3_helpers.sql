@@ -43,3 +43,27 @@ begin
     select 'award', id, u, location_id, policy_day_local, pol, 'lifetime', 5, 'first_visit_of_local_day' from iv;
   set local session_replication_role = origin;
 end $$;
+-- Bulk synthetic REVERSAL rows (triggers disabled for the SEED ONLY): reverses the n oldest lifetime awards of the account.
+create function pg_temp.seed_reversals(u uuid, n integer) returns void language plpgsql as $$
+begin
+  set local session_replication_role = replica;
+  insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason, reverses_entry_id, reward_decision_id)
+    select 'reversal', a.visit_id, a.user_id, a.location_id, a.policy_day_local, a.policy_version_id, 'lifetime', -a.amount, 'fraud_reversal', a.id, gen_random_uuid()
+      from (select * from rewards.reward_ledger where user_id = u and kind = 'lifetime' and entry_type = 'award' order by policy_day_local, id limit n) a;
+  set local session_replication_role = origin;
+end $$;
+-- Real work on the ledger so far in THIS transaction, measured by PostgreSQL (not by the engine's own counter): heap tuples read
+-- (seq_tup_read + idx_tup_fetch) plus index scans started (idx_scan: one per reversal-existence probe, index-only).
+create function pg_temp.ledger_reads() returns bigint language sql as $$
+  select coalesce(sum(seq_tup_read + idx_tup_fetch + idx_scan), 0)::bigint from pg_stat_xact_user_tables where relname = 'reward_ledger'
+$$;
+-- Repair until the account's queue row is gone (admin, aal2), at most 30 calls; returns the number of calls.
+create function pg_temp.drain(adm uuid, u uuid) returns integer language plpgsql as $$
+declare i integer := 0;
+begin
+  while exists (select 1 from rewards.achievement_eval_queue where user_id = u) and i < 30 loop
+    i := i + 1;
+    perform pg_temp.as_role('authenticated', adm, 'aal2', 'select public.repair_achievements(5)::text');
+  end loop;
+  return i;
+end $$;

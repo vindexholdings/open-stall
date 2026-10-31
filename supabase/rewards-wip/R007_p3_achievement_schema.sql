@@ -33,10 +33,14 @@ create table rewards.achievement_chains (
   created_at timestamptz not null default clock_timestamp(),
   unique (user_id, achievement_key, period_key)
 );
--- Supports the bounded reads of the engine: a window is an index RANGE of the user's standing awards, and distinct months are enumerated by
--- loose index probes, so a call's cost follows the rows it is allowed to touch (the per-call budget), not the length of the ledger.
-create index reward_ledger_standing_day_idx on rewards.reward_ledger (user_id, policy_day_local)
+-- Support for the bounded reads of the engine: a window is an index RANGE of the user's award rows, distinct locations are an ordered scan by location,
+-- distinct months are loose index probes, and the revoke basis is the newest reversal in a window by backward index scan with LIMIT 1.
+create index reward_ledger_standing_day_idx on rewards.reward_ledger (user_id, policy_day_local, id)
   where kind = 'lifetime' and entry_type = 'award';
+create index reward_ledger_standing_loc_idx on rewards.reward_ledger (user_id, location_id, id)
+  where kind = 'lifetime' and entry_type = 'award';
+create index reward_ledger_reversal_day_idx on rewards.reward_ledger (user_id, policy_day_local, created_at, id)
+  where kind = 'lifetime' and entry_type = 'reversal';
 create index achievement_chains_user_idx on rewards.achievement_chains (user_id) where user_id is not null;
 
 -- ---------------------------------------------------------------- append-only events (no user_id of their own)
@@ -69,14 +73,66 @@ create table rewards.achievement_eval_queue (
   dirty_scope text[] not null default '{}' check (cardinality(dirty_scope) <= 500),
   overflow boolean not null default false,
   rescan_cursor text,
-  -- chains whose OWN window/history exceeds the per-call row budget: never evaluated partially, kept pending (reported unavailable)
-  deferred text[] not null default '{}' check (cardinality(deferred) <= 500),
   attempts integer not null default 0 check (attempts >= 0),
   last_sqlstate text check (last_sqlstate is null or last_sqlstate ~ '^[0-9A-Z]{5}$'),
   first_failed_at timestamptz not null default clock_timestamp(),
   last_attempt_at timestamptz
 );
 create index achievement_eval_queue_fair_idx on rewards.achievement_eval_queue (last_attempt_at nulls first, first_failed_at);
+
+-- ---------------------------------------------------------------- private resumable calculation state (INTERNAL operational data, never audit)
+-- Exact metrics for a window whose own award rows exceed one call's budget are accumulated across bounded repair steps: pass 'days' walks the
+-- user's award rows in (day, id) order (points, awards, distinct days by day transitions), pass 'locs' walks them in (location, id) order (distinct
+-- locations by location transitions), then the row is 'done' and holds the exact metrics until ANY relevant award/reversal/clearance for the account
+-- invalidates (deletes) it under the user lock. No set is stored: the state is O(1) per window. Nothing partial or stale is ever exposed.
+create table rewards.achievement_calc_state (
+  user_id uuid not null references auth.users (id) on delete restrict,
+  window_key text not null check (char_length(window_key) between 1 and 40),
+  pass text not null check (pass in ('days', 'locs', 'done')),
+  cursor_day date, cursor_id uuid, last_day date,
+  cursor_loc uuid, cursor_id2 uuid, last_loc uuid,
+  points bigint not null default 0 check (points >= 0),
+  awards integer not null default 0 check (awards >= 0),
+  days integer not null default 0 check (days >= 0),
+  locs integer not null default 0 check (locs >= 0),
+  steps integer not null default 0 check (steps >= 0),
+  created_at timestamptz not null default clock_timestamp(),
+  primary key (user_id, window_key)
+);
+-- at most 50 rows per account (the oldest finished rows are replaced by the writer before a new one starts)
+create function rewards.guard_achievement_calc_state() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    if (select count(*) from rewards.achievement_calc_state s where s.user_id = new.user_id) >= 50 then
+      raise exception 'too many calculation states for the account' using errcode = '23514';
+    end if;
+    return new;
+  end if;
+  if current_user = 'reward_writer_owner' then
+    if tg_op = 'DELETE' then return old; end if;
+    if new.user_id is not distinct from old.user_id and new.window_key is not distinct from old.window_key then return new; end if;
+  end if;
+  if tg_op = 'DELETE' and current_user = 'reward_purge_owner' and auth.uid() is not null and old.user_id = auth.uid() then
+    return old;
+  end if;
+  raise exception 'rewards.achievement_calc_state refuses % for %', tg_op, current_user using errcode = '42501';
+end $$;
+create trigger achievement_calc_state_guard before insert or update or delete on rewards.achievement_calc_state
+  for each row execute function rewards.guard_achievement_calc_state();
+create trigger achievement_calc_state_no_truncate before truncate on rewards.achievement_calc_state for each statement execute function rewards.guard_truncate();
+alter table rewards.achievement_calc_state enable row level security;
+alter table rewards.achievement_calc_state force row level security;
+revoke all on rewards.achievement_calc_state from public, anon, authenticated, service_role;
+grant select, insert, update, delete on rewards.achievement_calc_state to reward_writer_owner;
+grant select, delete on rewards.achievement_calc_state to reward_purge_owner;
+create policy writer_reads_calc on rewards.achievement_calc_state for select to reward_writer_owner using (true);
+create policy writer_inserts_calc on rewards.achievement_calc_state for insert to reward_writer_owner with check (true);
+create policy writer_updates_calc on rewards.achievement_calc_state for update to reward_writer_owner using (true) with check (true);
+create policy writer_deletes_calc on rewards.achievement_calc_state for delete to reward_writer_owner using (true);
+create policy purge_reads_calc on rewards.achievement_calc_state for select to reward_purge_owner using (true);
+create policy purge_deletes_calc on rewards.achievement_calc_state for delete to reward_purge_owner using (true);
+revoke all on function rewards.guard_achievement_calc_state() from public, anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------- guards (invoker security, fixed search_path, decide on current_user only)
 -- Definitions are immutable for every role, the owner included: a change is a new version row.
