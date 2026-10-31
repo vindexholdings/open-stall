@@ -33,6 +33,10 @@ create table rewards.achievement_chains (
   created_at timestamptz not null default clock_timestamp(),
   unique (user_id, achievement_key, period_key)
 );
+-- Supports the bounded reads of the engine: a window is an index RANGE of the user's standing awards, and distinct months are enumerated by
+-- loose index probes, so a call's cost follows the rows it is allowed to touch (the per-call budget), not the length of the ledger.
+create index reward_ledger_standing_day_idx on rewards.reward_ledger (user_id, policy_day_local)
+  where kind = 'lifetime' and entry_type = 'award';
 create index achievement_chains_user_idx on rewards.achievement_chains (user_id) where user_id is not null;
 
 -- ---------------------------------------------------------------- append-only events (no user_id of their own)
@@ -65,6 +69,8 @@ create table rewards.achievement_eval_queue (
   dirty_scope text[] not null default '{}' check (cardinality(dirty_scope) <= 500),
   overflow boolean not null default false,
   rescan_cursor text,
+  -- chains whose OWN window/history exceeds the per-call row budget: never evaluated partially, kept pending (reported unavailable)
+  deferred text[] not null default '{}' check (cardinality(deferred) <= 500),
   attempts integer not null default 0 check (attempts >= 0),
   last_sqlstate text check (last_sqlstate is null or last_sqlstate ~ '^[0-9A-Z]{5}$'),
   first_failed_at timestamptz not null default clock_timestamp(),
@@ -85,6 +91,12 @@ begin
   if prev.version is not null and (new.version <> prev.version + 1 or new.effective_from_date < prev.effective_from_date) then
     raise exception 'a new definition version must be the next number and no earlier than the previous one' using errcode = '23514';
   end if;
+  -- A logical key keeps ONE window rule for ever (identity and historical windows never change): a different rule needs a different key.
+  -- MUTABLE:p3_rule_invariant begin
+  if prev.version is not null and new.window_rule <> prev.window_rule then
+    raise exception 'a key keeps one window rule; a different window type needs a separate logical key' using errcode = '23514';
+  end if;
+  -- MUTABLE:p3_rule_invariant end
   if prev.version is null and new.version <> 1 then
     raise exception 'the first definition version must be 1' using errcode = '23514';
   end if;

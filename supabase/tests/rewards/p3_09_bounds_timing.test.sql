@@ -1,9 +1,11 @@
 -- P3 bounds with MEASURED evidence (a hypothesis until measured): one user with ~3,300 lifetime awards over 36 months, 2,000 users with 30 days each
 -- (60,000 awards), and a 500-chain backlog. The data is bulk-seeded with triggers disabled (session_replication_role = replica) for the
 -- SEED ONLY: this measures the evaluator's READ cost and the repair loop, not insert cost, and it proves nothing about the write guards (other files do).
--- Wall-clock bounds below are generous CI guards against regression, not performance claims; the EXPLAIN evidence is the real result.
+-- Wall-clock bounds below are generous CI guards against regression, not performance claims. The WHOLE-CALL row accounting (rows read per evaluator call,
+-- caching, budget stops, deferral, exact resumable completion) is asserted from the evaluator's own `scanned` counter in the second half of this file.
 \i :ROOT/supabase/tests/rewards/p3_helpers.sql
 select pg_temp.enable_rewards(1000000);
+select pg_temp.mkadmin(9010) as a1 \gset
 select pg_temp.mkloc(52.01) as l1 \gset
 select pg_temp.mkloc(52.02) as l2 \gset
 select pg_temp.mkloc(52.03) as l3 \gset
@@ -69,8 +71,7 @@ begin
   return n;
 end $$;
 select pg_temp.plan_rows(format($q$select count(*) from rewards.reward_ledger l where l.user_id = %L::uuid and l.kind = 'lifetime' and l.entry_type = 'award'$q$, :'ub')) as scanned_big \gset
-select pg_temp.ok(:'scanned_big'::int <= 5000, 'a call examines at most 3,285 ledger rows for the ~3,000-row user (' || :'scanned_big' || ' <= the proposed 5,000-row bound)');
-select pg_temp.ok((select count(*) from rewards.reward_ledger where user_id = :'ub'::uuid and kind = 'lifetime') <= 5000, 'the big user is inside the proposed row bound');
+select pg_temp.ok(:'scanned_big'::int = 3285, 'the SIMPLIFIED standalone read plan (not a whole engine call) examines ' || :'scanned_big' || ' ledger rows for the 3,285-award user; the whole-call bound is measured in the second half of this file');
 
 -- ============================================================ timings of the evaluator and the repair loop
 create function pg_temp.timed_ms(q text) returns numeric language plpgsql as $$
@@ -102,9 +103,94 @@ insert into _ms select 9, pg_temp.timed_ms($q$select rewards.evaluate_achievemen
 select sum(ms) as ms2000 from _ms \gset
 select pg_temp.ok(:'ms2000'::numeric < 60000, 'evaluating four chains for each of 2,000 users took ' || round(:'ms2000'::numeric) || ' ms in total (' || round(:'ms2000'::numeric / 2000, 2) || ' ms per user)');
 select pg_temp.ok((select count(*) from rewards.achievement_chains c join _small s on s.uid = c.user_id) > 0, 'the small users earned real chains from their seeded history');
--- 500-chain backlog: ten bounded steps
+-- a 109-chain backlog (not a 500-chain one): bounded steps
 select pg_temp.mkuser(9002) as ub2 \gset
 select rewards.ach_enqueue(:'ub'::uuid, (select array_agg(e) from (select e from unnest(:'scope109'::text[]) e) s), 'seed', null, 0);
 select pg_temp.timed_ms(format($q$select rewards.ach_process_queue(%L::uuid) from generate_series(1, 3)$q$, :'ub')) as msq \gset
-select pg_temp.ok(:'msq'::numeric < 6000 and not exists (select 1 from rewards.achievement_eval_queue where user_id = :'ub'::uuid), 'a 109-chain backlog drained in three bounded steps in ' || round(:'msq'::numeric) || ' ms, then the queue row was deleted');
+select pg_temp.ok(:'msq'::numeric < 6000 and not exists (select 1 from rewards.achievement_eval_queue where user_id = :'ub'::uuid), 'a 109-chain backlog (this is a SIMPLE timing of three bounded steps; the exact whole-call accounting follows) drained in ' || round(:'msq'::numeric) || ' ms, then the queue row was deleted');
+
+-- ============================================================ WHOLE-CALL accounting (the evaluator's own counter): budget 5,000 standing awards per call
+-- (1) fifty lifetime definitions on the 3,285-award user: ONE scan is shared (cached per window), not fifty
+select pg_temp.defn('lt' || lpad(g::text, 2, '0'), 1, 'lifetime_points_total', 5 * g * 50, 'none', date '2019-01-01') from generate_series(1, 50) g;
+select rewards.evaluate_achievements(:'ub'::uuid, (select array_agg('lt' || lpad(g::text, 2, '0') || '|lifetime') from generate_series(1, 50) g), null) as r50 \gset
+select pg_temp.ok((:'r50'::jsonb ->> 'processed')::int = 50 and (:'r50'::jsonb ->> 'scanned')::int = 3285 and jsonb_array_length(:'r50'::jsonb -> 'remaining') = 0,
+                  'fifty lifetime definitions on the 3,285-award user: all 50 chains evaluated in ONE call that read the history ONCE (scanned ' || (:'r50'::jsonb ->> 'scanned') || ', not 50 x 3,285)');
+select pg_temp.ok((select count(*) from rewards.achievement_events e join rewards.achievement_chains c using (chain_id) where c.user_id = :'ub'::uuid and c.achievement_key like 'lt%') = 50,
+                  'thresholds 250..12,500 vs 16,425 lifetime points: all 50 lifetime chains are earned (exact)');
+-- (2) a window set plus the lifetime history does not fit one call: the call stops at the budget and RETURNS the rest, exactly
+select (select array_agg(e order by e) from (select 'b_cnt|' || to_char(date '2023-11-01' + (m || ' months')::interval, 'YYYY-MM') as e from generate_series(0, 35) m union all select 'b_pts|lifetime') s) as sc37 \gset
+select rewards.evaluate_achievements(:'ub'::uuid, :'sc37'::text[], null) as rb \gset
+select pg_temp.ok((:'rb'::jsonb ->> 'scanned')::int = 3285 and (:'rb'::jsonb -> 'remaining') = '["b_pts|lifetime"]'::jsonb and (:'rb'::jsonb ->> 'processed')::int = 36,
+                  '36 monthly windows read 3,285 awards; the lifetime chain does not fit the remaining budget, so the call stops and returns exactly it as remaining (scanned ' || (:'rb'::jsonb ->> 'scanned') || ' <= 5,000)');
+select rewards.evaluate_achievements(:'ub'::uuid, '{b_pts|lifetime}', null) as rc \gset
+select pg_temp.ok((:'rc'::jsonb ->> 'scanned')::int = 3285 and (:'rc'::jsonb -> 'remaining') = '[]'::jsonb and (select count(*) from rewards.achievement_chains where user_id = :'ub'::uuid and achievement_key = 'b_pts') = 1,
+                  'the resumed call finishes the remaining chain exactly (fresh budget)');
+-- (3) the exact resumable drain through the queue and the bounded full re-scan: a second big user, 13 monthly keys, 624 old dirty windows
+select pg_temp.mkuser(9003) as ub3 \gset
+select pg_temp.setf('ub3', :'ub3'::uuid) \gset
+select pg_temp.seed_awards(:'ub3'::uuid, 3, 1095, date '2023-11-01');
+select pg_temp.defn('ox' || lpad(g::text, 2, '0'), 1, 'distinct_locations', 2, 'calendar_month', date '2019-01-01') from generate_series(1, 10) g;
+select rewards.ach_enqueue(:'ub3'::uuid, (select array_agg(k || '|' || to_char(date '2019-01-01' + (m || ' months')::interval, 'YYYY-MM'))
+   from unnest(array['b_loc','b_days','b_cnt'] || (select array_agg('ox' || lpad(g::text, 2, '0')) from generate_series(1, 10) g)) k, generate_series(0, 47) m), 'seed', null, 0);
+select pg_temp.ok((select overflow and cardinality(dirty_scope) = 500 from rewards.achievement_eval_queue where user_id = :'ub3'::uuid), 'setup: 624 old dirty windows, capped at 500 with the overflow flag');
+create temp table _steps (i integer);
+do $$
+declare i integer := 0; uid uuid := pg_temp.f('ub3');
+begin
+  while exists (select 1 from rewards.achievement_eval_queue where user_id = uid) and i < 80 loop
+    i := i + 1;
+    perform rewards.ach_process_queue(uid);
+  end loop;
+  insert into _steps values (i);
+end $$;
+select i as nsteps from _steps \gset
+select pg_temp.ok(:'nsteps'::int > 10 and :'nsteps'::int < 80 and not exists (select 1 from rewards.achievement_eval_queue where user_id = :'ub3'::uuid),
+                  'the backlog drained in ' || :'nsteps' || ' bounded steps (10 for the 500 dirty entries, the rest the paged re-scan with budget stops) and the queue row was deleted only at the end');
+create temp table _mis (entry text, should boolean, awarded boolean);
+do $$
+declare uid uuid := pg_temp.f('ub3'); c text; k text; per text; rule text; ws date; we date; d rewards.achievement_definitions%rowtype; v integer; a boolean;
+begin
+  for c in select x from rewards.ach_candidate_chains(uid) x loop
+    k := split_part(c, '|', 1); per := split_part(c, '|', 2); rule := rewards.ach_rule(k); ws := rewards.ach_window_start(rule, per);
+    d := rewards.ach_select_version(uid, k, per, rewards.ach_today());
+    we := case rule when 'calendar_month' then ((ws + interval '1 month')::date - 1) when 'fixed' then d.window_ends_on else null end;
+    v := rewards.ach_metric_value(uid, d.metric, ws, we);
+    select coalesce((select e.event = 'award' from rewards.achievement_events e join rewards.achievement_chains ch using (chain_id)
+                      where ch.user_id = uid and ch.achievement_key = k and ch.period_key = per order by e.seq desc limit 1), false) into a;
+    insert into _mis values (c, v >= d.threshold, a);
+  end loop;
+end $$;
+select pg_temp.ok((select count(*) from _mis) >= 200 and not exists (select 1 from _mis where should <> awarded), 'EXACT completion: for all ' || (select count(*) from _mis) || ' candidate chains the final award state equals the reference eligibility computed from the ledger (no chain skipped by a budget stop, none approximated)');
+select pg_temp.ok((select count(*) from _mis where awarded) > 100, 'many chains were really awarded by the drain (so the exactness check is not vacuous)');
+-- (4) a user whose lifetime history exceeds the WHOLE budget (6,000 standing awards): the lifetime-wide chain is DEFERRED, never evaluated partially;
+--     windowed chains stay exact; progress reports the lifetime chain unavailable (no number); repair does not loop on it
+select pg_temp.mkuser(9004) as ub4 \gset
+select pg_temp.setf('ub4', :'ub4'::uuid) \gset
+select pg_temp.mkloc(52.04) as l4 \gset
+select pg_temp.mkloc(52.05) as l5 \gset
+select pg_temp.mkloc(52.06) as l6 \gset
+select pg_temp.seed_awards(:'ub4'::uuid, 6, 1000, date '2024-01-01');
+select pg_temp.ok((select count(*) from rewards.reward_ledger where user_id = :'ub4'::uuid) = 6000, 'setup: 6,000 standing awards for one user');
+select rewards.ach_enqueue(:'ub4'::uuid, array['b_cnt|2026-07', 'b_pts|lifetime'], 'seed', null, 0);
+select rewards.ach_process_queue(:'ub4'::uuid);
+select pg_temp.ok((select dirty_scope = array['b_pts|lifetime'] and cardinality(deferred) = 0 from rewards.achievement_eval_queue where user_id = :'ub4'::uuid)
+              and pg_temp.last_ev(:'ub4', 'b_cnt', '2026-07') = 'award#1', 'step 1: the exact month chain is awarded; the lifetime chain does not fit the rest of the budget and stays dirty');
+select rewards.ach_process_queue(:'ub4'::uuid);
+select pg_temp.ok((select cardinality(dirty_scope) = 0 and deferred = array['b_pts|lifetime'] and not overflow from rewards.achievement_eval_queue where user_id = :'ub4'::uuid)
+              and pg_temp.last_ev(:'ub4', 'b_pts', 'lifetime') = 'none', 'step 2: the lifetime chain alone exceeds the budget: DEFERRED (pending), no partial result, no event');
+select attempts as att4 from rewards.achievement_eval_queue where user_id = :'ub4'::uuid \gset
+select pg_temp.as_role('authenticated', :'a1'::uuid, 'aal2', $$select public.repair_achievements(5)::text$$) as rp4 \gset
+select pg_temp.ok((:'rp4'::jsonb ->> 'processed')::int = 0 and (select attempts = :'att4'::int from rewards.achievement_eval_queue where user_id = :'ub4'::uuid), 'repair does not loop on a deferred-only row (no attempts, nothing processed)');
+select pg_temp.set_settings(true, 1000000);
+select pg_temp.ok((pg_temp.prog(:'ub4', 'lt01', 'lifetime') ->> 'state') = 'unavailable' and (pg_temp.prog(:'ub4', 'lt01', 'lifetime') ->> 'value') is null,
+                  'FIRST progress call (before any deferral exists): progress itself enforces the budget: a lifetime chain not yet deferred is reported unavailable (never a partial number) for the 6,000-award user');
+select pg_temp.ok((pg_temp.prog(:'ub4', 'b_pts', 'lifetime') ->> 'state') = 'unavailable' and (pg_temp.prog(:'ub4', 'b_pts', 'lifetime') ->> 'value') is null
+              and (pg_temp.prog(:'ub4', 'b_cnt', '2026-07') ->> 'state') = 'earned', 'progress: the over-budget lifetime chain is unavailable with NO number, while the exact month chain is earned');
+select pg_temp.timed_ms(format($q$select rewards.ach_candidate_chains(%L::uuid)$q$, :'ub')) as mscand \gset
+select pg_temp.ok(:'mscand'::numeric < 2000, 'candidate enumeration for the big user (distinct months by loose index probes) took ' || round(:'mscand'::numeric) || ' ms (< 2 s)');
+-- (5) measurements behind the technical proposal to Work (the 5,000-row bound is a hypothesis; these are the observed costs of an UNBUDGETED exact read)
+select pg_temp.timed_ms(format($q$select rewards.ach_metrics(%L::uuid, null, null, 2147483000)$q$, :'ub')) as ms_3285 \gset
+select pg_temp.timed_ms(format($q$select rewards.ach_metrics(%L::uuid, null, null, 2147483000)$q$, :'ub4')) as ms_6000 \gset
+select pg_temp.ok(:'ms_3285'::numeric < 2000 and :'ms_6000'::numeric < 2000,
+                  'measured, unbudgeted exact lifetime read: ' || round(:'ms_3285'::numeric, 1) || ' ms for 3,285 standing awards and ' || round(:'ms_6000'::numeric, 1) || ' ms for 6,000 (the budget is a safety bound chosen by Work, not a measured cost limit)');
 select pg_temp.finish();

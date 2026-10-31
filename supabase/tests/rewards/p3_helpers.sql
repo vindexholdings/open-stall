@@ -25,3 +25,21 @@ create function pg_temp.prog(u uuid, k text, p text) returns jsonb language sql 
   select i from jsonb_array_elements(pg_temp.as_role('authenticated', u, 'aal1', 'select public.get_my_progress(null, 50)::text')::jsonb -> 'items') i
    where i ->> 'achievement' = k and i ->> 'period' = p
 $$;
+-- Bulk synthetic standing awards (triggers disabled for the SEED ONLY): nloc locations x ndays consecutive local days, one lifetime award each.
+create function pg_temp.seed_awards(u uuid, nloc integer, ndays integer, start_day date) returns void language plpgsql as $$
+declare locs uuid[]; pol bigint; sh bigint;
+begin
+  select array_agg(id) into locs from (select id from public.locations order by id limit nloc) s;
+  select id into pol from rewards.reward_policy_versions order by effective_from limit 1;
+  select max(id) into sh from rewards.reward_settings_history;
+  set local session_replication_role = replica;
+  with d as (select (start_day + g)::date as day, g from generate_series(0, ndays - 1) g),
+       l as (select locs[n] as loc, n from generate_series(1, nloc) n),
+       v as (select gen_random_uuid() as id, l.loc, d.day, 'seed-' || left(u::text, 8) || '-' || l.n || '-' || d.g as key from d cross join l),
+       iv as (insert into rewards.visits (id, user_id, location_id, idempotency_key, occurred_at, policy_version_id, settings_history_id, time_zone,
+                  policy_day_local, issuance_day_utc, ordinal, distance_bucket, spendable_outcome, lifetime_outcome)
+              select id, u, loc, key, (day || ' 18:00:00+00')::timestamptz, pol, sh, 'America/Denver', day, day, 1, 'within_50', 'location_cap', 'awarded' from v returning id, location_id, policy_day_local)
+  insert into rewards.reward_ledger (entry_type, visit_id, user_id, location_id, policy_day_local, policy_version_id, kind, amount, reason)
+    select 'award', id, u, location_id, policy_day_local, pol, 'lifetime', 5, 'first_visit_of_local_day' from iv;
+  set local session_replication_role = origin;
+end $$;

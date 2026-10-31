@@ -86,21 +86,21 @@ create temp table _fn as
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'rewards' or (n.nspname = 'public' and (p.proname in ('record_visit', 'delete_my_account', 'require_admin', 'get_my_progress', 'repair_achievements') or p.proname like 'admin_reward_%'));
 create temp table _p3fn (sig text);
-insert into _p3fn values ('rewards.ach_today'), ('rewards.ach_rule'), ('rewards.ach_window_start'), ('rewards.ach_select_version'), ('rewards.ach_metric_value'), ('rewards.ach_scope_for_day'),
+insert into _p3fn values ('rewards.ach_today'), ('rewards.ach_rule'), ('rewards.ach_window_start'), ('rewards.ach_select_version'), ('rewards.ach_metric_value'), ('rewards.ach_metrics'), ('rewards.ach_scope_for_day'),
   ('rewards.ach_candidate_chains'), ('rewards.ach_enqueue'), ('rewards.evaluate_achievements'), ('rewards.ach_run'), ('rewards.ach_process_queue'),
   ('rewards.guard_achievement_definitions'), ('rewards.guard_achievement_events'), ('rewards.guard_achievement_chains'), ('rewards.guard_achievement_queue'),
   ('public.get_my_progress'), ('public.repair_achievements');
-select pg_temp.ok((select count(*) from _fn where nspname = 'rewards') = 39 and (select count(*) from _fn where nspname = 'public') = 9, 'the surface is 39 rewards functions and 9 public ones in scope (24 + 15, 7 + 2)');
-select pg_temp.ok(not exists (select sig from _p3fn except select sig from _fn) and (select count(*) from _fn where sig in (select sig from _p3fn)) = 17, 'all 17 new P3 functions exist (15 in rewards, get_my_progress and repair_achievements in public)');
+select pg_temp.ok((select count(*) from _fn where nspname = 'rewards') = 40 and (select count(*) from _fn where nspname = 'public') = 9, 'the surface is 40 rewards functions and 9 public ones in scope (24 + 16, 7 + 2)');
+select pg_temp.ok(not exists (select sig from _p3fn except select sig from _fn) and (select count(*) from _fn where sig in (select sig from _p3fn)) = 18, 'all 18 new P3 functions exist (16 in rewards, get_my_progress and repair_achievements in public)');
 select pg_temp.ok((select array_agg(sig order by sig) from _fn where prosecdef) = array['public.admin_reward_clear_hold','public.admin_reward_finalize_reversal','public.admin_reward_hold_user',
   'public.admin_reward_recommend_reversal','public.delete_my_account','public.get_my_progress','public.record_visit','public.repair_achievements','public.require_admin',
   'rewards.ach_enqueue','rewards.ach_process_queue','rewards.ach_run','rewards.award_held_visit','rewards.check_visit_ledger_consistency','rewards.evaluate_achievements',
   'rewards.expire_cleared_holds','rewards.location_check','rewards.purge_my_reward_data','rewards.record_visit_at'], 'the SECURITY DEFINER surface is exactly 19 functions (13 earlier + 6 new)');
 select pg_temp.ok((select array_agg(sig order by sig) from _fn where owner = 'reward_writer_owner') = array['public.admin_reward_clear_hold','public.admin_reward_finalize_reversal','public.admin_reward_hold_user',
-  'public.admin_reward_recommend_reversal','public.get_my_progress','public.record_visit','public.repair_achievements','rewards.ach_candidate_chains','rewards.ach_enqueue','rewards.ach_metric_value',
+  'public.admin_reward_recommend_reversal','public.get_my_progress','public.record_visit','public.repair_achievements','rewards.ach_candidate_chains','rewards.ach_enqueue','rewards.ach_metric_value','rewards.ach_metrics',
   'rewards.ach_process_queue','rewards.ach_rule','rewards.ach_run','rewards.ach_scope_for_day','rewards.ach_select_version','rewards.ach_today','rewards.ach_window_start','rewards.award_held_visit',
   'rewards.check_visit_ledger_consistency','rewards.evaluate_achievements','rewards.expire_cleared_holds','rewards.reconciliation_report','rewards.record_visit_at'],
-  'the writer owns exactly 23 functions (10 earlier + 13 new engine and public ones)');
+  'the writer owns exactly 24 functions (10 earlier + 14 new engine and public ones)');
 select pg_temp.ok((select array_agg(sig order by sig) from _fn where owner = 'reward_purge_owner') = array['rewards.purge_my_reward_data'], 'the purge owner still owns exactly one function: the (extended) purge');
 select pg_temp.ok((select every(owner = current_user) from _fn where owner not in ('reward_writer_owner', 'reward_purge_owner')), 'every other function (guards, pure evaluation, existing public ones) is owned by the migration role');
 select pg_temp.ok((select every(proconfig is not null and exists (select 1 from unnest(proconfig) c where c ~ '^search_path=("")?$|^search_path=pg_catalog$')) from _fn), 'every function in scope has a fixed search_path');
@@ -119,7 +119,7 @@ create temp table _act_fn as
   from _fn f, aclexplode(f.proacl) a where a.grantee <> (select oid from pg_roles where rolname = f.owner) and a.privilege_type = 'EXECUTE'
     and (f.nspname = 'rewards' or f.proname like 'admin_reward_%' or f.proname in ('record_visit', 'get_my_progress', 'repair_achievements'));
 select pg_temp.ok(not exists (select * from _act_fn except select * from _exp_fn) and not exists (select * from _exp_fn except select * from _act_fn),
-                  'function EXECUTE grants are exactly the golden list: the 11 internal engine helpers are executable by their owner (the writer) and by no other role; authenticated only on get_my_progress and repair_achievements besides the earlier RPCs');
+                  'function EXECUTE grants are exactly the golden list: the 12 internal engine helpers are executable by their owner (the writer) and by no other role; authenticated only on get_my_progress and repair_achievements besides the earlier RPCs');
 select pg_temp.ok(not exists (select 1 from _fn f where (has_function_privilege('anon', f.oid, 'EXECUTE') or has_function_privilege('service_role', f.oid, 'EXECUTE'))
                                 and (f.nspname = 'rewards' or f.proname like 'admin_reward_%' or f.proname in ('record_visit', 'get_my_progress', 'repair_achievements'))), 'anon and service_role can execute none of them');
 select pg_temp.ok((select array_agg(sig order by sig) from _fn f where has_function_privilege('authenticated', f.oid, 'EXECUTE'))
@@ -185,7 +185,7 @@ select pg_temp.ok(pg_temp.try('anon', 'select public.get_my_progress()') = 'refu
               and pg_temp.try('anon', 'select public.repair_achievements(1)') = 'refused' and pg_temp.try('service_role', 'select public.repair_achievements(1)') = 'refused', 'anon and service_role are refused at EXECUTE on both public entry points');
 select pg_temp.ok(pg_temp.try('authenticated', 'select rewards.evaluate_achievements(null, null, null)') = 'refused' and pg_temp.try('authenticated', 'select rewards.ach_run(null, null, null, null)') = 'refused'
               and pg_temp.try('authenticated', 'select rewards.ach_process_queue(null)') = 'refused' and pg_temp.try('authenticated', 'select rewards.ach_enqueue(null, null, null, null, 0)') = 'refused'
-              and pg_temp.try('authenticated', 'select rewards.ach_metric_value(null, null, null, null)') = 'refused' and pg_temp.try('authenticated', 'select rewards.ach_candidate_chains(null)') = 'refused',
+              and pg_temp.try('authenticated', 'select rewards.ach_metric_value(null, null, null, null)') = 'refused' and pg_temp.try('authenticated', 'select rewards.ach_metrics(null, null, null, 1)') = 'refused' and pg_temp.try('authenticated', 'select rewards.ach_candidate_chains(null)') = 'refused',
                   'authenticated is refused at EXECUTE on every internal engine function (no subject-parameter path to anyone else''s data)');
 select pg_temp.ok(pg_temp.try('reward_purge_owner', 'select rewards.evaluate_achievements(null, null, null)') = 'refused' and pg_temp.try('reward_purge_owner', 'select public.get_my_progress()') = 'refused',
                   'the purge owner cannot run the engine or the progress read');

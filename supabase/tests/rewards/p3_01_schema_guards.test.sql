@@ -50,6 +50,7 @@ select pg_temp.fails($q$ delete from rewards.achievement_chains $q$, '42501', 'a
 insert into rewards.achievement_eval_queue (user_id, reason) values (:'u1', 'test');
 select pg_temp.fails($q$ insert into rewards.achievement_eval_queue (user_id, reason) select pg_temp.f('u1'), 'dup' $q$, '23505', 'one queue row per user');
 select pg_temp.fails_as('reward_writer_owner', null, null, $q$ update rewards.achievement_eval_queue set last_sqlstate = 'bad' $q$, '23514', 'a SQLSTATE must be five characters');
+select pg_temp.fails_as('reward_writer_owner', null, null, $q$ update rewards.achievement_eval_queue set deferred = array(select 'k|' || g from generate_series(1, 501) g) $q$, '23514', 'the deferred set is capped at 500 by the database itself');
 select pg_temp.fails_as('reward_writer_owner', null, null, $q$ update rewards.achievement_eval_queue set dirty_scope = (select array_agg('k|' || g) from generate_series(1, 501) g) $q$, '23514', 'dirty scope is capped at 500');
 select pg_temp.fails($q$ delete from rewards.achievement_eval_queue $q$, '42501', 'the postgres owner path cannot delete queue rows (only the writer and purge roles)');
 select pg_temp.ok((select count(*) from rewards.achievement_eval_queue) = 1, 'the queue row remains');

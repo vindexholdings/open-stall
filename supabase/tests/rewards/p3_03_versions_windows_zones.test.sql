@@ -115,4 +115,21 @@ select pg_temp.vid('2027-02-28 18:00:00+00', :'us2', :'w1', 'p3-season-000000000
 select pg_temp.vid('2027-03-01 07:00:00+00', :'us2', :'w2', 'p3-season-000000000005');
 select pg_temp.ok(pg_temp.last_ev(:'us2', 'winter', '2026-12-01') = 'none', 'visits the day before and the day after the season do not count (only one place inside it)');
 
+
+-- ============================================================ one window rule per logical key (Work's review of 6537a09)
+select pg_temp.prog(:'u', 'regular', 'lifetime') as prog_before \gset
+select (rewards.ach_select_version(:'u', 'regular', 'lifetime', date '2091-01-01')).version as ver_before \gset
+select rewards.ach_scope_for_day(date '2026-08-10') as scope_before \gset
+select pg_temp.fails($q$ select pg_temp.defn('regular', 3, 'lifetime_points_total', 60, 'calendar_month', date '2091-01-01') $q$, '23514', 'a FUTURE-dated version that turns a lifetime key into a monthly one is refused');
+select pg_temp.fails($q$ select pg_temp.defn('expl2', 3, 'distinct_locations', 6, 'none', date '2091-01-01') $q$, '23514', 'a monthly key cannot become a lifetime key');
+select pg_temp.fails($q$ select pg_temp.defn('expl2', 3, 'distinct_locations', 6, 'fixed', date '2091-01-01', date '2091-01-01', date '2091-03-01') $q$, '23514', 'a monthly key cannot become a fixed-season key');
+select pg_temp.fails($q$ select pg_temp.defn('winter', 2, 'distinct_locations', 3, 'calendar_month', date '2091-01-01') $q$, '23514', 'a fixed-season key cannot become a monthly key');
+select pg_temp.ok((select count(*) from rewards.achievement_definitions where achievement_key in ('regular', 'expl2', 'winter')) = 5, 'none of the refused versions was stored (regular 2, expl2 2, winter 1)');
+select pg_temp.ok(rewards.ach_rule('regular') = 'none' and rewards.ach_rule('expl2') = 'calendar_month' and rewards.ach_rule('winter') = 'fixed', 'every key keeps its original window rule');
+select pg_temp.ok((rewards.ach_select_version(:'u', 'regular', 'lifetime', date '2091-01-01')).version = :'ver_before'::int and rewards.ach_scope_for_day(date '2026-08-10') = :'scope_before'::text[]
+              and pg_temp.prog(:'u', 'regular', 'lifetime') = :'prog_before'::jsonb, 'selection, scope and progress of the existing lifetime chain are unchanged');
+select rewards.evaluate_achievements(:'u', array['regular|lifetime'], null);
+select pg_temp.ok(pg_temp.last_ev(:'u', 'regular', 'lifetime') = 'award#3', 'the existing lifetime chain still evaluates and repairs (no OSA01) after the refused insertions');
+select pg_temp.defn('regular', 3, 'lifetime_points_total', 60, 'none', date '2091-01-01');
+select pg_temp.ok((select count(*) from rewards.achievement_definitions where achievement_key = 'regular') = 3, 'a compatible later version (same rule) is still accepted');
 select pg_temp.finish();

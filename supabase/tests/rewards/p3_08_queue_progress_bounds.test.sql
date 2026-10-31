@@ -17,7 +17,8 @@ select (select array_agg('bk' || lpad(k::text, 2, '0') || '|' || to_char(date '2
           from generate_series(1, 10) k, generate_series(0, 11) m) as scope120 \gset
 select rewards.evaluate_achievements(:'u', :'scope120'::text[], null) as ev \gset
 select pg_temp.ok((:'ev'::jsonb ->> 'processed')::int = 50 and jsonb_array_length(:'ev'::jsonb -> 'remaining') = 70, 'one evaluation call processes at most 50 chains and returns the other 70 as remaining (oldest windows first)');
-select pg_temp.ok((select min(x) from jsonb_array_elements_text(:'ev'::jsonb -> 'remaining') x) like 'bk%|2021-0%' or true, 'remaining scope is returned, never dropped');
+select pg_temp.ok((:'ev'::jsonb -> 'remaining') = to_jsonb((:'scope120'::text[])[51:120]) and (select count(*) from rewards.achievement_chains where user_id = :'u'::uuid) = 0,
+                  'the remaining 70 are EXACTLY entries 51 to 120 of the sorted scope, in order (nothing lost, nothing reordered, nothing evaluated early)');
 
 -- ============================================================ queue: scope is UNIONED, deduplicated and capped at 500 with an overflow flag
 select rewards.ach_enqueue(:'u', array['bk01|2020-01', 'bk02|2020-01'], 'test', null, 1);
