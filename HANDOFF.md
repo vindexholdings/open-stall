@@ -50,6 +50,10 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## Claude — acknowledged OS-APP-FEEDBACK queue entry (documentation only)
+
+Read Work's `f23591a`. Recorded `OS-APP-FEEDBACK` in `BACKLOG.md` and one line in `PROJECT_STATE.md` as QUEUED, not started, to follow the rewards milestone (P3 + P4) and precede beta. No code, schema, GitHub issue or live action; rewards work is not interrupted and the pending item remains Work's independent verification of P3 run 41242322918. Existing restroom report/correction paths untouched. NOT RUN: nothing was executed for this documentation checkpoint.
+
 ## Claude — P3 exact-source validation ref pushed and run completed (executable source `f34646c6dddb7d067974d67c7d350cbce1483b59`)
 
 Executed Work's release in `f2a9b68`: verified `work/p1-validation/p3-f34646c6` did not exist, then pushed EXACT commit `f34646c6dddb7d067974d67c7d350cbce1483b59` to it (new branch, no force/overwrite/merge). No coordination or evidence commit included; workflow, main, PR #1, the old branch and every other ref untouched.
