@@ -155,7 +155,7 @@ if (against) {
   const changed = git(['diff', '--name-status', against]).split('\n').filter(Boolean).map((l) => l.split('\t'));
   const untracked = git(['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean).map((p) => ['??', p]);
   const allowedPrefix = ['supabase/rewards-wip/', 'supabase/tests/rewards/', 'docs/evidence/rewards/'];
-  const allowedFile = new Set(['scripts/test-db-rewards.sh', 'scripts/check-rewards-boundary.mjs', 'package.json', 'PROJECT_STATE.md', 'BACKLOG.md', 'TESTING.md', 'HANDOFF.md', 'SECURITY.md', 'DATABASE.md', 'GOVERNANCE.md', 'REWARDS_IMPLEMENTATION_PROPOSAL.md']);
+  const allowedFile = new Set(['scripts/test-db-rewards.sh', 'scripts/check-rewards-boundary.mjs', 'package.json', 'PROJECT_STATE.md', 'BACKLOG.md', 'TESTING.md', 'HANDOFF.md', 'SECURITY.md', 'DATABASE.md', 'GOVERNANCE.md', 'ACHIEVEMENTS_PLAN.md', 'REWARDS_IMPLEMENTATION_PROPOSAL.md']);
   const outside = [...changed, ...untracked].filter(([status, p]) => {
     if (status.startsWith('D') || status.startsWith('R')) return true;
     return !(allowedFile.has(p) || allowedPrefix.some((a) => p.startsWith(a)));
