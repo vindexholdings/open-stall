@@ -1,0 +1,145 @@
+harness: postgres (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+ok - isolation: no connection override reaches a child process
+ok - isolation: server has no TCP address (inet_server_addr is NULL)
+ok - isolation: server unix_socket_directories is the throwaway directory
+ok - isolation: server listens on no TCP address
+ok - isolation: data directory is inside the throwaway directory
+ok - isolation: server major version is 16
+ok - isolation: server is a primary, not a replica
+ok - isolation: inherited PGOPTIONS did not change search_path
+ok - isolation: negative control: a poisoned PGHOST (an unreachable harness-owned socket path) is refused by psql itself
+ok - isolation: the probe does NOT count a missing psql as a refusal
+ok - isolation: the probe does NOT count an exec failure (exit 127) as a refusal
+ok - isolation: the probe does NOT count exit 2 without a connection error as a refusal
+ok - isolation: the stub ran and recorded the probe's environment
+ok - isolation: probe environment: no service, passfile, password, options, database, user, port, sslmode, URL or key variable
+ok - isolation: probe environment: HOME is the harness's own temporary HOME
+ok - isolation: probe environment: the only connection variables are the explicit socket and the timeout
+ok - isolation: probe environment: PGHOST is the explicit harness-owned socket path
+ok - isolation: real psql, inherited service poisoned: it still tried ONLY the explicit socket
+ok - isolation: control: a deliberately service-poisoned psql run is redirected by the service (so the leak would be detected)
+ok - isolation: unclean control: the stub ran and recorded its environment
+ok - isolation: unclean control: only the synthetic service, service file, socket and timeout variables are present
+ok - isolation: unclean control: no caller credential, URL or cloud variable arrives
+ok - isolation: unclean control: HOME is the harness's own temporary HOME
+ok - isolation: unclean control: the service file is the harness-created synthetic file
+ok - isolation: postmaster.pid lists the throwaway socket directory
+ok - isolation: postmaster.pid lists no TCP listen address
+ok - isolation: the cluster holds only its own default databases
+isolation: all checks passed (no production connection was made)
+KILLED   prospective_policy (marker prospective_policy) by 03_record_visit_flow.test.sql
+KILLED   visits_append_only (marker visits_append_only) by 05_ledger_invariants.test.sql
+KILLED   ledger_append_only (marker ledger_append_only) by 05_ledger_invariants.test.sql
+KILLED   truncate_guard (marker truncate_guard) by 05_ledger_invariants.test.sql
+KILLED   award_unique_index (marker award_unique_index) by 05_ledger_invariants.test.sql
+KILLED   lifetime_unique_index (marker lifetime_unique_index) by 05_ledger_invariants.test.sql
+KILLED   deferred_consistency (marker deferred_consistency) by 05_ledger_invariants.test.sql
+KILLED   counter_monotonic (marker counter_monotonic) by 05_ledger_invariants.test.sql
+KILLED   ledger_safety_gate (marker ledger_safety_gate) by 01_defaults_and_safety.test.sql
+KILLED   evaluate_gate (marker evaluate_gate) by 01_defaults_and_safety.test.sql
+KILLED   block_isolation (marker block_isolation) by 06_errors_rollback.test.sql
+KILLED   block_isolation_race (marker block_isolation) by 09_concurrency.sh
+KILLED   lock_user (marker lock_user) by 09_concurrency.sh
+KILLED   global_conditional (marker global_conditional) by 09_concurrency.sh
+SURVIVED lock_user_location_day (marker lock_user_location_day): documented equivalent mutant
+KILLED   extra_table_grant (marker append:grant select on rewards.visits to authenticated;) by 04_privileges_catalog.test.sql
+KILLED   extra_function_grant (marker append:grant execute on function rewards.evaluate_visit(integer,integer,integer,integer,integer,integer,integer,boolean,integer,boolean) to authenticated;) by 04_privileges_catalog.test.sql
+KILLED   public_execute_on_internal (marker append:grant execute on function rewards.record_visit_at(timestamptz, uuid, double precision, double precision, text, double precision) to public;) by 04_privileges_catalog.test.sql
+KILLED   extra_default_privilege (marker append:alter default privileges in schema rewards grant all on tables to anon;) by 04_privileges_catalog.test.sql
+KILLED   writer_keeps_create (marker append:grant create on schema public to reward_writer_owner;) by 04_privileges_catalog.test.sql
+KILLED   rls_not_forced (marker append:alter table rewards.visits no force row level security;) by 04_privileges_catalog.test.sql
+KILLED   rewards_enabled_by_sql (marker append:update rewards.reward_settings set rewards_enabled = true, global_budget_utc_day = 100;) by 01_defaults_and_safety.test.sql
+KILLED   ledger_unset_budget_gate (marker ledger_unset_budget_gate) by 10_ledger_gate_matrix.test.sql
+KILLED   ledger_gate_lifetime_coverage (marker replace:if s.global_budget_utc_day is null then=>if new.kind = 'spendable' and s.global_budget_utc_day is null then) by 10_ledger_gate_matrix.test.sql
+KILLED   p2_visits_guard (marker p2_visits_guard) by p2_05_purge.test.sql
+KILLED   p2_ledger_guard (marker p2_ledger_guard) by p2_05_purge.test.sql
+KILLED   p2_purge_subject_unchecked (marker replace:and auth.uid() is not null and old.user_id is not distinct from auth.uid() then=>then) by p2_05_purge.test.sql
+KILLED   p2_retained_visit_deletable (marker replace:if rewards.visit_is_retained(old.id) then=>if false then) by p2_05_purge.test.sql
+KILLED   p2_retained_ledger_deletable (marker replace:if old.entry_type <> 'award' or rewards.visit_is_retained(old.visit_id) then=>if false then) by p2_05_purge.test.sql
+SURVIVED p2_visits_guard_nonidentity_check (marker replace:or (to_jsonb(new) - sever) <> (to_jsonb(old) - sever) then=>then): documented equivalent mutant
+KILLED   p2_counter_delete_any_user (marker replace:and (to_jsonb(old) ->> 'user_id')::uuid = auth.uid() then=>then) by p2_05_purge.test.sql
+KILLED   p2_counter_decrease_allowed (marker replace:if new.spendable < old.spendable then=>if false then) by 05_ledger_invariants.test.sql
+KILLED   p2_hold_expiry_removed (marker p2_hold_expiry) by p2_06_retention.test.sql
+KILLED   p2_hold_expiry_no_age (marker replace:and old.cleared_at <= clock_timestamp() - interval '90 days' then=>then) by p2_06_retention.test.sql
+KILLED   p2_hold_clear_validity (marker p2_hold_clear_validity) by p2_06_retention.test.sql
+KILLED   p2_independent_admin (marker p2_independent_admin) by p2_03_reversal.test.sql
+KILLED   p2_reversal_match (marker p2_reversal_match) by p2_03_reversal.test.sql
+KILLED   p2_reversal_decision (marker p2_reversal_decision) by p2_03_reversal.test.sql
+KILLED   p2_cleared_award_check (marker p2_cleared_award) by p2_02_hold_clear.test.sql
+KILLED   p2_hold_read_removed (marker p2_hold_read) by p2_02_hold_clear.test.sql
+KILLED   p2_clear_uses_current_policy (marker replace:select * into pol from rewards.reward_policy_versions where id = v.policy_version_id;=>select * into pol from rewards.reward_policy_versions order by effective_from desc limit 1;) by p2_02_hold_clear.test.sql
+KILLED   p2_clear_uses_today (marker replace:v.issuance_day_utc=>(clock_timestamp() at time zone 'UTC')::date) by p2_02_hold_clear.test.sql
+KILLED   p2_clear_ignores_gates (marker replace:st.rewards_enabled, st.global_budget_utc_day, false)=>true, 1000000000, false)) by p2_02_hold_clear.test.sql
+KILLED   p2_consistency_ignores_clearance (marker replace:s_eff := coalesce(c.spendable_outcome, v.spendable_outcome);=>s_eff := v.spendable_outcome;) by p2_02_hold_clear.test.sql
+KILLED   p2_admin_gate_clear (marker replace:declare a uuid := public.require_admin(); did uuid; h rewards.reward_holds%rowtype;=>declare a uuid := auth.uid(); did uuid; h rewards.reward_holds%rowtype;) by p2_01_admin_paths.test.sql
+KILLED   p2_admin_gate_recommend (marker replace:declare a uuid := public.require_admin(); u uuid; did uuid;=>declare a uuid := auth.uid(); u uuid; did uuid;) by p2_01_admin_paths.test.sql
+KILLED   p2_admin_gate_finalize (marker replace:declare a uuid := public.require_admin(); rec=>declare a uuid := auth.uid(); rec) by p2_01_admin_paths.test.sql
+KILLED   p2_admin_gate_all (marker replace:public.require_admin()=>auth.uid()) by p2_01_admin_paths.test.sql
+KILLED   p2_self_adjudication_hold_clear (marker replace:if p_user = a then=>if false then) by p2_01_admin_paths.test.sql
+KILLED   p2_self_adjudication_reversal (marker replace:if u = a then=>if false then) by p2_03_reversal.test.sql
+KILLED   p2_self_adjudication_finalize (marker replace:if rec.subject_user_id = a then=>if false then) by p2_03_reversal.test.sql
+KILLED   p2_aggregate_overcounts (marker replace:select m, s, l from agg=>select m, s + 1, l from agg) by p2_05_purge.test.sql
+KILLED   p2_sever_incomplete (marker replace:update rewards.visits set user_id = null, idempotency_key = null, accuracy_bucket = null, distance_bucket = null where user_id = uid;=>update rewards.visits set user_id = null where user_id = uid;) by p2_05_purge.test.sql
+KILLED   p2_deletion_path_skips_purge (marker replace:perform rewards.purge_my_reward_data();=>perform 1;) by p2_05_purge.test.sql
+KILLED   p2_grant_purge_insert_ledger (marker append:grant insert on rewards.reward_ledger to reward_purge_owner;) by p2_04_privileges_catalog.test.sql
+KILLED   p2_grant_writer_update_ledger (marker append:grant update (amount) on rewards.reward_ledger to reward_writer_owner;) by p2_04_privileges_catalog.test.sql
+KILLED   p2_grant_purge_update_amount (marker append:grant update (occurred_at) on rewards.visits to reward_purge_owner;) by p2_04_privileges_catalog.test.sql
+KILLED   p2_grant_client_purge (marker append:grant execute on function rewards.purge_my_reward_data() to authenticated;) by p2_04_privileges_catalog.test.sql
+KILLED   p2_grant_client_admin_gate (marker append:grant execute on function public.require_admin() to authenticated;) by p2_04_privileges_catalog.test.sql
+KILLED   p2_grant_anon_admin_rpc (marker append:grant execute on function public.admin_reward_hold_user(uuid, text) to anon;) by p2_04_privileges_catalog.test.sql
+KILLED   p2_grant_service_role_admin_rpc (marker append:grant execute on function public.admin_reward_finalize_reversal(uuid, text) to service_role;) by p2_01_admin_paths.test.sql
+KILLED   p2_grant_purge_schema_to_client (marker append:grant usage on schema rewards to authenticated;) by p2_04_privileges_catalog.test.sql
+KILLED   p2_writer_loses_admin_gate (marker append:revoke execute on function public.require_admin() from reward_writer_owner;) by p2_01_admin_paths.test.sql
+KILLED   p2_purge_member_of_client (marker append:grant reward_purge_owner to authenticated;) by p2_04_privileges_catalog.test.sql
+KILLED   p2_clear_day_locks_removed (marker p2_clear_day_locks) by p2_08_lock_order_races.sh
+KILLED   p2_purge_month_locks_removed (marker p2_purge_month_locks) by p2_08_lock_order_races.sh
+KILLED   p3_events_guard_removed (marker p3_events_guard) by p3_05_purge.test.sql
+KILLED   p3_chains_guard_removed (marker p3_chains_guard) by p3_05_purge.test.sql
+KILLED   p3_purge_chains_removed (marker p3_purge_chains) by p3_05_purge.test.sql
+KILLED   p3_purge_sever_removed (marker p3_purge_sever) by p3_05_purge.test.sql
+KILLED   p3_hook_visit_removed (marker p3_hook_visit) by p3_02_engine_cases.test.sql
+KILLED   p3_hook_clear_removed (marker p3_hook_clear) by p3_02_engine_cases.test.sql
+KILLED   p3_hook_reversal_removed (marker p3_hook_reversal) by p3_02_engine_cases.test.sql
+KILLED   p3_version_awarded_ignored (marker replace:    if ev.event = 'award' then=>    if false then) by p3_03_versions_windows_zones.test.sql
+KILLED   p3_version_window_start_removed (marker p3_version_window_start) by p3_02_engine_cases.test.sql
+KILLED   p3_queue_cap_removed (marker p3_queue_cap) by p3_08_queue_progress_bounds.test.sql
+KILLED   p3_recoverable_handler_removed (marker p3_recoverable_handler) by p3_06_failure_classes.test.sql
+KILLED   p3_chain_lock_removed (marker p3_chain_lock) by p3_07_cancel_lock_races.sh
+KILLED   p3_progress_states_removed (marker p3_progress_states) by p3_02_engine_cases.test.sql
+KILLED   p3_progress_gate_removed (marker replace:if st.rewards_enabled is not true or st.global_budget_utc_day is null then=>if false then) by p3_08_queue_progress_bounds.test.sql
+KILLED   p3_repair_waits_for_user_lock (marker replace:if not pg_try_advisory_xact_lock(=>if false and not pg_try_advisory_xact_lock() by p3_07_cancel_lock_races.sh
+KILLED   p3_repair_skipped_use_slots (marker replace:exit when done + failed >= lim or batch_scanned >= 20000;=>exit when done + failed + skipped >= lim or batch_scanned >= 20000;) by p3_07_cancel_lock_races.sh
+KILLED   p3_grant_purge_update_events (marker append:grant update on rewards.achievement_events to reward_purge_owner;) by p3_04_privileges_catalog.test.sql
+KILLED   p3_grant_client_chains (marker append:grant select on rewards.achievement_chains to authenticated;) by p3_04_privileges_catalog.test.sql
+KILLED   p3_grant_anon_progress (marker append:grant execute on function public.get_my_progress(text, integer) to anon;) by p3_04_privileges_catalog.test.sql
+KILLED   p3_grant_writer_insert_definitions (marker append:grant insert on rewards.achievement_definitions to reward_writer_owner;) by p3_04_privileges_catalog.test.sql
+KILLED   p3_events_rls_not_forced (marker append:alter table rewards.achievement_events no force row level security;) by p3_04_privileges_catalog.test.sql
+KILLED   p3_purge_month_locks_removed (marker p2_purge_month_locks) by p2_08_lock_order_races.sh
+KILLED   p3_clear_day_locks_removed (marker p2_clear_day_locks) by p2_08_lock_order_races.sh
+KILLED   p3_hold_read_removed (marker p2_hold_read) by p2_02_hold_clear.test.sql
+KILLED   p3_chain_bound_unbounded (marker replace:processed < 50=>processed < 100000) by p3_08_queue_progress_bounds.test.sql
+KILLED   p3_budget_unlimited (marker replace:rewards.ach_metrics(p_user, ws, we, row_budget - scanned)=>rewards.ach_metrics(p_user, ws, we, 2147483000)) by p3_09_bounds_timing.test.sql
+KILLED   p3_metrics_cache_removed (marker p3_metrics_cache) by p3_09_bounds_timing.test.sql
+KILLED   p3_rule_invariant_removed (marker p3_rule_invariant) by p3_03_versions_windows_zones.test.sql
+KILLED   p3_queue_rewind_removed (marker replace:rescan_cursor = case when rewind then null else rewards.achievement_eval_queue.rescan_cursor end,=>rescan_cursor = rewards.achievement_eval_queue.rescan_cursor,) by p3_10_overflow_rewind.test.sql
+KILLED   p3_cursor_page_end (marker replace:lastdone := page[cardinality(page) - coalesce(cardinality(newrem), 0)];=>lastdone := page[cardinality(page)];) by p3_11_rescan_budget_stop.test.sql
+KILLED   p3_progress_budget_unlimited (marker replace:rewards.ach_metrics(uid, ws, we, 5000 - scanned)=>rewards.ach_metrics(uid, ws, we, 2147483000)) by p3_09_bounds_timing.test.sql
+KILLED   p3_metric_counts_reversed (marker replace:not exists (select 1 from rewards.reward_ledger x where x.reverses_entry_id = r.id)=>true) by p3_02_engine_cases.test.sql
+KILLED   p3_grant_client_engine (marker append:grant execute on function rewards.evaluate_achievements(uuid, text[], uuid, date, integer) to authenticated;) by p3_04_privileges_catalog.test.sql
+KILLED   p3_run_persist_remaining_removed (marker p3_run_persist_remaining) by p3_12_oversized_hooks.test.sql
+KILLED   p3_calc_invalidate_removed (marker p3_calc_invalidate) by p3_13_work_accounting.test.sql
+KILLED   p3_progress_separate_budget (marker replace:scanned := coalesce((rr ->> 'scanned')::integer, 0);=>scanned := 0;) by p3_13_work_accounting.test.sql
+KILLED   p3_progress_probe_uncharged (marker p3_progress_charge) by p3_13_work_accounting.test.sql
+KILLED   p3_calc_cursor_not_saved (marker replace:cursor_day = coalesce(a.lday, cursor_day), cursor_id = coalesce(a.lid, cursor_id), steps = steps + 1,=>steps = steps + 1,) by p3_09_bounds_timing.test.sql
+KILLED   p3_calc_days_double_counted (marker replace:where policy_day_local is distinct from st.last_day=>where true) by p3_09_bounds_timing.test.sql
+KILLED   p3_calc_locs_double_counted (marker replace:where location_id is distinct from st.last_loc=>where true) by p3_09_bounds_timing.test.sql
+KILLED   p3_calc_partial_exposed (marker replace:from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck and pass = 'done'=>from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck) by p3_12_oversized_hooks.test.sql
+KILLED   p3_purge_calc_removed (marker p3_purge_calc) by p3_05_purge.test.sql
+KILLED   p3_repair_batch_cap_removed (marker p3_repair_batch_cap) by p3_13_work_accounting.test.sql
+KILLED   p3_planner_pin_removed (marker replace:set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off=>set enable_bitmapscan = on) by p3_13_work_accounting.test.sql
+KILLED   p3_progress_failure_uncharged (marker p3_progress_reserve) by p3_14_failure_budget_cancel.sh
+KILLED   p3_repair_failure_uncharged (marker p3_repair_reserve) by p3_14_failure_budget_cancel.sh
+KILLED   p3_store_exact_eval_removed (marker p3_store_exact_eval) by p3_15_user_only_recovery.test.sql
+KILLED   p3_store_exact_display_removed (marker p3_store_exact_display) by p3_15_user_only_recovery.test.sql
+mutations: 112 killed, 2 documented equivalent, 0 survived unexpectedly, 0 invalid
+REWARDS P1+P2+P3 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)

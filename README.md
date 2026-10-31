@@ -6,6 +6,8 @@ GitHub → Expo/React Native/TypeScript → Supabase → Vercel
 Expo/EAS handles mobile builds. OpenStreetMap-derived data may seed candidates. Apple/Google Maps support navigation.
 
 ## Claude startup order
+For a new assignment, first read [OPEN_STALL_RESUME.md](OPEN_STALL_RESUME.md). The [canonical context](OPEN_STALL_CONTEXT.md) preserves product decisions/history and the [source register](OPEN_STALL_HISTORY_SOURCES.md) identifies incomplete evidence. Use relevant sections, not every transcript. ChatGPT owns oversight; Claude owns implementation within the authorized task.
+
 1. CLAUDE.md
 2. PROJECT_STATE.md
 3. Current task in BACKLOG.md

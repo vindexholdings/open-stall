@@ -1,0 +1,38 @@
+# Location validator (admin) for the seeded Cody records
+
+Part of the admin app (`apps/admin`), the seed of Phase 3 moderation (OS-302/303). Scope: review the currently seeded records one by one.
+
+## Access (signed-in administrators with MFA; hosting still NOT approved)
+`/review` uses the same identity as `/queue`: a normal Supabase account listed in `admin_users` (not disabled) signed in with MFA (JWT `aal2`). The pages call `requireAdminSession()` (signed out -> `/signin`, no MFA -> `/mfa`, not an admin -> "Not authorized") and every read/write is an `admin_*` database function called with the admin's own session (public anon key). The database re-checks admin + MFA inside each function, so the browser route is only a convenience. There is no service-role key in the admin app. The app still refuses to connect to any project other than the one in `ENVIRONMENT.md`. Run it locally only (see "Run locally" below).
+
+**Seeded-location review functions (migration `20261010000001_admin_seed_review.sql`, applied live 2026-10-08 under Jake's separate explicit approval; Work recorded ledger/catalog/grant/anonymous-denial post-checks in HANDOFF d3baba2):** `admin_location_counts`, `admin_list_locations`, `admin_get_location`, `admin_apply_location_review`. The migration is now live, so `/review` works against the live backend for a signed-in MFA admin. Jake (owner-observed, not independently verified by Work or Claude) signed in with his existing MFA admin account and confirmed `/queue` and `/review` load with expected records and no errors, saving nothing. Not yet tested live: saving a review via `/review` (the Save button writes a real review) — page loading is not mutation-path coverage. The older `apply_location_review` / `apply_location_review_v2` stay service_role-only for importer/manual tooling and are wrapped, unchanged, by `admin_apply_location_review`.
+
+## What a review does (semantics of `apply_location_review`, now reached via `admin_apply_location_review`)
+- Exists + you select "Visited in person" + date -> **Verified** (`last_verified_at` = that date). This is the ONLY path to Verified.
+- Exists, not ticked -> **Unverified** (public with badge; hidden candidates become public this way). Already-Verified records are not downgraded.
+- Does not exist -> **Closed** (hidden). Imports never republish it.
+- Unsure -> no status/fact change; notes recorded.
+- Access and amenity answers are written exactly: Unknown = empty. Imported values are pre-filled so you see them; what you save replaces them.
+- Provenance: the original OSM source row is never changed or deleted. Your review is recorded in `location_reviews` (private audit with previous state, notes, date) and, when you confirm existence, as a separate non-primary `open_stall` source row.
+- Any reviewed record is protected from import overwrites and kept by `supabase/dev/osm-dev-cleanup.sql` if it was verified, edited or closed.
+
+## Views
+Unverified (public), Hidden candidates, Verified, Closed. "Save review and go to next" moves to the next unreviewed record in the same view.
+
+## ODbL reminder
+A Verified record still carries OSM-derived name/coordinates/address. Before launch, re-confirm those independently (or accept ODbL for the location layer) per OS-110c.
+
+## Visit details (migration 20261005000002 applied)
+- Username is a display alias. Reviews made through the authenticated path are attributed to the signed-in admin's real id (`reviewer_identity = 'admin:<uuid>'`, `reviewer_kind = 'admin'`) and each also appends a `seed_review` row to `moderation_log`; earlier reviews keep their original `local-admin` identity (no historical administrator is invented). Repeat visits by one identity are history, not extra people. An admin cannot review a restroom that their own submission created (another admin must). Admin ratings are stored in the review history/provenance only and do NOT contribute to the public rating (migration 20261008000001); the public average/count come from community ratings alone. Admin verification and observations still establish location facts.
+- Customer-only access is separate from purchase-required source data. Key and fee requirements remain independent. Family bathroom is separate from gender neutral.
+- The restroom checked (men, women, all gender, family, single occupancy, unspecified), optional stars, public comment, cleanliness score, water, seats/mirrors/stall doors/toilet paper/floor, and posted inspection log are stored per review. Transient conditions start unknown for each new visit.
+- Existing private notes are never promoted to public comments. Public comments are captured for the later gated public review page; private audit tables remain unavailable to public users.
+- Map is embedded above the form. Source/provenance detail is collapsed.
+
+## Admin queue and authorization (Phase 3A; migrations 20261009000001-2 applied live 2026-10-07 via CLI; first admin active with verified TOTP and live reject/dismiss validated 2026-10-07; hosting NOT approved)
+- Identity: a normal Supabase account that is listed in `admin_users` (not disabled) AND signed in with MFA (JWT `aal2`). User metadata grants nothing. The app uses the public anon key plus the admin's own session; no service-role key. Routes: `/signin`, `/mfa` (TOTP enrollment + verification, free Supabase MFA), `/queue`. The database re-checks admin + MFA inside every `admin_*` function.
+- First admin (owner step, SQL as postgres, only after that person has created an account and enrolled MFA in the app): `insert into public.admin_users (user_id) select id from auth.users where email = '<admin email>';`. No function can create admins. To remove one: `update public.admin_users set disabled_at = now() where user_id = '<id>';` (their decisions keep their id; an active admin cannot delete their own account).
+- Decisions (all via `admin_decide_submission` / `admin_resolve_report`): approve, edit-and-approve (edits recorded on the decision; the original proposal never changes), reject with one of six private codes (`other` needs a note), duplicate (links an existing restroom; never a rejection reason), hold/release (a held item stays pending and counts toward the contributor's caps; once any moderation decision exists the item and its history cannot be withdrawn or deleted). Admins cannot decide their own submissions or reports. Approving a new restroom makes it public as UNVERIFIED with a `community_submission` provenance row; approving a correction applies it and marks the record manually edited. Verification remains a separate act (the seeded-location validator).
+- Provenance: `moderation_decisions` and `moderation_log` are append-only with no bypass; anything a moderator has acted on (decided, held or released) survives account deletion with its original and history and the submitter severed (user_id NULL); only never-moderated pending submissions and open reports are removed with the account.
+- Edit-and-approve limitation (initial scaffolding): admins can edit text fields only (name, address, city, region, ZIP, access, hours). Boolean facts (fee, key, purchase, accessibility, baby changing, water) are approved exactly as proposed, so reject or hold a submission whose boolean facts look inaccurate; the original proposal and the admin edits are both preserved.
+- Run locally: apps/admin/.env.local with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public values), then `npm run dev -w @open-stall/admin`. Not for Vercel until hosting is approved.

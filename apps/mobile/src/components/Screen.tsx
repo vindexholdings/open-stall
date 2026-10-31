@@ -1,0 +1,63 @@
+import { colors, layout, spacing, typography } from '@open-stall/ui';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useRef, type ReactNode } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BackBar } from './BackBar';
+import { PushedNav } from './MainNav';
+
+type Props = { title: string; subtitle?: string; children?: ReactNode; /** Forms and account pages: a narrower, easier-to-read column on large screens. */ form?: boolean;
+  /**
+   * Web: move keyboard/screen-reader focus to the page heading when this screen is opened (detail, forms, sign-in).
+   * Without it, focus stays on the control that opened the screen, which is now hidden. Leave off for the tab roots,
+   * where moving focus out of the tab bar would be disorienting.
+   */
+  moveFocus?: boolean;
+  /** Tighter spacing for the dashboard home, so more of it fits on a phone screen. */
+  dense?: boolean;
+  /** Show a history-aware Back at the top ('pushed' screens always get a control; 'history' screens only when opened from another screen). */
+  back?: 'pushed' | 'history' };
+
+/** Page frame: scrolls, respects safe areas, and keeps content to a readable width on large screens. */
+/** The page heading can take programmatic focus (not a Tab stop). */
+const focusable = { tabIndex: -1 } as object;
+
+export function Screen({ title, subtitle, children, form = false, moveFocus = false, dense = false, back }: Props) {
+  const headingRef = useRef<{ focus?: (o?: { preventScroll?: boolean }) => void } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!moveFocus || Platform.OS !== 'web') return undefined;
+      const t = setTimeout(() => headingRef.current?.focus?.({ preventScroll: true }), 50);
+      return () => clearTimeout(t);
+    }, [moveFocus]),
+  );
+  return (
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View role="main" style={[styles.content, form && styles.form, dense && styles.dense]}>
+          {back ? <BackBar mode={back} /> : null}
+          <View style={styles.header}>
+            <Text ref={headingRef as never} {...focusable} accessibilityRole="header" aria-level={1} style={styles.title}>
+              {title}
+            </Text>
+            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          </View>
+          {children}
+        </View>
+      </ScrollView>
+      {back === 'pushed' ? <PushedNav /> : null}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  scroll: { alignItems: 'center' },
+  content: { width: '100%', maxWidth: layout.maxContentWidth, padding: spacing.md, gap: spacing.md },
+  form: { maxWidth: layout.formMaxWidth },
+  dense: { padding: spacing.sm + 4, gap: spacing.sm + 2 },
+  header: { gap: spacing.xs },
+  // Programmatic focus (moveFocus) is for screen readers and keyboard position; a heading is not operable, so no ring.
+  title: { ...typography.title, color: colors.text, outlineStyle: 'none' as never },
+  subtitle: { ...typography.body, color: colors.textMuted },
+});

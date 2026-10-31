@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run check:secrets
+      - name: Database migrations + RLS tests (throwaway local Postgres)
+        run: npm run test:db
+      - name: Web smoke test (headless Chrome)
+        run: npm run test:e2e
+      - name: Auth UI test (real browser, mock auth backend)
+        run: npm run test:e2e:auth
+      - name: Discovery UI test (real browser, mock backend; list/map, filters, states, a11y audit)
+        run: npm run test:e2e:discovery
+      - name: Restroom detail + reporting UI test (real browser, mock backend; facts, ratings, reports, failures, double taps)
+        run: npm run test:e2e:detail
+      - name: Account + contribution UI test (real browser, mock backend; sign-in, favorites, settings, submissions, deletion, double taps)
+        run: npm run test:e2e:accounts
+      - name: Integrated journey + accessibility audit + zoom/sticky-nav/keyboard/map checks (real browser, mock backend)
+        run: npm run test:e2e:integrated
+      - name: Mobile QA mock backend self-test (no Metro; the Metro/bundle half is manual)
+        run: npm run qa:selftest
+      - name: Admin sign-in/MFA/queue UI test (real browser, mock backend)
+        run: npm run test:e2e:admin
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+      - name: Admin build
+        run: npm run build -w @open-stall/admin
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+      - name: Web export (build smoke)
+        working-directory: apps/mobile
+        run: npx expo export --platform web --output-dir dist
