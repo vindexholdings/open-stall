@@ -210,4 +210,13 @@ select pg_temp.timed_ms(format($q$select rewards.ach_metrics(%L::uuid, null, nul
 select pg_temp.timed_ms(format($q$select rewards.ach_metrics(%L::uuid, null, null, 2147483000)$q$, :'ub4')) as ms_6000 \gset
 select pg_temp.ok(:'ms_3285'::numeric < 2000 and :'ms_6000'::numeric < 2000,
                   'measured, unbudgeted exact lifetime read: ' || round(:'ms_3285'::numeric, 1) || ' ms for 3,285 standing awards and ' || round(:'ms_6000'::numeric, 1) || ' ms for 6,006 (the budget is a safety bound chosen by Work, not a measured cost limit)');
+-- (4) the in-call cache must hold on its own when NOTHING can be saved: 50 unfinished states fill the account's room (unfinished rows are never evicted), so
+-- the fifty lifetime chains share ONE scan through the per-call cache alone; without it the second chain would re-probe and the call would stop at the budget.
+select rewards.ach_calc_invalidate(:'ub'::uuid);
+insert into rewards.achievement_calc_state (user_id, window_key, pass) select :'ub'::uuid, 'fill' || g, 'days' from generate_series(1, 50) g;
+select rewards.evaluate_achievements(:'ub'::uuid, (select array_agg('lt' || lpad(g::text, 2, '0') || '|lifetime') from generate_series(1, 50) g), null) as r50n \gset
+select pg_temp.ok((:'r50n'::jsonb ->> 'processed')::int = 50 and (:'r50n'::jsonb ->> 'scanned')::int = 3285 and jsonb_array_length(:'r50n'::jsonb -> 'remaining') = 0
+                  and (select count(*) from rewards.achievement_calc_state where user_id = :'ub'::uuid and pass = 'done') = 0,
+                  'no room to save: fifty lifetime chains still read the history ONCE through the per-call cache (scanned ' || (:'r50n'::jsonb ->> 'scanned') || ') and nothing was saved');
+select rewards.ach_calc_invalidate(:'ub'::uuid);
 select pg_temp.finish();
