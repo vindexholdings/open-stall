@@ -56,11 +56,19 @@ select pg_temp.ok((select array_agg(p.proname::text order by p.proname::text) fr
                     and p.prosrc ~* 'delete\s+from\s+rewards\.(reward_ledger|visits)') = array['purge_my_reward_data'], 'only the purge function deletes visits or ledger rows');
 select pg_temp.ok((select array_agg(p.proname::text order by p.proname::text) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('rewards', 'public')
                     and p.prosrc ~* 'delete\s+from\s+rewards\.reward_holds') = array['expire_cleared_holds'], 'only expiry deletes holds');
+-- Retention intervals: P2 allows exactly the 90 days on cleared holds. On the P3 build the engine additionally computes the END of a calendar-month
+-- window (interval '1 month'; a window length, never a retention period): exactly those two P3 functions may contain it, and only that literal.
 select pg_temp.ok((select array_agg(p.proname::text order by p.proname::text) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                    where (n.nspname = 'rewards' or p.proname ~ '^admin_reward_|^delete_my_account$|^record_visit$') and p.prosrc ~* 'interval\s+''[0-9]+\s+(day|month|year|week)')
-                  = array['expire_cleared_holds', 'guard_holds_change']
-              and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'rewards' and p.prosrc ~* 'interval\s+''[0-9]+\s+(day|month|year|week)' and p.prosrc !~* '90 days'),
-                  'the only retention interval in the rewards function sources is the approved 90 days on cleared holds');
+                    where (n.nspname = 'rewards' or p.proname ~ '^admin_reward_|^delete_my_account$|^record_visit$|^get_my_progress$|^repair_achievements$') and p.prosrc ~* 'interval\s+''[0-9]+\s+(day|month|year|week)')
+                  = case when :'p3' then array['evaluate_achievements', 'expire_cleared_holds', 'get_my_progress', 'guard_holds_change'] else array['expire_cleared_holds', 'guard_holds_change'] end
+              and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                               where n.nspname = 'rewards' and p.proname not in ('evaluate_achievements') and p.prosrc ~* 'interval\s+''[0-9]+\s+(day|month|year|week)' and p.prosrc !~* '90 days')
+              and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                               where n.nspname in ('rewards', 'public') and p.proname in ('evaluate_achievements', 'get_my_progress') and p.prosrc ~* 'interval\s+''[0-9]+\s+(day|week|year)')
+              and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                               where n.nspname in ('rewards', 'public') and p.proname in ('evaluate_achievements', 'get_my_progress')
+                                 and exists (select 1 from regexp_matches(p.prosrc, 'interval\s+''([0-9]+)\s+month', 'gi') m where m[1] <> '1')),
+                  'the only retention interval in the rewards function sources is the approved 90 days on cleared holds (P3 adds only a one-month window length in two functions)');
 -- a VALID clearance still works for the writer (the guard admits exactly one clear_hold decision of the same account, once)
 select pg_temp.mkuser(6105) as u5 \gset
 select pg_temp.mkhold(:'u5', null) as h5 \gset

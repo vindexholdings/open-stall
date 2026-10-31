@@ -51,7 +51,12 @@ end $$;
 select pg_temp.ok(not exists (select 1 from _mut where op in ('update', 'delete') and got <> '42501'),
                   'UPDATE and DELETE are refused (42501) on visits, ledger, settings history and policy versions for superuser, writer, authenticated, anon and service_role');
 select pg_temp.ok(not exists (select 1 from _mut where op = 'truncate' and got not in ('42501', '0A000')), 'TRUNCATE is refused for every role on every protected table');
-select pg_temp.ok(not exists (select 1 from _mut where tbl = 'reward_ledger' and op = 'truncate' and got <> '42501'), 'TRUNCATE of the ledger is refused by its guard (42501) even for the superuser');
+-- P3 phase: achievement_events.basis_entry_id references the ledger (ON DELETE RESTRICT), so a plain TRUNCATE of the ledger is refused by
+-- PostgreSQL itself (0A000) before the guard trigger runs. The guard itself must still refuse: TRUNCATE ... CASCADE fires it (42501).
+select pg_temp.ok(not exists (select 1 from _mut where tbl = 'reward_ledger' and op = 'truncate' and got <> '42501' and not (:'p3' and got = '0A000')), 'TRUNCATE of the ledger is refused for every role (by its guard or privilege, 42501; on the P3 build the superuser is stopped earlier by the referencing foreign key, 0A000)');
+\if :p3
+select pg_temp.fails('truncate rewards.reward_ledger cascade', '42501', 'TRUNCATE ... CASCADE of the ledger still reaches its guard and is refused (42501) even for the superuser');
+\endif
 select pg_temp.ok((select count(*) from rewards.reward_ledger) = 8 and (select count(*) from rewards.visits) = 5, 'no row was lost to any refused statement');
 select pg_temp.ok(pg_temp.try('superuser', 'truncate rewards.reward_counters_user_day') = '42501' and pg_temp.try('superuser', 'truncate rewards.reward_counters_global_day') = '42501'
                   and pg_temp.try('superuser', 'truncate rewards.reward_location_zones') = '42501', 'counters and the zone table cannot be truncated either');

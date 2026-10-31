@@ -17,8 +17,9 @@ select pg_temp.ok((select count(*) from _golden) > 60, 'the golden baseline list
 \if :p2
 -- P2 phase: the complete expected delta against the pre-rewards baseline, nothing implicit.
 select pg_temp.ok(not exists (select 1 from _diff where kind = 'table'), 'P2: no existing table changed owner, ACL, RLS setting or search_path');
-select pg_temp.ok((select array_agg(distinct name::text order by name::text) from _diff where kind = 'function' and name !~ '^admin_reward_') = array['delete_my_account(text)', 'require_admin()'],
-                  'P2: exactly two existing functions differ: delete_my_account (replaced) and require_admin (one added EXECUTE grant)');
+select pg_temp.ok((select array_agg(distinct name::text order by name::text) from _diff where kind = 'function' and name !~ '^admin_reward_') = case when :'p3' then array['delete_my_account(text)', 'get_my_progress(text,integer)', 'repair_achievements(integer)', 'require_admin()']
+                       else array['delete_my_account(text)', 'require_admin()'] end,
+                  'P2: exactly two existing functions differ: delete_my_account (replaced) and require_admin (one added EXECUTE grant); on the P3 build the only further differences are the two NEW public entry points get_my_progress and repair_achievements');
 select pg_temp.ok((select array_agg(name::text order by name::text) from _diff where kind = 'function' and name ~ '^admin_reward_' and side = 'added-or-changed')
                 = array['admin_reward_clear_hold(uuid,text)', 'admin_reward_finalize_reversal(uuid,text)', 'admin_reward_hold_user(uuid,text)', 'admin_reward_recommend_reversal(uuid,text)']
               and not exists (select 1 from _diff where kind = 'function' and name ~ '^admin_reward_' and side = 'removed-or-changed'),
