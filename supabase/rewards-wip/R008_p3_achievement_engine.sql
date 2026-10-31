@@ -129,6 +129,9 @@ begin
      set points = (p_m ->> 'lifetime_points_total')::bigint, awards = (p_m ->> 'qualifying_awards')::integer,
          days = (p_m ->> 'distinct_active_days')::integer, locs = (p_m ->> 'distinct_locations')::integer, pass = 'done'
    where user_id = p_user and window_key = p_ck;
+exception
+  -- a deleted or unknown subject can never own saved state (the account foreign key refuses it): store nothing, no error. ONLY this class.
+  when foreign_key_violation then null;
 end $$;
 -- One bounded step (at most p_budget RAW award rows) of the exact calculation. Returns {"done", "rows", "metrics"}; "rows" is what was read.
 create function rewards.ach_calc_step(p_user uuid, p_ck text, p_from date, p_to date, p_budget integer) returns jsonb

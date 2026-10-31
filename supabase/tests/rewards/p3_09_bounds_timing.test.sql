@@ -112,6 +112,8 @@ select pg_temp.ok(:'msq'::numeric < 6000 and not exists (select 1 from rewards.a
 -- ============================================================ WHOLE-CALL accounting (the evaluator's own counter): budget 5,000 standing awards per call
 -- (1) fifty lifetime definitions on the 3,285-award user: ONE scan is shared (cached per window), not fifty
 select pg_temp.defn('lt' || lpad(g::text, 2, '0'), 1, 'lifetime_points_total', 5 * g * 50, 'none', date '2019-01-01') from generate_series(1, 50) g;
+-- no saved state: the earlier drain saved the lifetime window, and this assertion measures a FIRST scan
+select rewards.ach_calc_invalidate(:'ub'::uuid);
 select rewards.evaluate_achievements(:'ub'::uuid, (select array_agg('lt' || lpad(g::text, 2, '0') || '|lifetime') from generate_series(1, 50) g), null) as r50 \gset
 select pg_temp.ok((:'r50'::jsonb ->> 'processed')::int = 50 and (:'r50'::jsonb ->> 'scanned')::int = 3285 and jsonb_array_length(:'r50'::jsonb -> 'remaining') = 0,
                   'fifty lifetime definitions on the 3,285-award user: all 50 chains evaluated in ONE call that read the history ONCE (scanned ' || (:'r50'::jsonb ->> 'scanned') || ', not 50 x 3,285)');
@@ -119,6 +121,7 @@ select pg_temp.ok((select count(*) from rewards.achievement_events e join reward
                   'thresholds 250..12,500 vs 16,425 lifetime points: all 50 lifetime chains are earned (exact)');
 -- (2) a window set plus the lifetime history does not fit one call: the call stops at the budget and RETURNS the rest, exactly
 select (select array_agg(e order by e) from (select 'b_cnt|' || to_char(date '2023-11-01' + (m || ' months')::interval, 'YYYY-MM') as e from generate_series(0, 35) m union all select 'b_pts|lifetime') s) as sc37 \gset
+select rewards.ach_calc_invalidate(:'ub'::uuid);   -- a first scan again (the previous call saved the lifetime window)
 select rewards.evaluate_achievements(:'ub'::uuid, :'sc37'::text[], null) as rb \gset
 select pg_temp.ok((:'rb'::jsonb ->> 'scanned')::int = 3285 + 1716 and (:'rb'::jsonb -> 'remaining') = '["b_pts|lifetime"]'::jsonb and (:'rb'::jsonb ->> 'processed')::int = 36,
                   '36 monthly windows read 3,285 awards; the lifetime probe reads the 1,716 rows left in the budget (sentinel included) and is CHARGED, so the call reports scanned ' || (:'rb'::jsonb ->> 'scanned') || ' = budget + the sentinel, and returns exactly the lifetime chain as remaining');

@@ -30,6 +30,8 @@ select chain_id as cb from rewards.achievement_chains where user_id = :'ub' and 
 select pg_temp.ok(:'ca' <> :'cb', 'the two chains have different opaque ids (no cross-user key/period matching)');
 select (select jsonb_agg(to_jsonb(e) order by seq) from rewards.achievement_events e where chain_id = :'ca'::uuid) as ev_before \gset
 insert into rewards.achievement_eval_queue (user_id, reason, dirty_scope) values (:'ua', 'test', array['explorer|2026-08']);
+-- exact results are now SAVED by the evaluator itself: clear the setup's own saved states first so the fixture rows below are the only ones
+select rewards.ach_calc_invalidate(:'ua'::uuid), rewards.ach_calc_invalidate(:'ub'::uuid);
 insert into rewards.achievement_calc_state (user_id, window_key, pass, points) values (:'ua', '2026-08-01|2026-08-31', 'days', 10), (:'ub', '2026-08-01|2026-08-31', 'done', 25);
 select pg_temp.ok((select count(*) from rewards.achievement_chains where user_id = :'ua') = 2, 'setup: A has two chains (First Stop award-only, Explorer with a revoke)');
 
