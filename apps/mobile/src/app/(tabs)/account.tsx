@@ -1,12 +1,14 @@
 import { DELETE_CONFIRMATION, UNCERTAIN_DELETE_MESSAGE } from '@open-stall/domain';
 import { colors, spacing, typography } from '@open-stall/ui';
-import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { deleteAccount } from '../../account/api';
 import { useAuth } from '../../auth/AuthProvider';
 import { signOut } from '../../auth/authService';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { ProgressList } from '../../components/Progress';
+import { useRewardsProgress } from '../../rewards/useRewardsProgress';
 import { Screen } from '../../components/Screen';
 import { Section } from '../../components/Section';
 import { SecondaryButton } from '../../components/SecondaryButton';
@@ -16,6 +18,9 @@ import { TextField } from '../../components/TextField';
 export default function AccountScreen() {
   const { status, email, client, rpc } = useAuth();
   const router = useRouter();
+  const progress = useRewardsProgress(20);
+  const refreshProgress = progress.refresh;
+  useFocusEffect(useCallback(() => { refreshProgress(); }, [refreshProgress]));
   const [error, setError] = useState<string | null>(null);
   const [uncertainDelete, setUncertainDelete] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState(false); // the server CONFIRMED the deletion
@@ -100,6 +105,10 @@ export default function AccountScreen() {
                 void signOut(client).then((r) => { if (!r.ok) setError(r.message); });
               }}
             />
+          </Section>
+
+          <Section title="Your progress">
+            <ProgressList view={progress.view} onMore={progress.more} onRetry={progress.retry} />
           </Section>
 
           <Section title="Add a missing restroom" hint="Stand at a public restroom that isn’t on the map. Every submission is reviewed by a person before anyone else sees it.">

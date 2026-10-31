@@ -21,7 +21,9 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AccessibilityInfo, findNodeHandle, Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { usePreferences } from '../../account/preferences';
-import { NearestCard, QuickActions, SearchBar, VipPreview, type QuickAction } from '../../components/Dashboard';
+import { NearestCard, QuickActions, SearchBar, type QuickAction } from '../../components/Dashboard';
+import { ProgressCard } from '../../components/Progress';
+import { useRewardsProgress } from '../../rewards/useRewardsProgress';
 import { enterActivates, useFocusStyle } from '../../components/focus';
 import { FilterPanel } from '../../components/FilterPanel';
 import { LocationList, type LocationListItem } from '../../components/LocationList';
@@ -74,6 +76,9 @@ function NoneNearby({ radiusMeters, onWiden, onRetry }: { radiusMeters: number; 
 
 export default function NearbyScreen() {
   const router = useRouter();
+  const progress = useRewardsProgress(3);
+  const refreshProgress = progress.refresh;
+  useFocusEffect(useCallback(() => { refreshProgress(); }, [refreshProgress]));
   const { width } = useWindowDimensions();
   const wide = layoutFor(width) === 'wide';
   const { state, request } = useUserLocation();
@@ -265,7 +270,7 @@ export default function NearbyScreen() {
       ) : null}
       {origin && nearestItem ? <NearestCard item={nearestItem} onDirections={directions} onOpen={openLocation} narrowed={searching || activeFilters > 0} /> : null}
       <QuickActions actions={quickActions} />
-      <VipPreview />
+      <ProgressCard view={progress.view} onSignIn={() => router.push({ pathname: '/auth/sign-in', params: { next: '/account' } })} onOpenList={() => router.push('/account')} onRetry={progress.retry} />
     </>
   );
 

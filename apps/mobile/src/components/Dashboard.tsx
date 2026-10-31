@@ -181,21 +181,6 @@ export function SearchBar({ value, onChange, activeFilters, onOpenFilters, butto
   );
 }
 
-/* ------------------------------------------------------------------ VIP preview (honest: nothing is earned yet) */
-
-/** A compact, non-interactive preview. There is no rewards ledger yet, so it states that plainly and shows no number. */
-export function VipPreview() {
-  return (
-    <View role="region" aria-label="VIP progress" style={styles.vip}>
-      <View style={styles.vipIcon}><Icon name="medal" size={20} color={tiles.amber.fg} inner={tiles.amber.bg} /></View>
-      <View style={styles.vipText}>
-        <Text style={styles.vipTitle}>VIP progress — rewards coming soon</Text>
-        <Text style={styles.vipSub}>Challenges — not available yet</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   dim: { opacity: 0.85 },
   hero: { backgroundColor: colors.hero, borderRadius: radii.lg, padding: spacing.md - 2, gap: spacing.sm, ...shadows.hero },
@@ -225,9 +210,4 @@ const styles = StyleSheet.create({
   filterBtnOn: { backgroundColor: colors.primaryStrong, borderColor: colors.primaryStrong },
   filterText: { ...typography.label, fontSize: 15, color: tiles.teal.fg },
   filterTextOn: { color: colors.onPrimaryStrong },
-  vip: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm + 2, borderRadius: radii.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed' },
-  vipIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: tiles.amber.bg, alignItems: 'center', justifyContent: 'center' },
-  vipText: { flex: 1, minWidth: 0 },
-  vipTitle: { ...typography.label, fontSize: 15, color: colors.text },
-  vipSub: { ...typography.label, fontWeight: '400', color: colors.textMuted },
 });
