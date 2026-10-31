@@ -116,6 +116,20 @@ begin
   insert into rewards.achievement_calc_state (user_id, window_key, pass) values (p_user, p_ck, 'days');
   return true;
 end $$;
+-- Persists an EXACT, finished result (a window that fit the budget) as a finished calculation state, so the NEXT read of the same window is free
+-- (ach_calc_get) in repair and in display. Valid for exactly as long as every other finished state: ach_run deletes it on any real award, clearance or
+-- reversal for the account (outside the recoverable savepoint) and purge deletes it. Never stores an over-budget outcome; at most 50 rows per account
+-- (the oldest FINISHED rows make room, otherwise nothing is stored and the read simply stays uncached). Runs under the caller's user lock.
+create function rewards.ach_calc_store(p_user uuid, p_ck text, p_m jsonb) returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if p_m is null or (p_m ->> 'over')::boolean is true or p_m ->> 'lifetime_points_total' is null then return; end if;
+  perform pg_advisory_xact_lock(hashtextextended('rewards:user:' || p_user::text, 0));
+  if not rewards.ach_calc_start(p_user, p_ck) then return; end if;
+  update rewards.achievement_calc_state
+     set points = (p_m ->> 'lifetime_points_total')::bigint, awards = (p_m ->> 'qualifying_awards')::integer,
+         days = (p_m ->> 'distinct_active_days')::integer, locs = (p_m ->> 'distinct_locations')::integer, pass = 'done'
+   where user_id = p_user and window_key = p_ck;
+end $$;
 -- One bounded step (at most p_budget RAW award rows) of the exact calculation. Returns {"done", "rows", "metrics"}; "rows" is what was read.
 create function rewards.ach_calc_step(p_user uuid, p_ck text, p_from date, p_to date, p_budget integer) returns jsonb
 language plpgsql security definer set search_path = '' set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off set plan_cache_mode = force_custom_plan as $$
@@ -311,6 +325,10 @@ begin
             i := i - 1; exit;
           end if;
           scanned := scanned + (m ->> 'rows')::integer;
+          -- an exact result that fit is SAVED: the display (and the next repair) reads it for free instead of scanning the same window again
+          -- MUTABLE:p3_store_exact_eval begin
+          perform rewards.ach_calc_store(p_user, ck, m);
+          -- MUTABLE:p3_store_exact_eval end
         end if;
       end if;
       -- MUTABLE:p3_metrics_cache begin
@@ -547,6 +565,10 @@ begin
               -- MUTABLE:p3_progress_charge begin
               scanned := scanned + (m ->> 'rows')::integer;
               -- MUTABLE:p3_progress_charge end
+              -- an exact result that fit the remaining budget is SAVED, so a later request reads it for free (user-only recovery: no admin repair needed)
+              -- MUTABLE:p3_store_exact_display begin
+              perform rewards.ach_calc_store(uid, ck, m);
+              -- MUTABLE:p3_store_exact_display end
             end if;
           end if;
           cache := cache || jsonb_build_object(ck, m);
@@ -844,6 +866,7 @@ alter function rewards.ach_window_start(text, text) owner to reward_writer_owner
 alter function rewards.ach_select_version(uuid, text, text, date) owner to reward_writer_owner;
 alter function rewards.ach_metrics(uuid, date, date, integer) owner to reward_writer_owner;
 alter function rewards.ach_calc_invalidate(uuid) owner to reward_writer_owner;
+alter function rewards.ach_calc_store(uuid, text, jsonb) owner to reward_writer_owner;
 alter function rewards.ach_calc_pass(uuid, text) owner to reward_writer_owner;
 alter function rewards.ach_calc_get(uuid, text) owner to reward_writer_owner;
 alter function rewards.ach_calc_start(uuid, text) owner to reward_writer_owner;
@@ -861,13 +884,13 @@ revoke create on schema rewards from reward_writer_owner;
 revoke create on schema public from reward_writer_owner;
 
 revoke all on function rewards.ach_today(), rewards.ach_rule(text), rewards.ach_window_start(text, text),
-  rewards.ach_select_version(uuid, text, text, date), rewards.ach_metric_value(uuid, text, date, date), rewards.ach_metrics(uuid, date, date, integer), rewards.ach_calc_invalidate(uuid), rewards.ach_calc_pass(uuid, text), rewards.ach_calc_get(uuid, text), rewards.ach_calc_start(uuid, text), rewards.ach_calc_step(uuid, text, date, date, integer), rewards.ach_scope_for_day(date, date),
+  rewards.ach_select_version(uuid, text, text, date), rewards.ach_metric_value(uuid, text, date, date), rewards.ach_metrics(uuid, date, date, integer), rewards.ach_calc_invalidate(uuid), rewards.ach_calc_pass(uuid, text), rewards.ach_calc_get(uuid, text), rewards.ach_calc_start(uuid, text), rewards.ach_calc_store(uuid, text, jsonb), rewards.ach_calc_step(uuid, text, date, date, integer), rewards.ach_scope_for_day(date, date),
   rewards.ach_candidate_chains(uuid), rewards.ach_enqueue(uuid, text[], text, text, integer),
   rewards.evaluate_achievements(uuid, text[], uuid, date, integer), rewards.ach_run(uuid, text[], uuid, text), rewards.ach_process_queue(uuid, integer),
   public.repair_achievements(integer), public.get_my_progress(text, integer)
   from public, anon, authenticated, service_role;
 grant execute on function rewards.ach_today(), rewards.ach_rule(text), rewards.ach_window_start(text, text),
-  rewards.ach_select_version(uuid, text, text, date), rewards.ach_metric_value(uuid, text, date, date), rewards.ach_metrics(uuid, date, date, integer), rewards.ach_calc_invalidate(uuid), rewards.ach_calc_pass(uuid, text), rewards.ach_calc_get(uuid, text), rewards.ach_calc_start(uuid, text), rewards.ach_calc_step(uuid, text, date, date, integer), rewards.ach_scope_for_day(date, date),
+  rewards.ach_select_version(uuid, text, text, date), rewards.ach_metric_value(uuid, text, date, date), rewards.ach_metrics(uuid, date, date, integer), rewards.ach_calc_invalidate(uuid), rewards.ach_calc_pass(uuid, text), rewards.ach_calc_get(uuid, text), rewards.ach_calc_start(uuid, text), rewards.ach_calc_store(uuid, text, jsonb), rewards.ach_calc_step(uuid, text, date, date, integer), rewards.ach_scope_for_day(date, date),
   rewards.ach_candidate_chains(uuid), rewards.ach_enqueue(uuid, text[], text, text, integer),
   rewards.evaluate_achievements(uuid, text[], uuid, date, integer), rewards.ach_run(uuid, text[], uuid, text), rewards.ach_process_queue(uuid, integer)
   to reward_writer_owner;

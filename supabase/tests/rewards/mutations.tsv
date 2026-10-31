@@ -112,3 +112,5 @@ p3_repair_batch_cap_removed	p3_repair_batch_cap	p3_13_work_accounting.test.sql	k
 p3_planner_pin_removed	replace:set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off=>set enable_bitmapscan = on	p3_13_work_accounting.test.sql	kill	p3
 p3_progress_failure_uncharged	p3_progress_reserve	p3_14_failure_budget_cancel.sh	kill	p3
 p3_repair_failure_uncharged	p3_repair_reserve	p3_14_failure_budget_cancel.sh	kill	p3
+p3_store_exact_eval_removed	p3_store_exact_eval	p3_15_user_only_recovery.test.sql	kill	p3
+p3_store_exact_display_removed	p3_store_exact_display	p3_15_user_only_recovery.test.sql	kill	p3

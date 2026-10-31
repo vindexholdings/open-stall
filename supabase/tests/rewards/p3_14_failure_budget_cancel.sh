@@ -87,8 +87,8 @@ eq "A: the pending scope is exactly retained with the 55P03 marker" "$(qrow "$UA
 eq "A: the pending chain is reported unavailable (no number)" "$(result_of "$T/a1" | python3 -c "import sys,json; d=json.load(sys.stdin); print(','.join(i['state'] for i in d['items'] if i['achievement'] in ('lt1','lt2')))")" "unavailable,unavailable"
 measured "$UA" - "public.get_my_progress(null, 50)" "$T/a2"
 q "select 1" >/dev/null
-quick "$T/a3" bash -c "$(declare -f hdr); hdr '$ADM' aal2; echo 'select public.repair_achievements(20)::text;'"
-eq "A: retry after the lock is released completes the chain exactly once and repair clears the queue (the progress display re-queues a chain it could not show on the budget left over after repair; the next repair clears it without any new event)" "$(events_of "$UA" lt1)/$(events_of "$UA" lt2)/$(qrow "$UA")" "1/1/none"
+for i in 1 2; do measured "$UA" - "public.get_my_progress(null, 50)" "$T/a3"; done   # USER-ONLY recovery: public progress reads, no administrator repair
+eq "A: retry after the lock is released completes the chain exactly once and the queue empties through public progress reads ONLY (no administrator repair)" "$(events_of "$UA" lt1)/$(events_of "$UA" lt2)/$(qrow "$UA")" "1/1/none"
 le "A: the retry is bounded by one logical request too" "$(reads_of "$T/a2")" "$BOUND"
 
 # ============================================================ B. progress: late OSA01 after substantial work (and an unwound award)
@@ -102,7 +102,7 @@ eq "B: the queue retains BOTH entries with the OSA01 marker" "$(qrow "$UB")" "OS
 # the queue guard accepts only the writer role: remove the bad entry AS the writer
 q "set role reward_writer_owner; update rewards.achievement_eval_queue set dirty_scope = array['lt1|lifetime'] where user_id = '$UB'" >/dev/null
 measured "$UB" - "public.get_my_progress(null, 50)" "$T/b2"
-quick "$T/b3" bash -c "$(declare -f hdr); hdr '$ADM' aal2; echo 'select public.repair_achievements(20)::text;'"
+for i in 1 2; do measured "$UB" - "public.get_my_progress(null, 50)" "$T/b3"; done   # USER-ONLY recovery
 eq "B: once the bad entry is gone the retry completes exactly once" "$(events_of "$UB" lt1)/$(events_of "$UB" lt2)/$(qrow "$UB")" "1/1/none"
 
 # ============================================================ C. repair: a MIXED batch (one late-failing user, healthy near-budget users around it)
