@@ -12,3 +12,16 @@ create function pg_temp.ev_count(u uuid, k text, p text) returns integer languag
   select count(*)::integer from rewards.achievement_events e join rewards.achievement_chains c using (chain_id)
    where c.user_id = u and c.achievement_key = k and c.period_key = p
 $$;
+-- One first-of-the-day check-in at local noon (America/Denver) on the given date; returns the visit id.
+create function pg_temp.dv(u uuid, l uuid, d text, tag text) returns uuid language sql as $$
+  select pg_temp.vid((d || ' 18:00:00+00')::timestamptz, u, l, 'p3-' || tag || '-' || replace(d, '-', '') || '-' || substr(l::text, 1, 8))
+$$;
+-- 'event' of the latest event of a chain, or 'none'.
+create function pg_temp.last_ev(u uuid, k text, p text) returns text language sql as $$
+  select coalesce((select e.event || '#' || e.seq from rewards.achievement_events e join rewards.achievement_chains c using (chain_id)
+    where c.user_id = u and c.achievement_key = k and c.period_key = p order by e.seq desc limit 1), 'none')
+$$;
+create function pg_temp.prog(u uuid, k text, p text) returns jsonb language sql as $$
+  select i from jsonb_array_elements(pg_temp.as_role('authenticated', u, 'aal1', 'select public.get_my_progress(null, 50)::text')::jsonb -> 'items') i
+   where i ->> 'achievement' = k and i ->> 'period' = p
+$$;
