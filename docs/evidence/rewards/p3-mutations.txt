@@ -139,5 +139,7 @@ KILLED   p3_repair_batch_cap_removed (marker p3_repair_batch_cap) by p3_13_work_
 KILLED   p3_planner_pin_removed (marker replace:set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off=>set enable_bitmapscan = on) by p3_13_work_accounting.test.sql
 KILLED   p3_progress_failure_uncharged (marker p3_progress_reserve) by p3_14_failure_budget_cancel.sh
 KILLED   p3_repair_failure_uncharged (marker p3_repair_reserve) by p3_14_failure_budget_cancel.sh
-mutations: 110 killed, 2 documented equivalent, 0 survived unexpectedly, 0 invalid
+KILLED   p3_store_exact_eval_removed (marker p3_store_exact_eval) by p3_15_user_only_recovery.test.sql
+KILLED   p3_store_exact_display_removed (marker p3_store_exact_display) by p3_15_user_only_recovery.test.sql
+mutations: 112 killed, 2 documented equivalent, 0 survived unexpectedly, 0 invalid
 REWARDS P1+P2+P3 mutation checks: every guard removal was caught (originals untouched; mutants built from copies in separate throwaway clusters)
