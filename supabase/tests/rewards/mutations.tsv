@@ -81,7 +81,7 @@ p3_chain_lock_removed	p3_chain_lock	p3_07_cancel_lock_races.sh	kill	p3
 p3_progress_states_removed	p3_progress_states	p3_02_engine_cases.test.sql	kill	p3
 p3_progress_gate_removed	replace:if st.rewards_enabled is not true or st.global_budget_utc_day is null then=>if false then	p3_08_queue_progress_bounds.test.sql	kill	p3
 p3_repair_waits_for_user_lock	replace:if not pg_try_advisory_xact_lock(=>if false and not pg_try_advisory_xact_lock(	p3_07_cancel_lock_races.sh	kill	p3
-p3_repair_skipped_use_slots	replace:exit when done + failed >= lim;=>exit when done + failed + skipped >= lim;	p3_07_cancel_lock_races.sh	kill	p3
+p3_repair_skipped_use_slots	replace:exit when done + failed >= lim or batch_scanned >= 20000;=>exit when done + failed + skipped >= lim or batch_scanned >= 20000;	p3_07_cancel_lock_races.sh	kill	p3
 p3_grant_purge_update_events	append:grant update on rewards.achievement_events to reward_purge_owner;	p3_04_privileges_catalog.test.sql	kill	p3
 p3_grant_client_chains	append:grant select on rewards.achievement_chains to authenticated;	p3_04_privileges_catalog.test.sql	kill	p3
 p3_grant_anon_progress	append:grant execute on function public.get_my_progress(text, integer) to anon;	p3_04_privileges_catalog.test.sql	kill	p3
