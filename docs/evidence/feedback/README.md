@@ -1,1 +1,3 @@
 OS-APP-FEEDBACK F1 browser screenshots (Chromium, mock backend, synthetic data): form-errors-390, form-320, my-feedback-390, not-found-390, admin-issue. Produced by scripts/e2e-feedback.mjs and scripts/e2e-feedback-admin.mjs. No native, screen-reader or device evidence.
+
+admin-publication.png: the F2 publication section in its verified-published state (mock backend, synthetic data, no GitHub contact).

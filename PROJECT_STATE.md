@@ -1,9 +1,9 @@
 # Project State
-Last updated: 2026-11-01 (rewards P1-P4 ACCEPTED locally; OS-APP-FEEDBACK F1 first delivery got CORRECTIONS_REQUESTED; corrections delivered locally for re-review)
+Last updated: 2026-11-01 (rewards P1-P4 ACCEPTED locally; OS-APP-FEEDBACK F1 ACCEPTED locally; F2 publication bridge delivered locally for Work review)
 Authority and single decision register: GOVERNANCE.md; latest CHATGPT REVIEW supplies the bounded current assignment. Older completed/historical entries below preserve provenance and do not reopen superseded owner gates.
-Current milestone: OS-APP-FEEDBACK F1 (local slice delivered; see APP_FEEDBACK.md). Rewards P1-P4 local milestone closed; D3 iPhone visual design owner-APPROVED 2026-10-17; native/device/reader release tests remain open.
+Current milestone: OS-APP-FEEDBACK F2 (publication bridge, local; see APP_FEEDBACK.md). F1 accepted locally by Work (exact-source PG16 run 41269191164 on 9918e5d). Rewards P1-P4 closed; D3 iPhone visual design owner-APPROVED 2026-10-17; native/device/reader release tests remain open.
 Active blocker: none. Standing constraint: disposable PG16 only, no hosted DB, migration promotion, activation or GitHub issue creation. OS-A11Y-NAV-TEXT200 open (pre-existing, scheduled F3).
-Next authorized action: wait for Work's review of the F1 follow-ups (answers c67d220) and release of the exact SHA for the prepared feedback-validation workflow (not triggered). F2 and F3 only after Work releases each.
+Next authorized action: wait for Work's review of F2 (see HANDOFF) and any release of an exact-source PG16 validation of the extended tree. F3 only after Work releases it.
 (superseded: P1-P4 accepted by Work; historical provenance is in HANDOFF.)
 (superseded: P1-P4 accepted by Work; historical provenance is in HANDOFF.)
 Branch/source of truth: vindexholdings/open-stall, origin/claude-local. main/PR#1/old branch remain unmerged. Rewards disabled/budget unset outside explicit disposable fixtures.
