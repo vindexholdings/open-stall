@@ -90,6 +90,17 @@ begin
   end if;
 end $$;
 
+-- The transfer packet, built field by field from the IMMUTABLE draft version this publication is tied to (never a serialization of the private issue).
+-- It stays readable while the transfer is in progress, so a person who closed the page can still finish or reconcile the transfer.
+create function feedback.pub_packet(p_issue uuid) returns jsonb language plpgsql stable set search_path = '' as $$
+declare p feedback.publications%rowtype; d feedback.drafts%rowtype;
+begin
+  select * into p from feedback.publications where issue_id = p_issue;
+  select * into d from feedback.drafts where issue_id = p_issue and version = p.draft_version;
+  return jsonb_build_object('repo', 'vindexholdings/open-stall', 'operation', p.operation, 'issue_number', p.issue_number, 'marker', p.marker,
+    'version', p.draft_version, 'title', d.title, 'body', feedback.pub_body(d.body, p.marker), 'expected_hash', p.expected_hash);
+end $$;
+
 -- the safe view of one publication: no raw item, user, admin or link identifier ever appears
 create function feedback.pub_json(p_issue uuid) returns jsonb language plpgsql stable set search_path = '' as $$
 declare p feedback.publications%rowtype; d feedback.drafts%rowtype; blk text;
@@ -102,8 +113,9 @@ begin
   end if;
   return jsonb_build_object('status', p.status, 'operation', p.operation, 'version', p.draft_version, 'marker', p.marker, 'expected_hash', p.expected_hash,
     'issue_number', p.issue_number, 'issue_url', p.issue_url, 'attempts', p.attempts, 'published_hash', p.published_hash,
-    'current', d.id is not null and d.version = p.draft_version and p.status <> 'none',
-    'eligible', blk is null, 'block', blk, 'repo', 'vindexholdings/open-stall');
+    'current', d.id is not null and d.version = p.draft_version,
+    'eligible', blk is null, 'block', blk, 'repo', 'vindexholdings/open-stall',
+    'packet', case when p.status in ('awaiting_transfer', 'uncertain', 'conflict') then feedback.pub_packet(p_issue) else null end);
 end $$;
 
 create function public.admin_feedback_publication_get(p_issue uuid) returns jsonb
@@ -174,8 +186,7 @@ begin
   perform feedback.pub_guard_actor(p_issue, a);
   update feedback.publications set status = 'awaiting_transfer', attempts = attempts + 1, updated_at = clock_timestamp() where id = p.id;
   insert into feedback.publication_events (publication_id, from_status, to_status, detail, actor_id, draft_version) values (p.id, 'ready', 'awaiting_transfer', 'transfer_started', a, p.draft_version);
-  return jsonb_build_object('repo', 'vindexholdings/open-stall', 'operation', p.operation, 'issue_number', p.issue_number, 'marker', p.marker,
-    'version', p.draft_version, 'title', d.title, 'body', feedback.pub_body(d.body, p.marker), 'expected_hash', p.expected_hash);
+  return feedback.pub_packet(p_issue);
 end $$;
 
 -- (3) REPORT: records what the connector transfer / reconciliation found. Nothing is trusted: the destination, the URL shape, the marker and the readback hash must
@@ -238,6 +249,7 @@ alter function feedback.pub_transition_ok(text, text) owner to feedback_owner;
 alter function feedback.guard_publications() owner to feedback_owner;
 alter function feedback.pub_guard_actor(uuid, uuid) owner to feedback_owner;
 alter function feedback.pub_json(uuid) owner to feedback_owner;
+alter function feedback.pub_packet(uuid) owner to feedback_owner;
 alter function public.admin_feedback_publication_get(uuid) owner to feedback_owner;
 alter function public.admin_feedback_publication_request(uuid) owner to feedback_owner;
 alter function public.admin_feedback_publication_begin(uuid) owner to feedback_owner;
@@ -255,9 +267,9 @@ create policy owner_update on feedback.publications for update to feedback_owner
 create policy owner_select on feedback.publication_events for select to feedback_owner using (true);
 create policy owner_insert on feedback.publication_events for insert to feedback_owner with check (true);
 revoke all on function feedback.pub_marker(uuid), feedback.pub_body(text, text), feedback.pub_expected_hash(text, text, text), feedback.pub_transition_ok(text, text),
-  feedback.guard_publications(), feedback.pub_guard_actor(uuid, uuid), feedback.pub_json(uuid) from public, anon, authenticated, service_role;
+  feedback.guard_publications(), feedback.pub_guard_actor(uuid, uuid), feedback.pub_json(uuid), feedback.pub_packet(uuid) from public, anon, authenticated, service_role;
 grant execute on function feedback.pub_marker(uuid), feedback.pub_body(text, text), feedback.pub_expected_hash(text, text, text), feedback.pub_transition_ok(text, text),
-  feedback.pub_guard_actor(uuid, uuid), feedback.pub_json(uuid) to feedback_owner;
+  feedback.pub_guard_actor(uuid, uuid), feedback.pub_json(uuid), feedback.pub_packet(uuid) to feedback_owner;
 revoke all on function public.admin_feedback_publication_get(uuid), public.admin_feedback_publication_request(uuid), public.admin_feedback_publication_begin(uuid),
   public.admin_feedback_publication_report(uuid, text, text, integer, text, text, text) from public, anon, authenticated, service_role;
 grant execute on function public.admin_feedback_publication_get(uuid), public.admin_feedback_publication_request(uuid), public.admin_feedback_publication_begin(uuid),
