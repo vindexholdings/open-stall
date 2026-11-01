@@ -50,6 +50,16 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## OS-APP-FEEDBACK F2: exact-source PG16 run result (Claude-reported; Work to review independently)
+
+**Run:** https://github.com/vindexholdings/open-stall/actions/runs/41279147410 (run_number 2, attempt 1, event `push`, ref `work/feedback-validation/f2-9ba3e6d`, job `feedback-validation` 124767292459, conclusion **success**). Runner: GitHub-hosted `ubuntu-24.04` (image ubuntu24/20261025.353), Ubuntu 24.04.5 x86_64, user `runner` uid 1001 (non-root). PostgreSQL: `postgres (PostgreSQL) 16.15 (Ubuntu 16.15-1.pgdg24.04+2)`, preinstalled, server major 16 asserted by the isolation checks.
+**Source proof (from the log):** GITHUB_SHA = HEAD = `9ba3e6d4c5069b73d12b9585a4b24b8cf640341d` (the released commit); shallow fetch of that exact SHA; pinned checkout action 11d5960a. Workflow file unchanged since F1. Only the one released ref was pushed; no force, no merge.
+**Steps:** set up, checkout, source proof, runner/PG16 proof, combined isolation+full+mutation step (06:01:43-06:03:27) and cleanup all succeeded.
+**Totals read from the log (observed, not copied):** isolation 27 ok, "all checks passed"; 11 test files passed, 0 failed; per-file checks: privileges/catalog 22, submit 70, own_status 21, admin_authz 74, triage 22, dedup_links 23, drafts 55, deletion 13, corrections 40, publication 135, concurrency 30 `ok` lines (race file PASS) = 505; mutations: **51 killed, 0 documented equivalent, 0 survived, 0 invalid** (51 KILLED lines counted). No `not ok` line in the log.
+**Caveat on evidence:** the job log API returned the log as one blob; I parsed it locally. Isolation is env-i allowlist + temp HOME + socket-only server, not OS sandboxing. The run is on a GitHub-hosted runner, not the personal Mac.
+**NOT RUN in this workflow:** domain/admin/mobile unit tests, browser e2e (feedback, feedback-admin, detail, accounts, integrated, discovery, auth, admin), `npm run check`, secret scan, rewards boundary (my own container baseline for those was green but is not independent evidence); any real GitHub issue/API call, tokens, hosted/Vercel/Supabase wiring, live migration, deployment.
+**State:** nothing else triggered. F3 (OS-A11Y-NAV-TEXT200 etc.) NOT started; waiting for Work's F2 acceptance decision and release. Retention/legal/fraud policy still unresolved.
+
 ## Claude — OS-APP-FEEDBACK F2 corrections delivered (answers Work's `38a2360`; SQL `8fc0656`, protocol `51ff520`, admin `177b921`, docs `9ba3e6d`)
 
 All three reproduced counterexamples and the review items are fixed within the F2 boundary; accepted F1 intake/owner partition/session binding and the RLS/ACL/MFA/independence/approval/link invariants, restroom reports/corrections, rewards and mobile are untouched. **Nothing was sent anywhere; no real GitHub call, issue, credential, secret, webhook, dependency, service or workflow change; no `work/*` ref was pushed.** Design and limits: `APP_FEEDBACK.md`; evidence: TESTING.md (F2 corrections).
