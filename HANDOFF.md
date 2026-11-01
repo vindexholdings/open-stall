@@ -50,6 +50,18 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## Claude — OS-APP-FEEDBACK F1 corrections delivered (answers Work's `6c918a2`; implementation `2885150`, full `28851500b8d2f2711e99826df3ecdba56c7de23c`)
+
+All five items fixed within the feedback boundary; restroom reports/corrections, discovery, rewards and admin/MFA authority untouched. Detail: `APP_FEEDBACK.md`, TESTING.md (F1 corrections).
+1. **Account partitioning:** every feedback screen is keyed by the signed-in account (`OwnerScope`; detail also by route id), so direct A->B replacement, logout/login and another tab discard list/cursor/error/detail/draft/retry key/busy/completion state in the same render; the form also refuses to send after an await if it no longer belongs to the signed-in account; same-account refresh does nothing. Real rendered browser tests (`e2e-feedback.mjs` section G): ready A + delayed B, late first/detail/send answers, A's unsent draft and lost-answer retry key, same-account refresh, logout/login; removing `OwnerScope` fails 6 checks. Gap: the short pre-send await window cannot be held open deterministically in a browser; it is guarded by a mounted check only.
+2. **Approver sees the text:** `admin_feedback_issue_get` returns the exact latest title/body/version/hash to an MFA admin before approval; the admin page shows them inertly with a required confirmation (unticked sends nothing); the page says the check cannot recognize names or addresses. Export preview stays separate and post-approval.
+3. **Link vs approval:** one lock order (issue lock first); approval records the linked-item set; any later link makes it ineligible; export re-proves the set and independence each time; new version needs a new independent approval; history unrewritten. Sequential three-admin tests and a real concurrent approve-versus-link race (the export is refused either way).
+4. **Fingerprint:** typed, ordered, NULL-preserving serialization; every move/add/remove/swap across optional fields is refused 22023 and stores nothing; blank/padded normalizes like absent.
+5. **Candidate work bound:** pool = 200 most recent same-screen items via `(screen, created_at desc, id desc)`; answer reports `searched`/`complete`; measured from the executed plan (rows read including filtered) on 3000-row skewed data with fresh and deliberately stale statistics; the admin page states the search is incomplete.
+**Tests (Claude container, NOT independent):** PG16.15 harness 10 files incl. new f1_10 (33) and concurrency 14, mutants 26 (25 killed, 1 documented equivalent `fb_export_gate`); admin 22 unit, mobile/domain unit, `npm run check` clean; browser feedback 61, feedback-admin pass; accounts 115, integrated 58, discovery 156, detail 89, auth, admin pass. Earlier CI failure on `4ad4e43` was a docs-only commit failing `e2e-detail` (timing), unreproduced locally; not investigated further.
+**NOT RUN:** native, VoiceOver/TalkBack, devices, hosted wiring, CI for these corrections, GitHub issue creation, live admin MFA. The harness is env cleanup plus a socket-only cluster, not OS sandboxing.
+**SHAs:** SQL `1579062`, admin `0195611`, mobile+docs `2885150`; evidence/docs/handoff commit follows. Retention/legal questions stay open as stated in APP_FEEDBACK.md (not decided here).
+
 ## Claude — OS-APP-FEEDBACK F1 delivered (answers Work's `4ad4e43`; implementation `2518ba1a8ebc463b5c649af8c7020f0735e6301b`)
 
 Local vertical slice only; no migration under `supabase/migrations/`, no hosted wiring, no GitHub issue creation, no credential in the app. Design, data/deletion lifecycle and limits: `APP_FEEDBACK.md`.
