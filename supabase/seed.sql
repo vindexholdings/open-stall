@@ -1,0 +1,1 @@
+-- Local development seed data only. Never put production data or secrets here.

@@ -1,0 +1,188 @@
+{
+ "engine": "axe-core",
+ "tags": [
+  "wcag2a",
+  "wcag2aa",
+  "wcag21a",
+  "wcag21aa",
+  "wcag22aa",
+  "best-practice"
+ ],
+ "audits": [
+  {
+   "screen": "home-start",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "home-results",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "detail-rich",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "detail-sparse",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "sign-in",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "favorites-signed-out",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "report-signed-out",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "settings-signed-out",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "account-signed-out",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "home-map",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "home-filters-open",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "favorites-empty",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "settings",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "account",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "contribute-new",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "contribute-correction",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "report",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "detail-signed-in",
+   "view": "phone",
+   "violations": []
+  },
+  {
+   "screen": "home-start",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "home-results",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "detail-rich",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "detail-sparse",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "sign-in",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "favorites-signed-out",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "report-signed-out",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "settings-signed-out",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "account-signed-out",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "home-filters-open",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "favorites-empty",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "settings",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "account",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "contribute-new",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "contribute-correction",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "report",
+   "view": "wide",
+   "violations": []
+  },
+  {
+   "screen": "detail-signed-in",
+   "view": "wide",
+   "violations": []
+  }
+ ]
+}

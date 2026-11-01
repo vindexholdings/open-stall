@@ -1,0 +1,88 @@
+# App Feedback (OS-APP-FEEDBACK F1) validation: TEST-ONLY. Runs the existing local PostgreSQL 16 feedback harness on a standard public
+# GitHub-hosted runner. No secrets, no OIDC, no deploy, no artifact upload, no install, no network service, no paid runner.
+# Trigger: ONLY a push to work/feedback-validation/**. It has no main, pull-request, schedule or manual trigger and touches no other workflow.
+# DO NOT create such a branch (do not push this trigger ref) until Work has reviewed this workflow, the harness and the exact corrected source SHA
+# and has explicitly released that exact SHA for execution.
+name: Feedback validation
+
+on:
+  push:
+    branches:
+      - 'work/feedback-validation/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feedback-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  feedback-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the exact pushed commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified by Work
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Record source and prove the checkout is the pushed commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          echo "HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git status --porcelain
+          test -z "$(git status --porcelain)"
+
+      - name: Prove runner, non-root user and preinstalled PostgreSQL 16 (fail if absent or not 16)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner: $(. /etc/os-release; echo "$PRETTY_NAME") $(uname -m)"
+          echo "user: $(id -un) uid=$(id -u)"
+          test "$(id -u)" != 0
+          PGBIN=/usr/lib/postgresql/16/bin
+          test -x "$PGBIN/postgres" || { echo "PostgreSQL 16 server binaries are absent"; exit 1; }
+          "$PGBIN/postgres" --version
+          "$PGBIN/postgres" --version | grep -Eq ' 16\.[0-9]+'
+          "$PGBIN/psql" --version
+          command -v perl >/dev/null
+          node --version
+
+      - name: Feedback isolation, then full suite (SHOW_LOG), then mutations, strictly sequential
+        shell: bash
+        env:
+          WORK_TMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          # Explicit allowlist environment and a fresh temporary HOME; nothing else is inherited (no ONLY filter, no credential, no binding).
+          FB_HOME="$WORK_TMP/feedback-home"
+          LOGS="$WORK_TMP/feedback-logs"
+          mkdir -p "$FB_HOME" "$LOGS"
+          NODE_DIR="$(dirname "$(command -v node)")"
+          run_fb() {
+            env -i PATH="$NODE_DIR:/usr/lib/postgresql/16/bin:/usr/local/bin:/usr/bin:/bin" \
+              HOME="$FB_HOME" LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC \
+              OPEN_STALL_PGBIN=/usr/lib/postgresql/16/bin "$@"
+          }
+          echo "::group::isolation"
+          run_fb bash scripts/test-db-feedback.sh --isolation 2>&1 | tee "$LOGS/isolation.log"
+          echo "::endgroup::"
+          echo "::group::full suite"
+          run_fb env SHOW_LOG=1 bash scripts/test-db-feedback.sh 2>&1 | tee "$LOGS/full.log"
+          echo "::endgroup::"
+          echo "::group::mutations"
+          run_fb bash scripts/test-db-feedback.sh --mutations 2>&1 | tee "$LOGS/mutations.log"
+          echo "::endgroup::"
+          echo "::group::actual totals (read from the logs, not copied from expectations)"
+          echo "isolation checks ok: $(grep -c '^ok - isolation' "$LOGS/isolation.log" || true)"
+          echo "test files passed: $(grep -c '^PASS ' "$LOGS/full.log" || true)"
+          echo "test files failed: $(grep -c '^FAIL ' "$LOGS/full.log" || true)"
+          grep -E '^summary:' "$LOGS/full.log" || true
+          grep -E 'checks: [0-9]+ passed' "$LOGS/full.log" || true
+          grep -E '^mutations:' "$LOGS/mutations.log"
+          echo "::endgroup::"

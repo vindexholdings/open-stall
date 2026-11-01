@@ -1,0 +1,30 @@
+# source: 681147d32ace486389ddfab7ac10e6fc6262c8eb (isolation self-test)
+harness: postgres (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+ok - isolation: no connection override reaches a child process
+ok - isolation: server has no TCP address (inet_server_addr is NULL)
+ok - isolation: server unix_socket_directories is the throwaway directory
+ok - isolation: server listens on no TCP address
+ok - isolation: data directory is inside the throwaway directory
+ok - isolation: server major version is 16
+ok - isolation: server is a primary, not a replica
+ok - isolation: inherited PGOPTIONS did not change search_path
+ok - isolation: negative control: a poisoned PGHOST (an unreachable harness-owned socket path) is refused by psql itself
+ok - isolation: the probe does NOT count a missing psql as a refusal
+ok - isolation: the probe does NOT count an exec failure (exit 127) as a refusal
+ok - isolation: the probe does NOT count exit 2 without a connection error as a refusal
+ok - isolation: the stub ran and recorded the probe's environment
+ok - isolation: probe environment: no service, passfile, password, options, database, user, port, sslmode, URL or key variable
+ok - isolation: probe environment: HOME is the harness's own temporary HOME
+ok - isolation: probe environment: the only connection variables are the explicit socket and the timeout
+ok - isolation: probe environment: PGHOST is the explicit harness-owned socket path
+ok - isolation: real psql, inherited service poisoned: it still tried ONLY the explicit socket
+ok - isolation: control: a deliberately service-poisoned psql run is redirected by the service (so the leak would be detected)
+ok - isolation: unclean control: the stub ran and recorded its environment
+ok - isolation: unclean control: only the synthetic service, service file, socket and timeout variables are present
+ok - isolation: unclean control: no caller credential, URL or cloud variable arrives
+ok - isolation: unclean control: HOME is the harness's own temporary HOME
+ok - isolation: unclean control: the service file is the harness-created synthetic file
+ok - isolation: postmaster.pid lists the throwaway socket directory
+ok - isolation: postmaster.pid lists no TCP listen address
+ok - isolation: the cluster holds only its own default databases
+isolation: all checks passed (no production connection was made)

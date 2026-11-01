@@ -1,0 +1,161 @@
+# Mobile QA kit and device checklist (free, local, mock-only)
+
+Status: kit built, self-tested here and independently verified on a Mac (section 2b; accepted by Work at `d9f8e8a`); **Claude and Work have run no native runtime, physical device or screen reader; the only device evidence is the owner's iPhone/VoiceOver observation in section 2c (older build).** Everything in "Results" below is NOT RUN until a person fills it in. Nothing here touches the live Supabase project, a real tile server, a paid service or any account.
+
+## 1. Evidence split (what each kind of evidence proves)
+| Level | What it proves | Status |
+|---|---|---|
+| A. Automated browser | DOM/ARIA, keyboard, axe, flows against the mock (Chromium, Firefox, WebKitGTK) | DONE (see `REDESIGN_DOD.md`) |
+| B. Emulated viewport | Layout at 320-1280 px | DONE (Chromium emulation; Firefox genuine scaling to 500 CSS px) |
+| C. Native emulator / simulator | The React Native code actually runs: tab bar, safe areas, rotation, keyboard avoidance, permission prompts, WebView map | **NOT RUN** (blockers in section 2) |
+| D. Native physical device | Real touch, GPS, OS text scaling, Expo Go on hardware | iPhone 13 Pro: **OWNER-OBSERVED SUCCESS on an OLDER build** (section 2c); redesigned UI revision pending. Android: **NOT RUN** |
+| E. Real screen reader | VoiceOver / TalkBack actually speak the journeys | iOS VoiceOver: **OWNER-OBSERVED SUCCESS on an OLDER build** (section 2c; the redesigned UI is not yet covered, coverage not itemized). Android TalkBack: **NOT RUN** |
+Tools that inspect the app without a person using a reader (Xcode Accessibility Inspector, Android Accessibility Scanner / `uiautomator` dumps, tree dumps, axe) are automated inspection at level C or D. They are **not** level E and never count as a VoiceOver/TalkBack pass; record them in their own line of the results template.
+A native bundle that compiles (`expo export`, or `qa:selftest --metro`) is **not** runtime evidence. A screen reader that announces startup is **not** a pass.
+
+## 2. What was attempted here (exact blockers)
+| Attempt | Result |
+|---|---|
+| Android emulator | impossible: no `/dev/kvm`; `dl.google.com` (SDK, system images) unreachable from this network |
+| iOS Simulator | impossible: needs macOS + Xcode |
+| Expo Go for SDK 57 | **unverifiable here**: `api.expo.dev` and `expo.dev` are unreachable, so the Expo Go builds available for SDK 57 (Android APK, iOS App Store build or simulator build) could not be listed. App is on `expo ~57.0.26`. Check path in section 4. Do not assume a physical iPhone can run SDK 57 in the App Store Expo Go until you have seen it open the project. |
+| Metro + native bundles against the mock | DONE: `npm run qa:selftest -- --metro` starts Metro (offline, Expo Go mode), serves iOS and Android manifests, builds both native bundles (8.0 / 8.6 MB), confirms they carry the mock URL and placeholder key and contain no live Supabase project reference |
+| Browser engines | Chromium, Firefox 157, WebKitGTK 2.52 and the Firefox AT-SPI tree were run (level A/B only) |
+| Orca screen reader | launched, spoke no page content: no pass claimed |
+
+## 2b. Kit verification record (harness only; kept separate by who ran it)
+| Who / where | Command | Result | What it proves |
+|---|---|---|---|
+| Claude, Linux container (IPv4 only, no IPv6 loopback) | `npm run qa:selftest` | 57 passed (mock contract, env guard, Metro diagnostics, loopback probe, advertised-bundle-URL tests) | the fixture behaves as documented |
+| Claude, Linux | `-- --dotenv` / `-- --metro` | 60 / 66 passed | Metro starts, serves Expo Go manifests, builds Android and iOS bundles carrying only the mock URL |
+| Claude, Linux | `npm run qa:browsercheck` | 8 passed (on the delivery before the setup fixes; not repeated since) | loading, both empty states and expired session in the real web app |
+| Work, Jake's Mac, isolated review workspace (accepted at `d9f8e8a`) | `-- --dotenv` then `-- --metro`, sequential | 61 passed / 67 passed; a REAL IPv6-only stand-in advertising an IPv4 bundle URL passed; real Expo Metro started; Android (8.7 MB) and iOS (8.0 MB) bundles retrieved with the mock URL and placeholder key and no live Supabase reference | startup, manifest and compilation on macOS, including the `::1` case Linux cannot test |
+| Work, Jake's Mac, isolated review workspace (accepted at `dbdecd9`, Work disposition `95b44fc`) | always-on selftest; real `qa-app` with a PATH holding only node; root `npm run qa:app -- --target lan --offline` | 61/61; 62/62; reached Metro's waiting state at the owner's LAN mock address | the launcher runs on the Mac without npx or PATH. Startup only: no phone connected, no redesigned native result. React Native DevTools printed a non-blocking install message. |
+All of the above are **harness, manifest and compilation results only.** None is a native simulator/emulator run, a physical-device run or a VoiceOver/TalkBack pass; those remain NOT RUN. The redesign milestone stays OPEN until they exist. Counts differ between Linux and Mac runs because some tests are skipped where the host lacks a capability (for example IPv6 loopback).
+
+## 2c. Owner-observed device evidence (Jake; not automated, not independently tested by Work or Claude)
+| Item | Record |
+|---|---|
+| Owner statement (verbatim, via Work) | "I successfully launched Open Stall on my physical iPhone through Expo Go. The app functions correctly, and I tested VoiceOver successfully." |
+| Device / OS | iPhone 13 Pro, iOS 26.6.2 (owner-reported) |
+| Runtime | Expo Go on the physical phone; Expo started with `npm run start -w @open-stall/mobile` from `~/open-stall`, which Expo reported as `~/open-stall/apps/mobile` |
+| Source that served the phone | Work read-only verification of that checkout: HEAD `fb4b65d3dba7db7382b2b89257aebeb1cea70f10`, no tracked mobile or shared source differences (a modified `package-lock.json` and untracked files only). This is the source checkout, **not** a captured on-device bundle hash or a clean dependency snapshot. |
+| What that version is | It **predates the accepted R1-R4 redesign**. The redesigned UI has not yet had this physical-iPhone and VoiceOver check. The successful result is kept as a result for the older build and is **not transferred** to the redesigned source. |
+| Backend / fixture | Not supplied. |
+| Coverage | Broad statement only: not itemized per journey or per checklist item. Do not read it as every item passing, and do not invent detail. |
+| Android / TalkBack | **NOT RUN.** Nothing is claimed. |
+| Status | iPhone runtime and VoiceOver: OWNER-OBSERVED SUCCESS, revision for the redesign and per-item coverage pending. |
+
+**Missing for iPhone on the redesigned build** (record only what is not yet confirmed): launch from a separate clean checkout of `claude-local` against the local mock (`npm run qa:mock`, then `npm run qa:app -- --target lan`), then the WebView/map, session lifecycle, permissions/GPS, OS large text, keyboard and safe areas, failure and recovery states, and spoken labels and focus across the five journeys, using the section 8 template. Android runtime and genuine TalkBack remain to do on free hardware or an existing emulator.
+
+## 3. The fixture
+Terminal 1 (leave running):
+```
+npm run qa:mock            # in-memory mock on 0.0.0.0:54800; prints nothing sensitive; holds no real data
+```
+Terminal 2:
+```
+npm run qa:app -- --target lan               # physical phone on the same Wi-Fi (default)
+npm run qa:app -- --target android-emulator  # Android Studio AVD
+npm run qa:app -- --target ios-simulator --ios
+npm run qa:app -- --target web               # laptop browser
+```
+Options: `--port` (mock, default 54800), `--metro-port` (8081), `--ios` / `--android` (also open the platform), `--offline` (Expo offline mode). The script sets only `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` (placeholder `qa-mock-anon-key`), `EXPO_PUBLIC_MAP_TILE_URL`, `EXPO_PUBLIC_MAP_ATTRIBUTION` and `EXPO_PUBLIC_LEAFLET_BASE_URL`, all pointing at the mock. No live keys and no tunnel (do not add `--tunnel`). **The launcher refuses to start (exit 3) while any `apps/mobile/.env*` file exists.** `EXPO_NO_DOTENV=1` is set too, but it is not enough: Expo's dev bundles read `.env*` files themselves and those values would override the mock settings (shown by `qa:selftest -- --dotenv`, which uses a throwaway canary file and never touches a real one). The launcher never reads, prints or moves such a file; easiest is to run the QA session from a fresh clone without `.env*` files. Otherwise park the file under a name OUTSIDE the `.env*` family (a name such as `.env.local.off` still starts with `.env.` and is still refused): `mv -n apps/mobile/.env.local apps/mobile/parked-env.local` and, afterwards, `mv -n apps/mobile/parked-env.local apps/mobile/.env.local`. `-n` makes `mv` refuse to overwrite; if nothing moved because the destination exists, stop and compare by hand. The self-test checks that this rename is accepted by the guard and that the restore cannot overwrite. These variables are baked in at bundle time: change target, restart `qa:app` (it uses `--clear`).
+
+Checks (all local, mock only): `npm run qa:selftest` (mock-contract, guard and diagnostics checks; the CI step) / `-- --metro` (adds Metro offline, Expo Go manifests and both native bundles; Metro is probed on `localhost`, `127.0.0.1` and `[::1]` because Expo `--localhost` can listen on IPv6 only; a Metro failure prints the child's exit code, a bounded redacted output tail and versions, so it can be diagnosed from the report alone) / `-- --dotenv` (the .env guard). `npm run qa:browsercheck` exports the web app against the mock and drives headless Chromium through the fixture's controls: a real loading state, filtered-empty vs unfiltered-empty, and the expired-session path (8 checks). These prove the FIXTURE is reproducible in a browser; they are not native runtime evidence.
+
+**Launcher.** `qa-app` runs the Expo CLI that npm installed for this workspace by explicit path with the same Node that runs it, so it needs no `npx` PATH lookup, global Expo or download. If Expo is not installed it stops with exit 4 and says to run `npm ci` at the repository root; if the CLI cannot be spawned it exits 5 with the reason. (A fresh Mac clone once failed with `sh: expo: command not found` before this change.) The one command: `npm run qa:app -- --target lan` from the repository root, with `npm run qa:mock` running in another terminal. In the owner's already installed clean clone: `cd ~/open-stall-iphone-qa && git pull --ff-only origin claude-local && npm run qa:app -- --target lan` (stop and keep local work if the fast-forward refuses).
+
+**Addresses.** The app must reach the mock from where the app runs:
+| Where the app runs | Host the app uses | Why |
+|---|---|---|
+| Physical phone | this computer's LAN IP (chosen automatically) | `localhost` on a phone is the phone. Same Wi-Fi, no VPN, no client isolation ("guest" Wi-Fi often blocks it); allow Node through the computer's firewall on 54800 and 8081 |
+| Android emulator | `10.0.2.2` | the emulator's alias for the host computer |
+| iOS Simulator, web | `localhost` | shares the host network |
+The fixtures are generated around whatever position the app last searched, so they appear around a phone's real location, an emulator's fake GPS or a simulator's chosen location. The mock is plain `http://`. Whether Expo Go (or an emulator/simulator build) lets the app and its WebView reach a cleartext LAN host is **to be verified at runtime**: if the app shows the offline/error state with the mock running and reachable from the device's browser (`http://<host>:54800/health`), record cleartext blocking as the cause instead of assuming it works.
+
+**QA account:** `qa.user@open-stall.test` / `correct horse battery` (never use a real address). **Failures on demand** (`POST /__qa/mode`, JSON; `GET /__qa/state` shows what the mock recorded; `POST /__qa/reset` clears the mock's records, modes and deleted-account flag but does **not** sign anyone out; `POST /__qa/expire` invalidates every issued token; each `/__qa/mode` POST replaces the whole mode):
+```
+curl -X POST localhost:54800/__qa/mode -d '{"fail":"server","fn":"submit_report","times":1}'  # HTTP 500, nothing saved -> app must say it could not confirm
+curl -X POST localhost:54800/__qa/mode -d '{"fail":"lose","fn":"submit_report","times":1}'    # saved, response lost -> app must NOT say nothing happened
+curl -X POST localhost:54800/__qa/mode -d '{"fail":"reject","times":1}'                       # 53400 cap rejection -> specific "limit reached" message
+curl -X POST localhost:54800/__qa/mode -d '{"fail":"auth","times":1}'                         # one call answers 401 PGRST301; the token stays valid afterwards
+curl -X POST localhost:54800/__qa/expire                                                       # every old token, refresh token and /auth/v1/user call is refused until the next sign-in
+curl -X POST localhost:54800/__qa/mode -d '{"delayMs":4000,"delayFn":"nearby_locations","delayTimes":1}'  # ONE nearby read takes 4 s (delay applies to public reads too; max 30000)
+curl -X POST localhost:54800/__qa/mode -d '{"empty":true}'                                     # the server has no restrooms: "No restrooms found nearby yet"
+curl -X POST localhost:54800/__qa/mode -d '{}'                                                 # clear all modes
+```
+Two different empty states: **unfiltered empty** is `{"empty":true}` (moving the location cannot do this, fixtures follow the searched position); **filtered empty** is the normal fixtures with the *Baby changing* filter on (no fixture has it) and shows "No restrooms match your filters". The deleted-account flag (set when the app calls `delete_my_account`) makes the mock refuse the old bearer, refresh and password sign-in until `/__qa/reset`; it enforces nothing else about accounts.
+Offline: stop `qa:mock` (or turn the phone's Wi-Fi off). Server back = start the mock again.
+
+**Permission and GPS simulation (no code, OS controls only):**
+- Denied: first prompt "Don't allow" (Android: Deny; iOS: Don't Allow). Reset: iOS Settings > Expo Go > Location; Android Settings > Apps > Expo Go > Permissions.
+- Precise vs approximate (Android 12+/iOS): choose "Approximate" / turn off Precise Location. A new-restroom submission must refuse a coarse or stale fix.
+- Accuracy boundary: new restroom needs accuracy at most 50 m and a reading at most 2 minutes old. Test good outdoors, then indoors or Android emulator Extended controls > Location, wait over 2 minutes and retry (stale), iOS Simulator Features > Location (fixed point has good accuracy; test stale by waiting).
+- Location services off: expect the plain "turn on location" recovery and a manual search path, never a blank screen.
+
+**Map WebView network policy.** With `qa:app`, the Leaflet WebView loads **only** from the mock (`/leaflet/leaflet.js|css` and `/tiles/z/x/y.png`), so the run contacts no third party. Without the override (production default) the WebView loads Leaflet 1.9.4 from cdnjs with Subresource Integrity (sha256 pinned in `apps/mobile/src/map/config.ts`; a test locks the pins to the npm package) and tiles from the configured tile URL, which is the existing tile-provider decision (an owner/legal gate, untouched). The mock also lets you see requests: tiles must be flat grey squares, the attribution line must read "QA mock tiles", the map container must have an accessible label and its children must not be read separately (the list is the accessible equivalent).
+
+## 4. Jake's shortest paths (pick one; each about 30-45 minutes the first time)
+**(a) Existing Android phone (shortest, also gives TalkBack).**
+1. Check what Expo Go supports: Play Store "Expo Go" > open > its listed SDK must include 57 (or sign in to expo.dev / the Expo Go "Supported SDK" line). If it opens a project and says "incompatible SDK", stop here and use (b) or (c); do not pay for a build.
+2. On the computer: `npm ci`, Terminal 1 `npm run qa:mock`, Terminal 2 `npm run qa:app -- --target lan --android`. On the phone (same Wi-Fi) open Expo Go and scan the QR code shown in Terminal 2 (or type the `exp://<ip>:8081` URL).
+3. Run the journeys (section 5), then the TalkBack checklist (section 6). Fill in section 8.
+
+**(b) Mac with Xcode + one iOS runtime (simulator; gives Accessibility Inspector and large text, NOT VoiceOver speech on a real device).**
+1. Xcode, Settings > Components > install one iOS runtime. `npm ci`; Terminal 1 `npm run qa:mock`.
+2. Terminal 2 `npm run qa:app -- --target ios-simulator --ios` (the script already runs Expo Go mode; `--ios` opens the simulator and installs Expo Go for SDK 57 itself if the CLI can reach it). If the CLI cannot install a matching Expo Go, that is the answer to the SDK 57 question: record it in section 8.
+3. Run journeys 1-5. Large text: Simulator Settings > Accessibility > Display & Text Size > Larger Text, or Xcode Environment Overrides (the slider icon) > Dynamic Type. Accessibility Inspector (Xcode > Open Developer Tool) audits labels and traits on the running app. VoiceOver in the simulator is allowed but is not a substitute for a device pass: record as "simulator".
+A physical iPhone: only if the App Store Expo Go opens an SDK 57 project (see (a) step 1); otherwise it cannot run this app without a paid developer membership, which is not authorized.
+
+**(c) Android Studio AVD (only if no Android phone).** Android Studio > Device Manager > create a Pixel with a recent Google Play image (the Play image supports TalkBack and Expo Go install); `npm run qa:app -- --target android-emulator --android`. Same journeys. Emulator Extended controls > Location sets GPS; Settings > Accessibility > Font size / Display size for large text; rotation with the toolbar buttons.
+
+## 5. Journeys (run each with the mock; expected = what must be true)
+Start from a fresh `curl -X POST localhost:54800/__qa/reset` (data only; add `/__qa/expire` when you need signed-out). "Expected" lines are acceptance expectations to observe on a device: web-verified behavior is stated as such; native behavior is NOT established by any existing test.
+1. **Signed-out discovery.** Open app > allow location > nearby list in distance order with verified/unverified labels > open filters (selected state announced/shown) > switch List | Map (map region labeled; zoom controls at least 44 px; list remains) > open a restroom: unknown facts read "Not reported", never "No"; community rating labeled as community-only; unverified banner present. Back keeps filters and List/Map choice.
+2. **Focus, labels, navigation, keyboard.** Tab bar items are `tab` with selected state and whole labels (no "Favo..."); on WEB, moving to a detail screen puts focus on its heading (`Screen moveFocus` is implemented for web only); on NATIVE, whether a screen reader lands on the heading after navigation is **not implemented or established** — observe and record it, do not assume it; back returns somewhere sensible; every control has a name; with an external keyboard (phone: Bluetooth keyboard, emulator: host keyboard) Tab reaches every control with a visible ring and Enter/Space activate; the focused text field stays visible with the keyboard up (record any field covered; no native keyboard-avoidance behavior is claimed).
+3. **Account, favorites, session storage.** Sign in (QA account) > save a favorite > reload/kill and reopen the app: still signed in and favorite present > sign out > Favorites asks to sign in and carries the destination back after sign-in > wrong password shows a generic error > `POST /__qa/expire`, then open Favorites: observed on the web build as "We couldn’t load your favorites. Please sign in again." (not an empty-looking list); on native, record what is shown and whether the stale session is cleared after restart. Native session storage (SecureStore) is **not** covered by any browser result.
+4. **Submissions, corrections, reporting, caps, permission failures.** Report a restroom (success; then the four failure modes above, each with the exact copy: "couldn't confirm" keeps the input, never auto-retries and never says it did not save; cap rejection is specific; expired session asks to sign in and keeps input). Suggest a correction (no GPS needed). Add a restroom at current location: GPS denied > recovery text; coarse/stale/inaccurate fix > refusal; good fix > success and the mock `state` shows the submission pending (never public). Double-tap submit: exactly one record in `/__qa/state`.
+5. **Loading, offline, empty, error, uncertain.** Slow nearby (delayMs) shows a loading state; stop the mock: offline/error state with Try again; start it: Try again recovers; filtered-empty (Baby changing filter) says "No restrooms match your filters" with a way to remove the filter; unfiltered-empty (`{"empty":true}`) says "No restrooms found nearby yet" (the two must differ); the loading state is real with the delay command (the web build keeps "Looking for restrooms…" visible for the whole delay); the lost-response case from journey 4 shows the uncertain message.
+
+**Native-only checks across the journeys:** OS large text (Android Font size Largest + Display size Largest; iOS Larger Text max and Bold Text): no clipped or overlapping text, controls remain reachable by scrolling. Safe areas: notch/Dynamic Island, gesture bar and the tab bar never overlap content. Orientation: the app is configured portrait-only (`app.json` `orientation: portrait`). Test that it stays portrait when the device is rotated (expected; Android and iPhone), and, on an iPad or a large Android tablet, record what actually happens. Landscape support is not promised and no feature is added for it. Keyboard: sign-in and correction forms with the keyboard up (see journey 2). Native tab behavior (expectation to observe, not a verified guarantee): state per tab is kept when switching, repeated tap on the active tab does not break the stack, Android hardware/gesture back leaves the app only from a root tab. WebView map: pinch/pan do not scroll the page under the map, zoom buttons work, the screen reader can leave the map. The WebView map container is labeled and hides its children from the reader by design, so the list is the accessible equivalent; the WebView/SRI path itself is untested at runtime until a device or emulator loads it.
+
+## 6. Real screen reader checklists (NOT RUN)
+**TalkBack (Android).** Enable: Settings > Accessibility > TalkBack (volume-key shortcut helps). Swipe right/left = next/previous item; double-tap = activate; two-finger swipe = scroll; swipe down then right (or up) = TalkBack local menu / reading controls; three-finger swipe = switch tabs in some apps; explore by touch to hear what is under a finger. Verify per journey: each item is announced with name + role + state ("Filters, button, collapsed"; "Near me, selected, tab 1 of 4"); reading order matches the visual order; the result card announces name, distance and verified/unverified status once, not repeated fragments; the map announces its label and is skippable; errors are announced when they appear (live region) and focus is not lost; the Report/Correct forms announce field errors.
+**VoiceOver (iOS).** Enable: Settings > Accessibility > VoiceOver (triple-click side button shortcut). Flick right/left = next/previous; double-tap = activate; three-finger flick = scroll; two-finger tap = pause; rotor (twist two fingers) = Headings, Links, Form controls. Verify the same list, plus Headings rotor shows one level-1 heading per screen; selected/expanded traits are spoken; the tab bar reads "tab, 1 of 4".
+Pass rule: every item above is heard correctly for all five journeys. Starting the reader, or hearing the app's name, is not a pass. Record device, OS version and reader version.
+
+## 7. What Claude can and cannot say
+Claude ran levels A and B only (plus Metro/bundle verification). C, D and E are NOT RUN. Any DOM or emulation result must never be reported as a device or screen-reader result.
+
+## 8. Results template (copy, fill, commit under `docs/evidence/device/`)
+```
+Date / tester:
+Path used (a/b/c) / device model / OS version / Expo Go version / SDK shown:
+Expo Go opened the SDK 57 project? yes/no (if no: exact message)
+Journey 1 PASS/FAIL notes:   Journey 2:   Journey 3:   Journey 4:   Journey 5:
+Large text / safe areas / rotation / keyboard / tab behavior / WebView map:
+GPS: denied / approximate / stale / inaccurate / good:
+Inspector / Scanner / tree dump findings (automated inspection, NOT a reader pass):
+TalkBack or VoiceOver ACTUALLY USED by a person (device vs simulator), version: journeys heard correctly: yes/no per journey
+Defects (screenshot or screen recording; no real personal data):
+```
+
+## 9. D3 review additions (Jake's iPhone checklist; owner visual approval recorded 2026-10-17, section 10; the functional and reader checks below remain NOT RUN)
+On the pinned D3 build: (1) a restroom's Details has ONE "Features & Access" list in plain words ("No key needed", "Fee not reported"); (2) open a restroom from the list: **Back** is visible and returns to the same list with your search and filters; then try Home -> restroom A -> Nearby (bottom bar) -> restroom B -> Back -> Back: you must land on restroom A; swipe from the left edge on a pushed screen (iOS) and use the system Back (Android): both must go back one step; (3) the Filters button opens a sheet: Cancel discards, Apply filters applies, Clear resets the draft, focus returns to the button; (4) the default distance is 1 mi, an empty result offers "Search within 2 mi", and no walking minutes appear anywhere; (5) icons are tasteful and the layout is unchanged. For VoiceOver: the sheet is announced as "Filters", background content is not reachable, the checkboxes say checked/unchecked, and focus lands back on "Show filters" after closing. NOT RUN by Claude or Work: the iOS edge-swipe (now provided by the native stack, never exercised), Android Back and TalkBack. Record anything you see in section 8's template.
+
+## 10. Owner D3 visual approval (2026-10-17) and the OPEN release-readiness matrix
+OWNER VISUAL APPROVAL (2026-10-17, relayed by Work in HANDOFF ba74a7c): Jake reports reviewing the corrected D3 build on his iPhone and approves the visual design; checkpoint OS-D3-PINNED-IPHONE-UX is CLOSED. Presented source: `79886f8f8634b429f1a979ceba1a7fa2ebe13685` on claude-local (an association with the presented delivery, not a captured on-device bundle hash). No device or OS version, screenshot or per-test result was supplied, so none is recorded. This is a visual approval only: it is NOT release readiness and does not cover any native functional, VoiceOver/TalkBack, large-text, safe-area, SecureStore or login pass. iPhone login stays unconfirmed (not a confirmed defect). Earlier old-build VoiceOver evidence is never transferred to D3.
+
+Evidence kept separate: the owner's visual approval is the only iPhone observation of D3. Work Mac/Chromium discovery 156/156, accounts 115/115 and domain 47/47 are local browser/domain evidence. Claude's iOS/Android exports are compilation evidence only. D3 Android, VoiceOver, TalkBack, physical iOS edge-swipe and Android system Back, native sheet focus return and native SecureStore lifecycle are NOT RUN / NOT VERIFIED. Add exact source, device, OS and result for each item when future evidence arrives; invent nothing.
+
+| # | Required verification (NOT RUN by the approval) | Source / environment | Result |
+| --- | --- | --- | --- |
+| 1 | Corrected-build iPhone and Android functional journeys: anonymous discovery, List/Map and native WebView map interaction, feature truth and provenance, repeat-route Back and params, iOS edge-swipe, Android hardware/gesture Back, filter draft/Apply/Clear/Cancel and focus recovery, farther radius, destination-only external directions | not run | NOT RUN |
+| 2 | Real D3 VoiceOver and TalkBack across discovery, details, filters, accounts and contributions: label/role/state, reading order, heading/navigation focus, modal background isolation and return focus, announced errors, skippable map/list alternative (browser axe is not reader evidence) | not run | NOT RUN |
+| 3 | Native OS large text/Bold Text, safe areas, keyboard-obscured fields, compact screens, supported portrait/tablet behavior (report exact environments and observed failures) | not run | NOT RUN |
+| 4 | QA-account sign-in on iPhone and Android, wrong-password and recovery behavior, password toggle text/caret/autofill, SecureStore persistence after kill/relaunch, sign-out and expired-session recovery, favorites and auth redirect history (mock accounts only; no production account changes) | not run | NOT RUN |
+| 5 | Native denied/coarse/stale location, submission/correction/report validation and cap/duplicate protections, retained input, offline/loading/empty/error/lost-response recovery, no silent retries (deletion tests only on local mock or disposable accounts, never the permanent test account or production) | not run | NOT RUN |
+| 6 | Before any separately authorized release: targeted final-source regression and secret checks, and review of unresolved hosted/admin/MFA/security/privacy/map-licensing/provider/cost gates. The existing-admin-session read-only /review and /queue UI validation stays a separately documented incomplete production-readiness check: not performed, nothing saved. The already-applied migration is not reapplied. | not run | NOT RUN |
+
+Deployment, merge and live mutations remain unapproved.

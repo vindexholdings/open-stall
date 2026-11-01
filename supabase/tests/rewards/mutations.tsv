@@ -1,0 +1,116 @@
+# name	marker (-- MUTABLE:<marker> begin/end in supabase/rewards-wip)	test file	expectation (kill | equivalent)
+prospective_policy	prospective_policy	03_record_visit_flow.test.sql	kill
+visits_append_only	visits_append_only	05_ledger_invariants.test.sql	kill
+ledger_append_only	ledger_append_only	05_ledger_invariants.test.sql	kill
+truncate_guard	truncate_guard	05_ledger_invariants.test.sql	kill
+award_unique_index	award_unique_index	05_ledger_invariants.test.sql	kill
+lifetime_unique_index	lifetime_unique_index	05_ledger_invariants.test.sql	kill
+deferred_consistency	deferred_consistency	05_ledger_invariants.test.sql	kill
+counter_monotonic	counter_monotonic	05_ledger_invariants.test.sql	kill
+ledger_safety_gate	ledger_safety_gate	01_defaults_and_safety.test.sql	kill
+evaluate_gate	evaluate_gate	01_defaults_and_safety.test.sql	kill
+block_isolation	block_isolation	06_errors_rollback.test.sql	kill
+block_isolation_race	block_isolation	09_concurrency.sh	kill
+lock_user	lock_user	09_concurrency.sh	kill
+global_conditional	global_conditional	09_concurrency.sh	kill
+lock_user_location_day	lock_user_location_day	09_concurrency.sh	equivalent
+extra_table_grant	append:grant select on rewards.visits to authenticated;	04_privileges_catalog.test.sql	kill
+extra_function_grant	append:grant execute on function rewards.evaluate_visit(integer,integer,integer,integer,integer,integer,integer,boolean,integer,boolean) to authenticated;	04_privileges_catalog.test.sql	kill
+public_execute_on_internal	append:grant execute on function rewards.record_visit_at(timestamptz, uuid, double precision, double precision, text, double precision) to public;	04_privileges_catalog.test.sql	kill
+extra_default_privilege	append:alter default privileges in schema rewards grant all on tables to anon;	04_privileges_catalog.test.sql	kill
+writer_keeps_create	append:grant create on schema public to reward_writer_owner;	04_privileges_catalog.test.sql	kill
+rls_not_forced	append:alter table rewards.visits no force row level security;	04_privileges_catalog.test.sql	kill
+rewards_enabled_by_sql	append:update rewards.reward_settings set rewards_enabled = true, global_budget_utc_day = 100;	01_defaults_and_safety.test.sql	kill
+ledger_unset_budget_gate	ledger_unset_budget_gate	10_ledger_gate_matrix.test.sql	kill
+ledger_gate_lifetime_coverage	replace:if s.global_budget_utc_day is null then=>if new.kind = 'spendable' and s.global_budget_utc_day is null then	10_ledger_gate_matrix.test.sql	kill
+# ---- P2 (phase column = p2; built from every file, judged against the P2 baseline cluster)
+p2_visits_guard	p2_visits_guard	p2_05_purge.test.sql	kill	p2
+p2_ledger_guard	p2_ledger_guard	p2_05_purge.test.sql	kill	p2
+p2_purge_subject_unchecked	replace:and auth.uid() is not null and old.user_id is not distinct from auth.uid() then=>then	p2_05_purge.test.sql	kill	p2
+p2_retained_visit_deletable	replace:if rewards.visit_is_retained(old.id) then=>if false then	p2_05_purge.test.sql	kill	p2
+p2_retained_ledger_deletable	replace:if old.entry_type <> 'award' or rewards.visit_is_retained(old.visit_id) then=>if false then	p2_05_purge.test.sql	kill	p2
+p2_visits_guard_nonidentity_check	replace:or (to_jsonb(new) - sever) <> (to_jsonb(old) - sever) then=>then	p2_05_purge.test.sql	equivalent	p2
+p2_counter_delete_any_user	replace:and (to_jsonb(old) ->> 'user_id')::uuid = auth.uid() then=>then	p2_05_purge.test.sql	kill	p2
+p2_counter_decrease_allowed	replace:if new.spendable < old.spendable then=>if false then	05_ledger_invariants.test.sql	kill	p2
+p2_hold_expiry_removed	p2_hold_expiry	p2_06_retention.test.sql	kill	p2
+p2_hold_expiry_no_age	replace:and old.cleared_at <= clock_timestamp() - interval '90 days' then=>then	p2_06_retention.test.sql	kill	p2
+p2_hold_clear_validity	p2_hold_clear_validity	p2_06_retention.test.sql	kill	p2
+p2_independent_admin	p2_independent_admin	p2_03_reversal.test.sql	kill	p2
+p2_reversal_match	p2_reversal_match	p2_03_reversal.test.sql	kill	p2
+p2_reversal_decision	p2_reversal_decision	p2_03_reversal.test.sql	kill	p2
+p2_cleared_award_check	p2_cleared_award	p2_02_hold_clear.test.sql	kill	p2
+p2_hold_read_removed	p2_hold_read	p2_02_hold_clear.test.sql	kill	p2
+p2_clear_uses_current_policy	replace:select * into pol from rewards.reward_policy_versions where id = v.policy_version_id;=>select * into pol from rewards.reward_policy_versions order by effective_from desc limit 1;	p2_02_hold_clear.test.sql	kill	p2
+p2_clear_uses_today	replace:v.issuance_day_utc=>(clock_timestamp() at time zone 'UTC')::date	p2_02_hold_clear.test.sql	kill	p2
+p2_clear_ignores_gates	replace:st.rewards_enabled, st.global_budget_utc_day, false)=>true, 1000000000, false)	p2_02_hold_clear.test.sql	kill	p2
+p2_consistency_ignores_clearance	replace:s_eff := coalesce(c.spendable_outcome, v.spendable_outcome);=>s_eff := v.spendable_outcome;	p2_02_hold_clear.test.sql	kill	p2
+p2_admin_gate_clear	replace:declare a uuid := public.require_admin(); did uuid; h rewards.reward_holds%rowtype;=>declare a uuid := auth.uid(); did uuid; h rewards.reward_holds%rowtype;	p2_01_admin_paths.test.sql	kill	p2
+p2_admin_gate_recommend	replace:declare a uuid := public.require_admin(); u uuid; did uuid;=>declare a uuid := auth.uid(); u uuid; did uuid;	p2_01_admin_paths.test.sql	kill	p2
+p2_admin_gate_finalize	replace:declare a uuid := public.require_admin(); rec=>declare a uuid := auth.uid(); rec	p2_01_admin_paths.test.sql	kill	p2
+p2_admin_gate_all	replace:public.require_admin()=>auth.uid()	p2_01_admin_paths.test.sql	kill	p2
+p2_self_adjudication_hold_clear	replace:if p_user = a then=>if false then	p2_01_admin_paths.test.sql	kill	p2
+p2_self_adjudication_reversal	replace:if u = a then=>if false then	p2_03_reversal.test.sql	kill	p2
+p2_self_adjudication_finalize	replace:if rec.subject_user_id = a then=>if false then	p2_03_reversal.test.sql	kill	p2
+p2_aggregate_overcounts	replace:select m, s, l from agg=>select m, s + 1, l from agg	p2_05_purge.test.sql	kill	p2
+p2_sever_incomplete	replace:update rewards.visits set user_id = null, idempotency_key = null, accuracy_bucket = null, distance_bucket = null where user_id = uid;=>update rewards.visits set user_id = null where user_id = uid;	p2_05_purge.test.sql	kill	p2
+p2_deletion_path_skips_purge	replace:perform rewards.purge_my_reward_data();=>perform 1;	p2_05_purge.test.sql	kill	p2
+p2_grant_purge_insert_ledger	append:grant insert on rewards.reward_ledger to reward_purge_owner;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_grant_writer_update_ledger	append:grant update (amount) on rewards.reward_ledger to reward_writer_owner;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_grant_purge_update_amount	append:grant update (occurred_at) on rewards.visits to reward_purge_owner;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_grant_client_purge	append:grant execute on function rewards.purge_my_reward_data() to authenticated;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_grant_client_admin_gate	append:grant execute on function public.require_admin() to authenticated;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_grant_anon_admin_rpc	append:grant execute on function public.admin_reward_hold_user(uuid, text) to anon;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_grant_service_role_admin_rpc	append:grant execute on function public.admin_reward_finalize_reversal(uuid, text) to service_role;	p2_01_admin_paths.test.sql	kill	p2
+p2_grant_purge_schema_to_client	append:grant usage on schema rewards to authenticated;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_writer_loses_admin_gate	append:revoke execute on function public.require_admin() from reward_writer_owner;	p2_01_admin_paths.test.sql	kill	p2
+p2_purge_member_of_client	append:grant reward_purge_owner to authenticated;	p2_04_privileges_catalog.test.sql	kill	p2
+p2_clear_day_locks_removed	p2_clear_day_locks	p2_08_lock_order_races.sh	kill	p2
+p2_purge_month_locks_removed	p2_purge_month_locks	p2_08_lock_order_races.sh	kill	p2
+p3_events_guard_removed	p3_events_guard	p3_05_purge.test.sql	kill	p3
+p3_chains_guard_removed	p3_chains_guard	p3_05_purge.test.sql	kill	p3
+p3_purge_chains_removed	p3_purge_chains	p3_05_purge.test.sql	kill	p3
+p3_purge_sever_removed	p3_purge_sever	p3_05_purge.test.sql	kill	p3
+p3_hook_visit_removed	p3_hook_visit	p3_02_engine_cases.test.sql	kill	p3
+p3_hook_clear_removed	p3_hook_clear	p3_02_engine_cases.test.sql	kill	p3
+p3_hook_reversal_removed	p3_hook_reversal	p3_02_engine_cases.test.sql	kill	p3
+p3_version_awarded_ignored	replace:    if ev.event = 'award' then=>    if false then	p3_03_versions_windows_zones.test.sql	kill	p3
+p3_version_window_start_removed	p3_version_window_start	p3_02_engine_cases.test.sql	kill	p3
+p3_queue_cap_removed	p3_queue_cap	p3_08_queue_progress_bounds.test.sql	kill	p3
+p3_recoverable_handler_removed	p3_recoverable_handler	p3_06_failure_classes.test.sql	kill	p3
+p3_chain_lock_removed	p3_chain_lock	p3_07_cancel_lock_races.sh	kill	p3
+p3_progress_states_removed	p3_progress_states	p3_02_engine_cases.test.sql	kill	p3
+p3_progress_gate_removed	replace:if st.rewards_enabled is not true or st.global_budget_utc_day is null then=>if false then	p3_08_queue_progress_bounds.test.sql	kill	p3
+p3_repair_waits_for_user_lock	replace:if not pg_try_advisory_xact_lock(=>if false and not pg_try_advisory_xact_lock(	p3_07_cancel_lock_races.sh	kill	p3
+p3_repair_skipped_use_slots	replace:exit when done + failed >= lim or batch_scanned >= 20000;=>exit when done + failed + skipped >= lim or batch_scanned >= 20000;	p3_07_cancel_lock_races.sh	kill	p3
+p3_grant_purge_update_events	append:grant update on rewards.achievement_events to reward_purge_owner;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_grant_client_chains	append:grant select on rewards.achievement_chains to authenticated;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_grant_anon_progress	append:grant execute on function public.get_my_progress(text, integer) to anon;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_grant_writer_insert_definitions	append:grant insert on rewards.achievement_definitions to reward_writer_owner;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_events_rls_not_forced	append:alter table rewards.achievement_events no force row level security;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_purge_month_locks_removed	p2_purge_month_locks	p2_08_lock_order_races.sh	kill	p3
+p3_clear_day_locks_removed	p2_clear_day_locks	p2_08_lock_order_races.sh	kill	p3
+p3_hold_read_removed	p2_hold_read	p2_02_hold_clear.test.sql	kill	p3
+p3_chain_bound_unbounded	replace:processed < 50=>processed < 100000	p3_08_queue_progress_bounds.test.sql	kill	p3
+p3_budget_unlimited	replace:rewards.ach_metrics(p_user, ws, we, row_budget - scanned)=>rewards.ach_metrics(p_user, ws, we, 2147483000)	p3_09_bounds_timing.test.sql	kill	p3
+p3_metrics_cache_removed	p3_metrics_cache	p3_09_bounds_timing.test.sql	kill	p3
+p3_rule_invariant_removed	p3_rule_invariant	p3_03_versions_windows_zones.test.sql	kill	p3
+p3_queue_rewind_removed	replace:rescan_cursor = case when rewind then null else rewards.achievement_eval_queue.rescan_cursor end,=>rescan_cursor = rewards.achievement_eval_queue.rescan_cursor,	p3_10_overflow_rewind.test.sql	kill	p3
+p3_cursor_page_end	replace:lastdone := page[cardinality(page) - coalesce(cardinality(newrem), 0)];=>lastdone := page[cardinality(page)];	p3_11_rescan_budget_stop.test.sql	kill	p3
+p3_progress_budget_unlimited	replace:rewards.ach_metrics(uid, ws, we, 5000 - scanned)=>rewards.ach_metrics(uid, ws, we, 2147483000)	p3_09_bounds_timing.test.sql	kill	p3
+p3_metric_counts_reversed	replace:not exists (select 1 from rewards.reward_ledger x where x.reverses_entry_id = r.id)=>true	p3_02_engine_cases.test.sql	kill	p3
+p3_grant_client_engine	append:grant execute on function rewards.evaluate_achievements(uuid, text[], uuid, date, integer) to authenticated;	p3_04_privileges_catalog.test.sql	kill	p3
+p3_run_persist_remaining_removed	p3_run_persist_remaining	p3_12_oversized_hooks.test.sql	kill	p3
+p3_calc_invalidate_removed	p3_calc_invalidate	p3_13_work_accounting.test.sql	kill	p3
+p3_progress_separate_budget	replace:scanned := coalesce((rr ->> 'scanned')::integer, 0);=>scanned := 0;	p3_13_work_accounting.test.sql	kill	p3
+p3_progress_probe_uncharged	p3_progress_charge	p3_13_work_accounting.test.sql	kill	p3
+p3_calc_cursor_not_saved	replace:cursor_day = coalesce(a.lday, cursor_day), cursor_id = coalesce(a.lid, cursor_id), steps = steps + 1,=>steps = steps + 1,	p3_09_bounds_timing.test.sql	kill	p3
+p3_calc_days_double_counted	replace:where policy_day_local is distinct from st.last_day=>where true	p3_09_bounds_timing.test.sql	kill	p3
+p3_calc_locs_double_counted	replace:where location_id is distinct from st.last_loc=>where true	p3_09_bounds_timing.test.sql	kill	p3
+p3_calc_partial_exposed	replace:from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck and pass = 'done'=>from rewards.achievement_calc_state where user_id = p_user and window_key = p_ck	p3_12_oversized_hooks.test.sql	kill	p3
+p3_purge_calc_removed	p3_purge_calc	p3_05_purge.test.sql	kill	p3
+p3_repair_batch_cap_removed	p3_repair_batch_cap	p3_13_work_accounting.test.sql	kill	p3
+p3_planner_pin_removed	replace:set enable_bitmapscan = off set enable_seqscan = off set enable_hashjoin = off set enable_mergejoin = off set enable_sort = off set jit = off=>set enable_bitmapscan = on	p3_13_work_accounting.test.sql	kill	p3
+p3_progress_failure_uncharged	p3_progress_reserve	p3_14_failure_budget_cancel.sh	kill	p3
+p3_repair_failure_uncharged	p3_repair_reserve	p3_14_failure_budget_cancel.sh	kill	p3
+p3_store_exact_eval_removed	p3_store_exact_eval	p3_15_user_only_recovery.test.sql	kill	p3
+p3_store_exact_display_removed	p3_store_exact_display	p3_15_user_only_recovery.test.sql	kill	p3

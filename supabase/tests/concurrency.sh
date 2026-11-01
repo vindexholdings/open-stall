@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+# Two-session concurrency checks against the throwaway cluster started by scripts/test-db.sh.
+# Usage (from test-db.sh): concurrency.sh <psql command...>
+# Each scenario holds one transaction open (pg_sleep) while a second session runs, then asserts the outcome.
+set -euo pipefail
+PSQL=("$@")
+q() { "${PSQL[@]}" -X -A -t -c "$1"; }
+
+q "insert into auth.users (id, email) values
+     ('00000000-0000-0000-0000-00000000c0a1', 'ca@test.invalid'),
+     ('00000000-0000-0000-0000-00000000c0b2', 'cb@test.invalid'),
+     ('00000000-0000-0000-0000-00000000c0c3', 'cc@test.invalid');
+   insert into public.locations (id, name, latitude, longitude, status, restroom_evidence, restroom_verified, last_verified_at)
+     values ('00000000-0000-0000-0000-00000000c10c', 'CONC verified', 74, 74, 'verified', 'explicit', true, now());"
+
+as_user() { echo "set role authenticated; select set_config('request.jwt.claim.sub', '$1', false);"; }
+UA=00000000-0000-0000-0000-00000000c0a1
+UB=00000000-0000-0000-0000-00000000c0b2
+UC=00000000-0000-0000-0000-00000000c0c3
+LOC=00000000-0000-0000-0000-00000000c10c
+
+# 1. Two people report one place at the same moment, straddling a ~110 m rounding-cell boundary (73.0005).
+#    Both proposals are kept; the later writer waits for the earlier commit and flags it privately.
+"${PSQL[@]}" -X -q >/dev/null <<SQL &
+begin;
+$(as_user "$UA")
+select public.submit_location('{"name":"Conc restroom"}', 73.00049, 73, 10, true, null);
+select pg_sleep(2);
+commit;
+SQL
+P1=$!
+sleep 0.7
+"${PSQL[@]}" -X -q >/dev/null <<SQL
+$(as_user "$UB")
+select public.submit_location('{"name":"Conc restroom"}', 73.00051, 73, 10, true, null);
+SQL
+wait "$P1"
+q "do \$\$ declare a uuid; b uuid; begin
+  select id into a from public.submissions where user_id = '$UA' and kind = 'new_location';
+  select id into b from public.submissions where user_id = '$UB' and kind = 'new_location';
+  assert a is not null and b is not null and a <> b, 'concurrent reports are two separate proposals';
+  assert (select 'near_pending_submission' = any (flags) and duplicate_submission_ids = array[a] from public.submissions where id = b),
+    'the later concurrent proposal is privately flagged against the earlier one across the cell boundary';
+end \$\$;"
+echo "concurrency: simultaneous nearby proposals OK"
+
+# 2. Two community reviews and one admin rating land on one restroom at the same time:
+#    no deadlock, no lost update, and the admin rating never reaches the public aggregate.
+"${PSQL[@]}" -X -q >/dev/null <<SQL &
+begin;
+$(as_user "$UA")
+select public.submit_review('$LOC', 4, 'plain', null);
+select pg_sleep(2);
+commit;
+SQL
+P1=$!
+"${PSQL[@]}" -X -q >/dev/null <<SQL &
+begin;
+reset role;
+set role service_role;
+select public.apply_location_review_v2('$LOC', 'Admin', 'conc-admin', 'exists', true, current_date, '{"rating":1}');
+select pg_sleep(1);
+commit;
+SQL
+P2=$!
+sleep 0.7
+"${PSQL[@]}" -X -q >/dev/null <<SQL
+$(as_user "$UC")
+select public.submit_review('$LOC', 2, 'plain', null);
+SQL
+wait "$P1"
+wait "$P2"
+q "do \$\$ begin
+  assert (select rating_count = 2 and average_rating = 3.00 from public.locations where id = '$LOC'),
+    'both concurrent community ratings counted, admin rating excluded';
+  assert (select count(*) = 1 from public.location_reviews where location_id = '$LOC' and rating = 1), 'admin rating kept as history';
+end \$\$;"
+echo "concurrency: simultaneous ratings OK"
+
+# 3. Two administrators decide the SAME submission at the same moment (real competing transactions).
+#    The row lock makes the second wait; it must then see the first decision and fail, so there is never
+#    a second public location or a conflicting final decision.
+AD1=00000000-0000-0000-0000-00000000c0d4
+AD2=00000000-0000-0000-0000-00000000c0e5
+S1=00000000-0000-0000-0000-0000000005a1
+S2=00000000-0000-0000-0000-0000000005a2
+S3=00000000-0000-0000-0000-0000000005a3
+q "insert into auth.users (id, email) values ('$AD1', 'ad1@test.invalid'), ('$AD2', 'ad2@test.invalid');
+   insert into public.admin_users (user_id) values ('$AD1'), ('$AD2');
+   insert into public.submissions (id, user_id, kind, proposed, attested_public)
+     select s.id, '$UC', 'new_location', jsonb_build_object('name', 'CONC race ' || s.n, 'latitude', 76 + s.n, 'longitude', 76), true
+     from (values ('$S1'::uuid, 1), ('$S2'::uuid, 2), ('$S3'::uuid, 3)) as s(id, n);"
+as_admin() { echo "set role authenticated; select set_config('request.jwt.claim.sub', '$1', false); select set_config('request.jwt.claims', '{\"sub\":\"$1\",\"aal\":\"aal2\"}', false);"; }
+
+# race(first_admin first_call second_admin second_call) : first holds its transaction open for 2 s; second arrives 0.7 s later.
+race() {
+  "${PSQL[@]}" -X -q >/dev/null <<SQL &
+begin;
+$(as_admin "$1")
+select public.admin_decide_submission($2);
+select pg_sleep(2);
+commit;
+SQL
+  local p1=$!
+  sleep 0.7
+  local rc=0
+  "${PSQL[@]}" -X -q >/dev/null 2>/tmp/conc_second.err <<SQL || rc=$?
+$(as_admin "$3")
+select public.admin_decide_submission($4);
+SQL
+  wait "$p1"
+  echo "$rc"
+}
+
+RC=$(race "$AD1" "'$S1', 'approve'" "$AD2" "'$S1', 'approve'")
+[ "$RC" != "0" ] && grep -q "already decided" /tmp/conc_second.err || { echo "FAIL: second concurrent approve of one submission should fail with 'already decided' (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 1 from public.location_sources where source = 'community_submission' and source_reference = '$S1'), 'exactly one public location was created for the submission';
+  assert (select count(*) = 1 from public.moderation_decisions where submission_id = '$S1' and decision = 'approve' and reviewer_id = '$AD1'), 'exactly one final decision, by the first administrator';
+  assert (select status = 'approved' from public.submissions where id = '$S1'), 'submission approved once';
+end \$\$;"
+echo "concurrency: two admins approving the same submission OK"
+
+RC=$(race "$AD1" "'$S2', 'approve'" "$AD2" "'$S2', 'reject', 'spam_or_abuse'")
+[ "$RC" != "0" ] && grep -q "already decided" /tmp/conc_second.err || { echo "FAIL: reject after a concurrent approve should fail (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 1 from public.moderation_decisions where submission_id = '$S2' and decision in ('approve', 'reject')), 'one final decision only (no conflicting approve + reject)';
+  assert (select status = 'approved' from public.submissions where id = '$S2'), 'the first decision stands';
+end \$\$;"
+echo "concurrency: approve then reject race OK"
+
+RC=$(race "$AD1" "'$S3', 'reject', 'spam_or_abuse'" "$AD2" "'$S3', 'approve'")
+[ "$RC" != "0" ] && grep -q "already decided" /tmp/conc_second.err || { echo "FAIL: approve after a concurrent reject should fail (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select status = 'rejected' from public.submissions where id = '$S3'), 'the rejection stands';
+  assert (select count(*) = 0 from public.location_sources where source = 'community_submission' and source_reference = '$S3'), 'a rejected submission never becomes a public location';
+  assert (select count(*) = 1 from public.moderation_decisions where submission_id = '$S3'), 'one final decision only';
+end \$\$;"
+echo "concurrency: reject then approve race OK"
+
+# 4. Contributor actions racing moderation: withdrawal and account deletion must either lose cleanly or keep
+#    the evidence. Never an orphaned decision, never a lost moderated submission, never a public location from a
+#    submission that was already removed.
+UW=00000000-0000-0000-0000-00000000c0f6
+UD1=00000000-0000-0000-0000-00000000c0f7
+UD2=00000000-0000-0000-0000-00000000c0f8
+W1=00000000-0000-0000-0000-0000000005b1
+W2=00000000-0000-0000-0000-0000000005b2
+D1=00000000-0000-0000-0000-0000000005b3
+D2=00000000-0000-0000-0000-0000000005b4
+q "insert into auth.users (id, email) values ('$UW', 'uw@test.invalid'), ('$UD1', 'ud1@test.invalid'), ('$UD2', 'ud2@test.invalid');
+   insert into public.submissions (id, user_id, kind, proposed, attested_public)
+     select s.id, s.u, 'new_location', jsonb_build_object('name', 'CONC del ' || s.n, 'latitude', 80 + s.n, 'longitude', 80), true
+     from (values ('$W1'::uuid, '$UW'::uuid, 1), ('$W2'::uuid, '$UW'::uuid, 2), ('$D1'::uuid, '$UD1'::uuid, 3), ('$D2'::uuid, '$UD2'::uuid, 4)) as s(id, u, n);"
+race_sql() { # $1 = SQL of the first session (holds its transaction open for 2 s), $2 = SQL of the second (arrives 0.7 s later)
+  "${PSQL[@]}" -X -q >/dev/null <<SQL &
+begin;
+$1
+select pg_sleep(2);
+commit;
+SQL
+  local p1=$!
+  sleep 0.7
+  local rc=0
+  "${PSQL[@]}" -X -q >/dev/null 2>/tmp/conc_second.err <<SQL || rc=$?
+$2
+SQL
+  wait "$p1"
+  echo "$rc"
+}
+
+# 4a. An admin puts the submission on hold while its contributor withdraws it: the hold wins, nothing is lost.
+RC=$(race_sql "$(as_admin "$AD1")
+select public.admin_decide_submission('$W1', 'hold');" "$(as_user "$UW")
+select public.withdraw_my_submission('$W1');")
+[ "$RC" = "0" ] || { echo "FAIL: withdrawal racing a hold should be a quiet no-op (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 1 from public.submissions where id = '$W1' and held_at is not null), 'the held submission survived the withdrawal attempt';
+  assert (select count(*) = 1 from public.moderation_decisions where submission_id = '$W1' and decision = 'hold'), 'the hold decision is intact';
+end \$\$;"
+echo "concurrency: hold vs withdrawal OK"
+
+# 4b. The contributor withdraws first while an admin tries to hold: the admin gets 'not found'; no orphaned decision.
+RC=$(race_sql "$(as_user "$UW")
+select public.withdraw_my_submission('$W2');" "$(as_admin "$AD1")
+select public.admin_decide_submission('$W2', 'hold');")
+[ "$RC" != "0" ] && grep -q "submission not found" /tmp/conc_second.err || { echo "FAIL: hold after a committed withdrawal should report not found (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 0 from public.submissions where id = '$W2'), 'the never-moderated submission was withdrawn';
+  assert (select count(*) = 0 from public.moderation_decisions where submission_id = '$W2'), 'no orphaned decision';
+end \$\$;"
+echo "concurrency: withdrawal vs hold OK"
+
+# 4c. An admin approves while the contributor deletes their account: the approval wins and the evidence is kept,
+#     anonymised, together with the public location it produced.
+RC=$(race_sql "$(as_admin "$AD1")
+select public.admin_decide_submission('$D1', 'approve');" "$(as_user "$UD1")
+select public.delete_my_account('DELETE');")
+[ "$RC" = "0" ] || { echo "FAIL: account deletion racing an approval should succeed (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 1 from public.submissions where id = '$D1' and status = 'approved' and user_id is null), 'approved submission kept with the contributor severed';
+  assert (select count(*) = 1 from public.moderation_decisions where submission_id = '$D1' and decision = 'approve'), 'approval decision kept';
+  assert (select count(*) = 1 from public.location_sources where source = 'community_submission' and source_reference = '$D1'), 'the approved restroom exists';
+  assert not exists (select 1 from auth.users where id = '$UD1'), 'the account was deleted';
+end \$\$;"
+echo "concurrency: approval vs account deletion OK"
+
+# 4d. The account is deleted first (removing a never-moderated submission) while an admin tries to approve it:
+#     the admin gets 'not found'; no public location is created from removed data.
+RC=$(race_sql "$(as_user "$UD2")
+select public.delete_my_account('DELETE');" "$(as_admin "$AD1")
+select public.admin_decide_submission('$D2', 'approve');")
+[ "$RC" != "0" ] && grep -q "submission not found" /tmp/conc_second.err || { echo "FAIL: approval after a committed account deletion should report not found (rc=$RC)"; cat /tmp/conc_second.err; exit 1; }
+q "do \$\$ begin
+  assert (select count(*) = 0 from public.submissions where id = '$D2'), 'the unmoderated submission left with the account';
+  assert (select count(*) = 0 from public.location_sources where source = 'community_submission' and source_reference = '$D2'), 'no public location was created from removed data';
+  assert (select count(*) = 0 from public.moderation_decisions where submission_id = '$D2'), 'no decision exists for it';
+end \$\$;"
+echo "concurrency: account deletion vs approval OK"
+
+# cleanup of the admin scenario (superuser; bypasses the append-only triggers for test data only)
+q "set session_replication_role = replica;
+   delete from public.moderation_decisions where submission_id in ('$S1', '$S2', '$S3', '$W1', '$W2', '$D1', '$D2');
+   delete from public.moderation_log where target_id in ('$S1', '$S2', '$S3', '$W1', '$W2', '$D1', '$D2');
+   delete from public.submissions where id in ('$S1', '$S2', '$S3', '$W1', '$W2', '$D1', '$D2');
+   delete from public.location_sources where source = 'community_submission' and source_reference in ('$S1', '$S2', '$S3', '$D1');
+   delete from public.locations where name like 'CONC race %' or name like 'CONC del %';
+   delete from auth.users where id in ('$UW', '$UD1', '$UD2');
+   delete from public.admin_users where user_id in ('$AD1', '$AD2');
+   delete from auth.users where id in ('$AD1', '$AD2');"
+
+q "delete from auth.users where id in ('$UA', '$UB', '$UC');"
+echo "concurrency: OK"

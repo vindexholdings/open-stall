@@ -1,0 +1,28 @@
+[
+  {
+    "ref": "dev-test-REPLACE-ME",
+    "name": "REPLACE with the name as posted on site",
+    "state": "verified",
+    "latitude": 0,
+    "longitude": 0,
+    "address_line": null,
+    "city": "Cody",
+    "region": "WY",
+    "postal_code": null,
+    "confirmed_on": "YYYY-MM-DD",
+    "confirmed_by": "REPLACE with your name",
+    "opening_hours": null,
+    "access_location": null,
+    "wheelchair_accessible": null,
+    "gender_neutral": null,
+    "baby_changing": null,
+    "has_hot_water": null,
+    "has_cold_water": null,
+    "key_required": null,
+    "purchase_required": null,
+    "fee_required": null,
+    "notes": null,
+    "original_observation": false,
+    "attested_public": false
+  }
+]

@@ -15,7 +15,7 @@ Rating, radius, wheelchair accessible, gender-neutral, baby changing, hot/warm w
 Stable attributes: accessibility, gender-neutral, baby changing, hot/cold water, key, purchase, access location. Transient reports: dirty, broken/out, unavailable, incorrect info, safety concern, closed. No user photos.
 
 ## Verification
-Preload public/commercial candidates. User additions/edits stay pending until admin approval. Protect against private residences/malicious submissions. Status: verified/pending/closed. Track last verification.
+Preload public/commercial candidates. User additions/edits stay pending until admin approval. Protect against private residences/malicious submissions. Public states: Verified (confirmed by Open Stall) and Unverified (explicit external restroom evidence; visible with a clear "Unverified" badge and encouragement to verify). Hidden: Candidate (inferred/insufficient evidence), Pending submissions, Closed. A business existing is not proof of a public restroom. Track last verification.
 
 ## Accounts
 Email/password, Google, Apple. Evaluate Yahoo SSO before implementing if disproportionate complexity. Cross-device sync; hidden email; deletion.
