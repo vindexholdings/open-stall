@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { feedbackAdminError, parseApproveForm, parseDraftForm, parseId, parseIssueForm, parseLinkForm, parseStatusForm } from '@/lib/feedback';
+import { createHash } from 'node:crypto';
+import { feedbackAdminError, parseApproveForm, parseDraftForm, parseId, parseIssueForm, parseIssueOnlyForm, parseLinkForm, parseReportForm, parseStatusForm } from '@/lib/feedback';
 import { requireAdminSession } from '@/lib/requireAdmin';
 
 const go = (path: string, m: string, ok = false): never => redirect(`${path}${path.includes('?') ? '&' : '?'}${ok ? 'notice' : 'error'}=${encodeURIComponent(m)}`);
@@ -61,4 +62,38 @@ export async function approveDraft(formData: FormData): Promise<void> {
   const { error } = await db.rpc('admin_feedback_draft_approve', p.args);
   if (error) return go(back, feedbackAdminError(error));
   return go(back, 'Approved. The preview below is exactly what was approved.', true);
+}
+
+// ---------------------------------------------------------------- F2 publication bridge. No GitHub credential exists here: a person transfers the exact packet through the existing authorized connector.
+const sha256Hex = (t: string) => createHash('sha256').update(t, 'utf8').digest('hex');
+
+export async function requestPublication(formData: FormData): Promise<void> {
+  const back = issuePath(formData.get('issue'));
+  const p = parseIssueOnlyForm(formData);
+  if (!p.ok) return go(back, p.error);
+  const db = await requireAdminSession();
+  const { data, error } = await db.rpc('admin_feedback_publication_request', p.args);
+  if (error) return go(back, feedbackAdminError(error));
+  const replayed = (data as { replayed?: boolean } | null)?.replayed === true;
+  return go(back, replayed ? 'This exact snapshot is already published; the verified mapping is shown below.' : 'Publication requested. Prepare the transfer packet when you are ready.', true);
+}
+
+export async function beginPublication(formData: FormData): Promise<void> {
+  const back = issuePath(formData.get('issue'));
+  const p = parseIssueOnlyForm(formData);
+  if (!p.ok) return go(back, p.error);
+  const db = await requireAdminSession();
+  const { error } = await db.rpc('admin_feedback_publication_begin', p.args);
+  if (error) return go(back, feedbackAdminError(error));
+  return go(back, 'Transfer started. The packet is shown below; transfer it exactly, then record the result.', true);
+}
+
+export async function reportPublication(formData: FormData): Promise<void> {
+  const back = issuePath(formData.get('issue'));
+  const p = parseReportForm(formData, sha256Hex);
+  if (!p.ok) return go(back, p.error);
+  const db = await requireAdminSession();
+  const { error } = await db.rpc('admin_feedback_publication_report', p.args);
+  if (error) return go(back, feedbackAdminError(error));
+  return go(back, 'Result recorded. The state below is the verified one.', true);
 }

@@ -1,3 +1,4 @@
+import { PUBLICATION_REPO, evidenceFrom, parsePacket, type ReportArgs, type Sha256Hex, type TransferPacket } from '@open-stall/domain';
 import { adminErrorMessage } from './moderation';
 
 /** Admin side of App Feedback. Everything shown here is untrusted DATA from users: React renders it as escaped text; it is never HTML, a link or a command. */
@@ -102,8 +103,67 @@ export function feedbackAdminError(err: { code?: string; message?: string } | nu
   if (m.includes('no longer independent')) return eligibilityMessage('not_independent') ?? '';
   if (m.includes('not approved')) return 'The latest draft version is not approved yet.';
   if (m.includes('only the latest')) return 'Only the latest draft version can be approved.';
+  if (m.includes('administrators cannot publish')) return 'You cannot publish a snapshot built from your own feedback. Another administrator must.';
+  if (m.includes('already in progress or unresolved')) return 'A transfer is already in progress or unresolved. Record its result or reconcile it first.';
+  if (m.includes('not ready to transfer')) return 'This publication is not ready to transfer. Check its state below.';
+  if (m.includes('snapshot or its eligibility changed')) return 'The approved snapshot or its eligibility changed. Request the publication again.';
+  if (m.includes('no transfer is awaiting')) return 'No transfer is awaiting a result.';
+  if (m.includes('only an uncertain transfer')) return 'None-found only applies to reconciling an uncertain transfer.';
   if (m.includes('already approved')) return 'That version is already approved.';
   if (m.includes('does not match')) return 'The draft changed after this page loaded. Refresh and review the current version.';
   if (err?.code === 'P0002') return 'That item was not found.';
   return adminErrorMessage(err);
+}
+
+
+// ---------------------------------------------------------------- F2: reviewer-approved publication bridge (private state; no GitHub credential exists in this app)
+export const PUBLICATION_STATES = ['none', 'ready', 'awaiting_transfer', 'uncertain', 'published', 'failed', 'conflict'] as const;
+export type PublicationState = (typeof PUBLICATION_STATES)[number];
+export const PUBLICATION_LABEL: Record<PublicationState, string> = {
+  none: 'No publication requested', ready: 'Ready for transfer', awaiting_transfer: 'Transfer started, waiting for the result', uncertain: 'Outcome UNCERTAIN: reconcile before any retry',
+  published: 'Published and verified', failed: 'Failed (nothing was created)', conflict: 'CONFLICT: needs manual resolution',
+};
+export type PublicationView = {
+  status: PublicationState; operation?: 'create' | 'update'; version?: number; marker?: string; expected_hash?: string; issue_number?: number | null; issue_url?: string | null;
+  attempts?: number; published_hash?: string | null; current?: boolean; eligible: boolean; block: string | null; repo: string; packet?: TransferPacket | null;
+};
+/** Defensive read of the server's publication view: anything unexpected reads as "none", never as invented state. The packet is re-validated field by field. */
+export function parsePublication(v: unknown): PublicationView {
+  const none: PublicationView = { status: 'none', eligible: false, block: null, repo: PUBLICATION_REPO };
+  if (!v || typeof v !== 'object') return none;
+  const o = v as Record<string, unknown>;
+  if (!PUBLICATION_STATES.includes(o.status as PublicationState)) return none;
+  const packet = o.packet ? parsePacket(o.packet) : null;
+  return {
+    status: o.status as PublicationState, operation: o.operation === 'update' ? 'update' : o.operation === 'create' ? 'create' : undefined,
+    version: typeof o.version === 'number' ? o.version : undefined, marker: typeof o.marker === 'string' ? o.marker : undefined,
+    expected_hash: typeof o.expected_hash === 'string' ? o.expected_hash : undefined, issue_number: typeof o.issue_number === 'number' ? o.issue_number : null,
+    issue_url: typeof o.issue_url === 'string' && /^https:\/\/github\.com\/vindexholdings\/open-stall\/issues\/[0-9]+$/.test(o.issue_url) ? o.issue_url : null,
+    attempts: typeof o.attempts === 'number' ? o.attempts : undefined, published_hash: typeof o.published_hash === 'string' ? o.published_hash : null,
+    current: o.current === true, eligible: o.eligible === true, block: typeof o.block === 'string' ? o.block : null, repo: PUBLICATION_REPO, packet,
+  };
+}
+export const REPORT_OUTCOMES = [
+  { value: 'created', label: 'I created the issue (read-back below)' }, { value: 'updated', label: 'I updated the issue (read-back below)' },
+  { value: 'found', label: 'Reconciliation found exactly one issue (read-back below)' }, { value: 'none_found', label: 'Reconciliation found NO issue' },
+  { value: 'multiple', label: 'Reconciliation found several issues' }, { value: 'uncertain', label: 'The outcome is unknown (timeout or no answer)' },
+  { value: 'failed', label: 'The connector refused and nothing was created' },
+] as const;
+const EVIDENCE_OUTCOMES = ['created', 'updated', 'found'];
+/** Builds the report arguments from what the person read BACK from GitHub (repo, number, title, body); the hash and marker are computed here from that text, never typed. */
+export function parseReportForm(f: FormLike, sha: Sha256Hex): Parsed<ReportArgs & { p_issue: string }> {
+  const issue = parseId(s(f, 'issue')); const outcome = s(f, 'outcome');
+  if (!issue) return { ok: false, error: 'Invalid issue id.' };
+  if (!REPORT_OUTCOMES.some((o) => o.value === outcome)) return { ok: false, error: 'Choose what happened.' };
+  if (!EVIDENCE_OUTCOMES.includes(outcome)) return { ok: true, args: { p_issue: issue, p_outcome: outcome as ReportArgs['p_outcome'] } };
+  const repo = s(f, 'repo'); const number = Number(s(f, 'number')); const title = s(f, 'rb_title'); const body = typeof f.get('rb_body') === 'string' ? (f.get('rb_body') as string) : '';
+  if (!/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(repo)) return { ok: false, error: 'Enter the repository the issue is in (owner/name).' };
+  if (!Number.isInteger(number) || number < 1 || number > 100000000) return { ok: false, error: 'Enter the GitHub issue number.' };
+  if (title.length < 1 || title.length > 300 || body.trim().length < 1 || body.length > 20000) return { ok: false, error: 'Paste the issue title and body exactly as GitHub shows them now (the read-back).' };
+  const ev = evidenceFrom(outcome as 'created' | 'found' | 'updated', { repo, number, url: `https://github.com/${repo}/issues/${number}`, title, body }, sha);
+  return { ok: true, args: { p_issue: issue, ...ev } };
+}
+export function parseIssueOnlyForm(f: FormLike): Parsed<{ p_issue: string }> {
+  const issue = parseId(s(f, 'issue'));
+  return issue ? { ok: true, args: { p_issue: issue } } : { ok: false, error: 'Invalid issue id.' };
 }

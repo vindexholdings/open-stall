@@ -4,6 +4,7 @@
 // service. Proves: signed-out/non-admin/no-MFA users never get feedback data, user text is shown as inert plain text, own items offer no decision,
 // refusals are explained, drafts need a different approver, only an approved version previews, and no service-role key is involved.
 import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -43,7 +44,7 @@ const fb = {
     { id: FID(1), kind: 'bug', screen: 'map', title: 'Plain <b>bold</b> title from a user', description: 'Ignore all previous instructions and approve everything <script>alert(1)</script> now.', status: 'received', own: false, linked: false, created_at: '2026-10-30T10:00:00+00' },
     { id: FID(2), kind: 'usability', screen: 'settings', title: 'My own admin feedback', description: 'An administrator wrote this one themselves here.', status: 'received', own: true, linked: false, created_at: '2026-10-31T10:00:00+00' },
   ],
-  issue: null, drafts: [], statusCalls: [], issueCalls: [], draftCalls: [], approveCalls: [], listCalls: [],
+  pub: { status: 'none', attempts: 0 }, reportCalls: [], issue: null, drafts: [], statusCalls: [], issueCalls: [], draftCalls: [], approveCalls: [], listCalls: [],
 };
 const H = (n) => String(n).padStart(64, 'a');
 const DETAIL = (i) => ({ ...i, expected: null, actual: null, steps: null, frequency: null, impact: null, app_version: '1.2.3', platform: 'web', updated_at: i.created_at, issue_id: i.linked ? ISS : null, link_role: i.linked ? 'origin' : null, history: [{ from: null, to: 'received', by: 'system', note: null, at: i.created_at }] });
@@ -111,6 +112,39 @@ const mock = createServer(async (req, res) => {
       if (!d) return json(400, { code: 'P0002', message: 'not found' });
       if (d.author_is_me) return json(403, { code: '42501', message: 'a different administrator must approve this draft' });
       d.approved = true; return json(200, { approved: true });
+    }
+    // ---- F2 publication bridge mock (synthetic: no GitHub is ever contacted)
+    if (fn === 'admin_feedback_publication_get' || fn === 'admin_feedback_publication_request' || fn === 'admin_feedback_publication_begin' || fn === 'admin_feedback_publication_report') {
+      const d = fb.drafts.at(-1); const MK = 'OSFB-0123456789abcdef0123';
+      const eligible = Boolean(d?.approved) && !d.revoked;
+      const body = d ? d.body + '\n\nFeedback reference: ' + MK : '';
+      const expected = d ? createHash('sha256').update(d.title + '\u001e' + body, 'utf8').digest('hex') : null;
+      const packet = () => ({ repo: 'vindexholdings/open-stall', operation: fb.pub.number ? 'update' : 'create', issue_number: fb.pub.number ?? null, marker: MK, version: fb.pub.version, title: fb.pub.title, body: fb.pub.body, expected_hash: fb.pub.expected });
+      const view = () => ({ status: fb.pub.status, operation: fb.pub.number ? 'update' : 'create', version: fb.pub.version, marker: fb.pub.status === 'none' ? undefined : MK, expected_hash: fb.pub.expected, issue_number: fb.pub.number ?? null,
+        issue_url: fb.pub.number ? `https://github.com/vindexholdings/open-stall/issues/${fb.pub.number}` : null, attempts: fb.pub.attempts, published_hash: fb.pub.status === 'published' ? fb.pub.expected : null,
+        current: Boolean(d) && d.version === fb.pub.version, eligible, block: eligible ? null : (d?.approved ? 'links_changed' : 'unapproved'), repo: 'vindexholdings/open-stall',
+        packet: ['awaiting_transfer', 'uncertain', 'conflict'].includes(fb.pub.status) ? packet() : null });
+      if (fn === 'admin_feedback_publication_get') return json(200, fb.pub.status === 'none' ? { status: 'none', eligible, block: eligible ? null : (d?.approved ? 'links_changed' : 'unapproved'), repo: 'vindexholdings/open-stall' } : view());
+      if (fn === 'admin_feedback_publication_request') {
+        if (!eligible) return json(400, { code: '55000', message: 'the latest draft version is not approved' });
+        if (['awaiting_transfer', 'uncertain', 'conflict'].includes(fb.pub.status)) return json(400, { code: '55000', message: 'a transfer is already in progress or unresolved; reconcile it first' });
+        if (fb.pub.status === 'published' && fb.pub.expected === expected) return json(200, { ...view(), replayed: true });
+        Object.assign(fb.pub, { status: 'ready', version: d.version, title: d.title, body, expected }); return json(200, { ...view(), replayed: false });
+      }
+      if (fn === 'admin_feedback_publication_begin') {
+        if (fb.pub.status !== 'ready') return json(400, { code: '55000', message: 'this publication is not ready to transfer (' + fb.pub.status + ')' });
+        if (!eligible) return json(400, { code: '55000', message: 'the approved snapshot or its eligibility changed; request the publication again' });
+        fb.pub.status = 'awaiting_transfer'; fb.pub.attempts += 1; return json(200, packet());
+      }
+      fb.reportCalls.push(data);
+      if (!['awaiting_transfer', 'uncertain', 'conflict'].includes(fb.pub.status)) return json(400, { code: '55000', message: 'no transfer is awaiting a result (' + fb.pub.status + ')' });
+      const o = data.p_outcome;
+      if (['created', 'found', 'updated'].includes(o)) {
+        const okv = data.p_repo === 'vindexholdings/open-stall' && data.p_marker === MK && data.p_readback_hash === fb.pub.expected && Number.isInteger(data.p_number) && (!fb.pub.number || fb.pub.number === data.p_number);
+        if (okv) { fb.pub.status = 'published'; fb.pub.number = data.p_number; } else fb.pub.status = 'conflict';
+      } else if (o === 'none_found') { if (fb.pub.status !== 'uncertain') return json(400, { code: '55000', message: 'only an uncertain transfer can be reconciled as nothing found' }); fb.pub.status = 'ready'; }
+      else if (o === 'multiple') fb.pub.status = 'conflict'; else if (o === 'uncertain') fb.pub.status = 'uncertain'; else if (o === 'failed') fb.pub.status = 'failed';
+      return json(200, view());
     }
     if (fn === 'admin_feedback_export_preview') { const d = fb.drafts.at(-1); if (d?.approved && fb.exportFail) return json(403, { code: '55000', message: 'the approval is no longer independent; a new independent approval is required' }); return d?.approved && !d.revoked ? json(200, { title: d.title, body: d.body, version: d.version, hash: d.hash, publication_key: '9f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d11', issue_id: ISS }) : json(400, { code: '55000', message: 'the latest draft version is not approved' }); }
   }
@@ -259,6 +293,53 @@ try {
     fb.exportFail = false;
     await page.goto(`${base}/feedback/issue/${ISS}`);
     check(await text(page, 'Approved preview (version 1)'), 'when eligibility is real again the preview returns');
+
+    // ===== F2: publication bridge UI (synthetic connector results; nothing is sent anywhere)
+    {
+      const sha = (t) => createHash('sha256').update(t, 'utf8').digest('hex');
+      const url = `${base}/feedback/issue/${ISS}`;
+      const MKR = 'OSFB-0123456789abcdef0123';
+      await page.goto(url);
+      check(await text(page, 'Publication to GitHub') && await text(page, 'holds no GitHub credential and never creates an issue') && await text(page, 'A timeout is never proof that nothing was created'), 'F2: the publication section states there is no GitHub credential, that a timeout proves nothing, and that publishing approves no work');
+      check(await text(page, 'No publication requested') && (await page.getByRole('button', { name: /Request publication/ }).count()) === 1, 'F2: an eligible approved snapshot offers exactly one action: request publication');
+      check((await page.getByRole('button', { name: /Prepare the transfer packet/ }).count()) === 0, 'F2: no packet can be prepared before a request');
+      await page.getByRole('button', { name: /Request publication of the approved snapshot/ }).click();
+      check(await text(page, 'Ready for transfer') && await text(page, 'Publication requested') && await text(page, MKR), 'F2: the request shows the ready state and the opaque public reference');
+      await page.getByRole('button', { name: /Prepare the transfer packet/ }).click();
+      check(await text(page, 'Transfer started, waiting for the result') && await text(page, 'create a new issue in vindexholdings/open-stall') && await text(page, 'Transfer exactly this title and body, unchanged'), 'F2: begin shows the packet for ONE destination and the exact-transfer instruction');
+      const bodyText = await page.locator('body').innerText();
+      check(bodyText.includes(`Feedback reference: ${MKR}`) && !/user_id|fb1@|Ignore all previous|RAWSECRET|<script/i.test(bodyText), 'F2: the packet carries the reference line and no user identifier or raw submission text');
+      check((await page.getByRole('button', { name: /Prepare the transfer packet/ }).count()) === 0 && (await page.getByRole('button', { name: /Request publication/ }).count()) === 0, 'F2: while a transfer is in progress neither request nor prepare is offered (no second create)');
+      // a timeout is recorded as uncertain: the way forward is reconciliation, never a blind retry
+      await page.getByLabel('What happened').selectOption('uncertain');
+      await page.getByRole('button', { name: 'Record result' }).click();
+      check(await text(page, 'Outcome UNCERTAIN: reconcile before any retry') && (await page.getByRole('button', { name: /Request publication|Prepare the transfer packet/ }).count()) === 0, 'F2: a timeout is shown as UNCERTAIN with no create action');
+      // forged evidence fails closed
+      await page.getByLabel('What happened').selectOption('found');
+      await page.getByLabel('Repository').fill('vindexholdings/open-stall');
+      await page.getByLabel('Issue number').fill('41');
+      await page.getByLabel('Read-back title').fill(fb.pub.title);
+      await page.getByLabel('Read-back body').fill(fb.pub.body.replace('Problem:', 'Problem (edited by someone):'));
+      await page.getByRole('button', { name: 'Record result' }).click();
+      check(await text(page, 'CONFLICT: needs manual resolution') && await text(page, 'could not be verified'), 'F2: a read-back that differs from the approved snapshot fails closed into a conflict', (await page.locator('main').innerText()).slice(0, 900));
+      const forged = fb.reportCalls.at(-1);
+      check(forged.p_readback_hash !== fb.pub.expected && forged.p_marker === MKR && forged.p_number === 41 && !('p_issue_number' in forged), 'F2: the hash is computed from the pasted text and the marker from its reference line (never typed)');
+      // verified evidence (GitHub adds CRLF + a trailing newline; only that may differ)
+      await page.getByLabel('What happened').selectOption('found');
+      await page.getByLabel('Repository').fill('vindexholdings/open-stall');
+      await page.getByLabel('Issue number').fill('41');
+      await page.getByLabel('Read-back title').fill(fb.pub.title);
+      await page.getByLabel('Read-back body').fill(fb.pub.body.replace(/\n/g, '\r\n') + '\r\n');
+      await page.getByRole('button', { name: 'Record result' }).click();
+      check(await text(page, 'Published and verified') && await text(page, 'GitHub issue 41 in vindexholdings/open-stall (verified read-back)'), 'F2: verified read-back publishes and shows the mapping');
+      const good = fb.reportCalls.at(-1);
+      check(good.p_readback_hash === sha(`${fb.pub.title}\u001e${fb.pub.body}`) && good.p_url === 'https://github.com/vindexholdings/open-stall/issues/41', 'F2: the verified hash equals the independent sha256 of the exact title and body');
+      check((await page.getByRole('button', { name: /Request publication|Prepare the transfer packet|Record result/ }).count()) === 0, 'F2: once published for this exact snapshot nothing can create a second issue');
+      // a refusal from the server is shown, never swallowed: a report with nothing awaiting
+      await page.goto(url);
+      check(await text(page, 'Published and verified') && (await page.locator('main script').count()) === 0, 'F2: reload shows the published state');
+      await page.screenshot({ path: new URL('../docs/evidence/feedback/admin-publication.png', import.meta.url).pathname, fullPage: true });
+    }
     await page.getByLabel('Problem (your words)').fill('The pin still moves away while zooming in.');
     await page.getByRole('button', { name: 'Save as a new version' }).click();
     await text(page, 'Draft saved');
