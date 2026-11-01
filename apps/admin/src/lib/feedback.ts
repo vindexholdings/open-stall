@@ -21,7 +21,14 @@ export type Detail = {
   own: boolean; issue_id: string | null; link_role: string | null; history: { from: string | null; to: string; by: string; note: string | null; at: string }[];
 };
 export type Candidate = { id: string; kind: string; title: string; status: string; issue_id: string | null };
-export type IssueView = { id: string; title: string; summary: string; created_at: string; items: number; latest_draft: { version: number; hash: string; approved: boolean; author_is_me: boolean } | null };
+export type IssueView = { id: string; title: string; summary: string; created_at: string; items: number; latest_draft: { version: number; hash: string; approved: boolean; author_is_me: boolean; title: string; body: string } | null };
+export type CandidateResult = { candidates: Candidate[]; searched: number; complete: boolean };
+/** The server answer for duplicate candidates; anything unexpected reads as 'none found, incomplete' (never a crash, never invented rows). */
+export function parseCandidates(v: unknown): CandidateResult {
+  const o = (v && typeof v === 'object' ? v : {}) as { candidates?: unknown; searched?: unknown; complete?: unknown };
+  const list = Array.isArray(o.candidates) ? (o.candidates as Candidate[]).filter((c) => c && typeof c.id === 'string' && typeof c.title === 'string').slice(0, 10) : [];
+  return { candidates: list, searched: typeof o.searched === 'number' ? o.searched : 0, complete: o.complete === true };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const parseId = (v: unknown): string | null => (typeof v === 'string' && UUID.test(v.trim()) ? v.trim().toLowerCase() : null);
@@ -71,6 +78,7 @@ export function parseDraftForm(f: FormLike): Parsed<{ p_issue: string; p_title: 
 }
 export function parseApproveForm(f: FormLike): Parsed<{ p_issue: string; p_version: number; p_hash: string }> {
   const issue = parseId(s(f, 'issue')); const version = Number(s(f, 'version')); const hash = s(f, 'hash');
+  if (s(f, 'reviewed') !== 'yes') return { ok: false, error: 'Confirm that you read the exact text above and found nothing personal in it before approving.' };
   if (!issue || !Number.isInteger(version) || version < 1 || !/^[0-9a-f]{64}$/.test(hash)) return { ok: false, error: 'Invalid approval request.' };
   return { ok: true, args: { p_issue: issue, p_version: version, p_hash: hash } };
 }
@@ -83,6 +91,7 @@ export function feedbackAdminError(err: { code?: string; message?: string } | nu
   if (m.includes('already linked')) return 'That feedback is already linked to an issue.';
   if (m.includes('invalid status transition')) return 'That status change is not allowed from the current status. Refresh and check.';
   if (m.includes('safe public text') || m.includes('verified as safe')) return 'That text could not be verified as safe for public use. Use plain words only: no links, e-mail addresses, numbers runs, names or places.';
+  if (m.includes('linked after approval') || m.includes('no longer independent')) return 'Feedback was linked after approval, so the earlier approval no longer covers this publication. Save a new version; a different administrator must approve it.';
   if (m.includes('not approved')) return 'The latest draft version is not approved yet.';
   if (m.includes('only the latest')) return 'Only the latest draft version can be approved.';
   if (m.includes('already approved')) return 'That version is already approved.';

@@ -29,10 +29,17 @@ export default async function FeedbackIssue({ params, searchParams }: { params: 
       <p className="muted">A fixed template of allowlisted fields written in your own words. An edit is a NEW version and must be approved again by a different administrator. Nothing is sent anywhere from here.</p>
       {d ? <p>Latest version: {d.version} · {d.approved ? 'APPROVED' : 'not approved'}{d.author_is_me ? ' · you wrote it, so another administrator must approve it' : ''}</p> : <p className="muted">No draft yet.</p>}
       {d && !d.approved ? (
-        <form action={approveDraft}>
-          <input type="hidden" name="issue" value={issue.id} /><input type="hidden" name="version" value={d.version} /><input type="hidden" name="hash" value={d.hash} />
-          <button type="submit" disabled={d.author_is_me}>Approve version {d.version}</button>
-        </form>
+        <section aria-label="Draft awaiting review">
+          <h3>Exact text to review (version {d.version}, private to administrators)</h3>
+          <p className="muted">This is the complete title and body that would become public. An automatic check removes links, e-mail addresses, numbers runs, coordinates and unusual characters, but it cannot recognize a personal name or a street address. Reading it is the review.</p>
+          <p><strong>{d.title}</strong></p>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{d.body}</pre>
+          <form action={approveDraft}>
+            <input type="hidden" name="issue" value={issue.id} /><input type="hidden" name="version" value={d.version} /><input type="hidden" name="hash" value={d.hash} />
+            <label><input type="checkbox" name="reviewed" value="yes" required disabled={d.author_is_me} /> I read this exact text and it contains no personal information (names, places, accounts) or anything unsafe.</label>
+            <button type="submit" disabled={d.author_is_me}>Approve version {d.version}</button>
+          </form>
+        </section>
       ) : null}
       <form action={saveDraft}>
         <input type="hidden" name="issue" value={issue.id} />

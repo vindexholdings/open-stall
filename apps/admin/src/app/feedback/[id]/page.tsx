@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { NEXT_STATUS, STATUS_LABEL, feedbackAdminError, parseId, type Candidate, type Detail } from '@/lib/feedback';
+import { NEXT_STATUS, STATUS_LABEL, feedbackAdminError, parseCandidates, parseId, type Detail } from '@/lib/feedback';
 import { requireAdminSession } from '@/lib/requireAdmin';
 import { createIssue, linkDuplicate, setStatus } from '../actions';
 
@@ -15,7 +15,7 @@ export default async function FeedbackItem({ params, searchParams }: { params: P
   if (got.error) return (<main className="wrap"><h1>Feedback</h1><p role="alert">{feedbackAdminError(got.error)}</p><p><Link href="/feedback">Back to the list</Link></p></main>);
   const it = got.data as Detail;
   const cands = await db.rpc('admin_feedback_candidates', { p_id: id, p_limit: 5 });
-  const candidates = ((cands.data ?? []) as Candidate[]);
+  const found = parseCandidates(cands.data); const candidates = found.candidates;
   const next = NEXT_STATUS[it.status];
 
   return (
@@ -52,6 +52,7 @@ export default async function FeedbackItem({ params, searchParams }: { params: P
       ) : it.own ? <p className="muted">You cannot link your own feedback.</p> : (
         <>
           <h3>Possible duplicates (a hint for a person, never automatic)</h3>
+          <p className="muted">Compared with the {found.searched} most recent item(s) on this screen{found.complete ? '.' : ' only (the search is incomplete on a busy screen; an older duplicate can exist).'}</p>
           {candidates.length === 0 ? <p className="muted">None found on this screen.</p> : (
             <ul>
               {candidates.map((c) => (

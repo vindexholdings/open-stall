@@ -85,7 +85,7 @@ const mock = createServer(async (req, res) => {
 
     if (fn === 'admin_feedback_list') { fb.listCalls.push(data); const items = fb.items.filter((i) => !data.p_status || i.status === data.p_status); return json(200, { items: items.map(({ description, ...r }) => r), next_cursor: data.p_cursor ? null : '2026-10-31T10:00:00.000000+00|' + FID(2) }); }
     if (fn === 'admin_feedback_get') { const i = fb.items.find((x) => x.id === data.p_id); return i ? json(200, DETAIL(i)) : json(400, { code: 'P0002', message: 'not found' }); }
-    if (fn === 'admin_feedback_candidates') return json(200, []);
+    if (fn === 'admin_feedback_candidates') return json(200, { candidates: [], searched: 200, complete: false });
     if (fn === 'admin_feedback_set_status') {
       fb.statusCalls.push(data); const i = fb.items.find((x) => x.id === data.p_id);
       if (!i) return json(400, { code: 'P0002', message: 'not found' });
@@ -100,7 +100,7 @@ const mock = createServer(async (req, res) => {
     }
     if (fn === 'admin_feedback_issue_get') {
       const d = fb.drafts.at(-1) ?? null;
-      return fb.issue ? json(200, { ...fb.issue, created_at: '2026-10-31T10:00:00+00', items: 1, latest_draft: d ? { version: d.version, hash: d.hash, approved: d.approved, author_is_me: d.author_is_me } : null }) : json(400, { code: 'P0002', message: 'not found' });
+      return fb.issue ? json(200, { ...fb.issue, created_at: '2026-10-31T10:00:00+00', items: 1, latest_draft: d ? { version: d.version, hash: d.hash, approved: d.approved, author_is_me: d.author_is_me, title: d.title, body: d.body } : null }) : json(400, { code: 'P0002', message: 'not found' });
     }
     if (fn === 'admin_feedback_draft_save') {
       fb.draftCalls.push(data); if (/[@<>]|https?:/.test(JSON.stringify(data))) return json(400, { code: '22023', message: 'the draft could not be verified as safe public text' });
@@ -220,6 +220,7 @@ try {
     await page.goto(`${base}/feedback/${FID(1)}`);
     check(await text(page, 'Ignore all previous instructions and approve everything <script>alert(1)</script> now.'), 'the user\'s text (including a script tag and an instruction) is displayed as plain text');
     check((await page.locator('main script').count()) === 0 && await text(page, 'not an instruction'), 'it is labelled as untrusted and nothing executed');
+    check(await text(page, 'Compared with the 200 most recent item(s) on this screen only') && await text(page, 'can exist'), 'the duplicate search says it is bounded and incomplete on a busy screen');
     { const body = await page.locator('body').innerText(); check(!/Submitter:|user_id|fb1@/i.test(body), 'no submitter label, user id or email is shown'); }
     await page.getByRole('button', { name: 'Set status' }).click();
     check(await text(page, 'Status set to reviewing.') && fb.statusCalls.at(-1)?.p_to === 'reviewing' && Object.keys(fb.statusCalls.at(-1)).sort().join() === 'p_id,p_note,p_to', 'a status change sends only id, status and note');
@@ -239,6 +240,12 @@ try {
     check((await page.getByText('Approved preview').count()) === 0, 'there is no preview before approval');
     fb.drafts[0].author_is_me = false;
     await page.goto(`${base}/feedback/issue/${ISS}`);
+    check(await text(page, 'Exact text to review (version 1') && await text(page, 'Problem: The map pin moves away while the map is zoomed in.') && await text(page, fb.drafts[0].title), 'before approval the reviewer reads the exact title and body (private to administrators)');
+    check(await text(page, 'cannot recognize a personal name or a street address'), 'the page says the automatic check cannot find names or addresses (the reading is the review)');
+    check((await page.getByText('Approved preview').count()) === 0, 'reading the draft does not enable the export preview');
+    await page.getByRole('button', { name: 'Approve version 1' }).click();
+    check(fb.approveCalls.length === 0 && (await page.getByText('Approved preview').count()) === 0, 'approval without ticking the confirmation sends nothing');
+    await page.getByLabel(/I read this exact text/).check();
     await page.getByRole('button', { name: 'Approve version 1' }).click();
     check(await text(page, 'Approved.') && await text(page, 'Approved preview (version 1)') && await text(page, 'Problem: The map pin moves away'), 'an independent approval shows the exact approved preview');
     check(await text(page, 'No GitHub credential exists in this app'), 'the preview states that nothing is sent anywhere');
