@@ -84,5 +84,17 @@ eq "5: two simultaneous approvals leave one approval" "$(q "select count(*) from
 e1="$(err "$T/r5_1")"; e2="$(err "$T/r5_2")"
 ok "5: the loser was refused with 55000 (already approved)" "$( { [ "$e1" = "55000" ] && [ -z "$e2" ]; } || { [ "$e2" = "55000" ] && [ -z "$e1" ]; } && echo t || echo "e1=$e1 e2=$e2")"
 
+# 6. the approver's OWN feedback is linked at the same instant the approver approves: whichever wins, the publication must never be exportable
+U6="$(mkuser 6)"
+O6="$(mk "$U6" fb-appr-key-0000001 'Origin for the approval race' 'Origin item for the approve versus link race here.')"
+OWN="$(mk "$A2" fb-appr-key-0000002 'Approver own item text' 'This item was submitted by the approving administrator.')"
+IS6="$(adm "$A1" "((public.admin_feedback_create_issue('$O6', 'Issue for approval race', 'The canonical issue for the approve versus link race.'))->>'issue_id')")"
+adm "$A1" "((public.admin_feedback_draft_save('$IS6', 'Draft for the second race', 'bug', 'The problem statement for the second race test.'))->>'hash')" >/dev/null
+H6="$(q "select body_hash from feedback.drafts where issue_id = '$IS6' and version = 1")"
+race r6_ "$A2|aal2|select public.admin_feedback_draft_approve('$IS6', 1, '$H6')::text;" "$A3|aal2|select public.admin_feedback_link_duplicate('$OWN', '$IS6')::text;"
+sess "$A1" aal2 "select public.admin_feedback_export_preview('$IS6')::text;" | "${PSQL[@]}" -A -t -f - >"$T/r6x" 2>&1
+eq "6: after approve-versus-link, the export is refused (never a publication that covers the approver's own feedback)" "$(err "$T/r6x")" "55000"
+eq "6: the link itself succeeded exactly once" "$(q "select count(*) from feedback.item_links where item_id = '$OWN'")" "1"
+
 echo "f1_09: $FAILS failed"
 [ "$FAILS" -eq 0 ]

@@ -92,6 +92,7 @@ create table feedback.items (    -- RAW submission: private to its author and th
   unique (user_id, idempotency_key)
 );
 create index feedback_items_user_idx on feedback.items (user_id, created_at desc, id desc);
+create index feedback_items_screen_idx on feedback.items (screen, created_at desc, id desc);   -- bounded duplicate-candidate pool
 create index feedback_items_queue_idx on feedback.items (created_at, id);
 create index feedback_items_status_idx on feedback.items (status, created_at, id);
 create index feedback_items_tokens_idx on feedback.items using gin (tokens);
@@ -138,8 +139,9 @@ create table feedback.drafts (   -- immutable versions of a reviewer-authored, a
   approved_by uuid,
   approved_at timestamptz,
   approved_hash text,
+  approved_links text,   -- fingerprint of the linked item set at approval; a later link makes the approval ineligible
   unique (issue_id, version),
-  check ((approved_by is null) = (approved_at is null) and (approved_by is null) = (approved_hash is null))
+  check ((approved_by is null) = (approved_at is null) and (approved_by is null) = (approved_hash is null) and (approved_by is null) = (approved_links is null))
 );
 
 -- ---------------------------------------------------------------- guards (SECURITY INVOKER, fixed search_path, no client-settable input)
@@ -179,7 +181,7 @@ end $$;
 create function feedback.guard_drafts() returns trigger language plpgsql set search_path = '' as $$
 begin
   if tg_op = 'UPDATE' and old.approved_by is null and new.approved_by is not null
-     and (to_jsonb(new) - 'approved_by' - 'approved_at' - 'approved_hash') = (to_jsonb(old) - 'approved_by' - 'approved_at' - 'approved_hash')
+     and (to_jsonb(new) - 'approved_by' - 'approved_at' - 'approved_hash' - 'approved_links') = (to_jsonb(old) - 'approved_by' - 'approved_at' - 'approved_hash' - 'approved_links')
      and new.approved_hash = old.body_hash then return new;   -- the ONLY change: a one-time approval bound to this version's own hash
   end if;
   raise exception 'feedback.drafts is immutable (% refused); an edit is a new version', tg_op using errcode = '42501';
@@ -212,7 +214,7 @@ grant select, insert, update (external_number) on feedback.issues to feedback_ow
 grant select, insert, update (status, updated_at), delete on feedback.items to feedback_owner;
 grant select, insert, delete on feedback.status_history to feedback_owner;
 grant select, insert, delete on feedback.item_links to feedback_owner;
-grant select, insert, update (approved_by, approved_at, approved_hash) on feedback.drafts to feedback_owner;
+grant select, insert, update (approved_by, approved_at, approved_hash, approved_links) on feedback.drafts to feedback_owner;
 create policy owner_select on feedback.issues for select to feedback_owner using (true);
 create policy owner_insert on feedback.issues for insert to feedback_owner with check (true);
 create policy owner_update on feedback.issues for update to feedback_owner using (true) with check (true);

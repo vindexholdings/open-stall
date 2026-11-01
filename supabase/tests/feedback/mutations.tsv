@@ -11,14 +11,18 @@ fb_transitions_removed	fb_transitions	f1_05_triage.test.sql	kill
 fb_status_lock_removed	replace:from feedback.items where id = p_id for update;   -- the row lock serializes concurrent decisions on one item=>from feedback.items where id = p_id;	f1_09_concurrency.sh	kill
 fb_guard_cascade_only_removed	replace:pg_trigger_depth() >= 2=>true	f1_05_triage.test.sql	kill
 fb_item_content_guard_removed	replace:(to_jsonb(new) - 'status' - 'updated_at') is distinct from (to_jsonb(old) - 'status' - 'updated_at')=>false	f1_05_triage.test.sql	kill
-fb_candidates_cross_screen	replace:i.id <> r.id and i.screen = r.screen=>i.id <> r.id	f1_06_dedup_links.test.sql	kill
+fb_candidates_cross_screen	replace:where i.screen = r.screen and i.id <> r.id=>where i.id <> r.id	f1_06_dedup_links.test.sql	kill
 fb_draft_sanitize_removed	fb_draft_sanitize	f1_07_drafts.test.sql	kill
 fb_hash_bound_removed	fb_hash_bound	f1_07_drafts.test.sql	kill
 fb_independent_review_removed	fb_independent_review	f1_07_drafts.test.sql	kill
-fb_export_gate_removed	fb_export_gate	f1_07_drafts.test.sql	kill
+# fb_export_gate_removed is equivalent: approval presence is also refused by the approved_links revalidation; the gate stays as a readable first check
+fb_export_gate_removed	fb_export_gate	f1_07_drafts.test.sql	equivalent
 fb_cascade_to_restrict	replace:user_id uuid not null references auth.users (id) on delete cascade=>user_id uuid not null references auth.users (id) on delete restrict	f1_08_deletion.test.sql	kill
 fb_grant_client_table	append:grant select on feedback.items to authenticated;	f1_01_privileges_catalog.test.sql	kill
 fb_grant_anon_admin_rpc	append:grant execute on function public.admin_feedback_list(text, text, integer) to anon;	f1_01_privileges_catalog.test.sql	kill
 fb_rls_not_forced	append:alter table feedback.items no force row level security;	f1_01_privileges_catalog.test.sql	kill
 fb_owner_update_content	append:grant update (title) on feedback.items to feedback_owner;	f1_01_privileges_catalog.test.sql	kill
 fb_default_privilege	append:alter default privileges in schema feedback grant all on tables to authenticated;	f1_01_privileges_catalog.test.sql	kill
+fb_export_revalidate_removed	fb_export_revalidate	f1_10_corrections.test.sql	kill
+fb_pool_limit_removed	fb_pool_limit	f1_10_corrections.test.sql	kill
+fb_fingerprint_positions_lost	replace:'expected', ex, 'actual', ac, 'steps', st=>'text', concat_ws(chr(31), ex, ac, st)	f1_10_corrections.test.sql	kill

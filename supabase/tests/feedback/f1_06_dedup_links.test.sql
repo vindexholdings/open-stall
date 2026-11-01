@@ -12,8 +12,8 @@ select pg_temp.submit(:'u3'::uuid, pg_temp.key(4), 'Map pin jumps when zooming i
 
 -- candidates: same screen and two shared normalized title tokens; never across screens; never an automatic merge
 select pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_candidates(%L)::text', :'a'))::jsonb as ca \gset
-select pg_temp.ok(jsonb_array_length(:'ca'::jsonb) = 1 and (:'ca'::jsonb -> 0 ->> 'id') = :'b', 'the similar item on the same screen is a candidate');
-select pg_temp.ok(not (:'ca'::text ~* 'user_id|email') and (select array_agg(k order by k) from jsonb_object_keys(:'ca'::jsonb -> 0) k) = array['id', 'issue_id', 'kind', 'status', 'title'], 'a candidate carries no submitter identity');
+select pg_temp.ok(jsonb_array_length(:'ca'::jsonb -> 'candidates') = 1 and (:'ca'::jsonb -> 'candidates' -> 0 ->> 'id') = :'b', 'the similar item on the same screen is a candidate');
+select pg_temp.ok(not (:'ca'::text ~* 'user_id|email') and (select array_agg(k order by k) from jsonb_object_keys(:'ca'::jsonb -> 'candidates' -> 0) k) = array['id', 'issue_id', 'kind', 'status', 'title'], 'a candidate carries no submitter identity');
 select pg_temp.ok((select status from feedback.items where id = :'b'::uuid) = 'received' and not exists (select 1 from feedback.item_links), 'nothing was linked or merged automatically');
 select pg_temp.fails_as('authenticated', :'ad'::uuid, 'aal2', format('select public.admin_feedback_candidates(%L, 11)', :'a'), '22023', 'the candidate page size is bounded');
 
@@ -36,7 +36,7 @@ select pg_temp.fails_as('authenticated', :'ad'::uuid, 'aal2', format('select pub
 select pg_temp.ok((select status = 'received' from feedback.items where id = :'c'::uuid) and not exists (select 1 from feedback.item_links where item_id = :'c'::uuid), 'the refused link changed nothing');
 -- a duplicate is shown to its candidates list with its issue, an unrelated screen is not
 select pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_candidates(%L)::text', :'a'))::jsonb as cb \gset
-select pg_temp.ok((:'cb'::jsonb -> 0 ->> 'issue_id') = :'iss', 'candidates show the existing issue of a linked item');
+select pg_temp.ok((:'cb'::jsonb -> 'candidates' -> 0 ->> 'issue_id') = :'iss', 'candidates show the existing issue of a linked item');
 select pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_issue_get(%L)::text', :'iss'))::jsonb as ig \gset
 select pg_temp.ok((:'ig'::jsonb ->> 'items') = '2' and not (:'ig'::text ~* 'user_id|email|fb[0-9]@'), 'the issue lists how many items it covers, with no identities');
 -- issues are immutable and carry no submitter or raw text
