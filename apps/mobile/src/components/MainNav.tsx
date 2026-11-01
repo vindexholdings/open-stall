@@ -40,7 +40,7 @@ export function MainNav({ state, descriptors, navigation }: MainNavProps) {
         const content = (
           <>
             <View style={[styles.pill, focused && styles.pillOn]}><Icon name={ICON[route.name] ?? 'pin'} size={22} color={tint} inner={focused ? tiles.blue.bg : colors.surface} /></View>
-            <Text maxFontSizeMultiplier={1.3} style={labelStyle}>{label}</Text>
+            <Text style={labelStyle}>{label}</Text>
           </>
         );
         return isWeb ? (
@@ -105,7 +105,7 @@ export function PushedNav() {
         const content = (
           <>
             <View style={styles.pill}><Icon name={ICON[it.name] ?? 'pin'} size={22} color={colors.textMuted} inner={colors.surface} /></View>
-            <Text maxFontSizeMultiplier={1.3} style={[styles.label, { color: colors.textMuted }]}>{it.label}</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>{it.label}</Text>
           </>
         );
         return isWeb ? (
@@ -123,8 +123,10 @@ export function PushedNav() {
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  item: { flex: 1, minHeight: touchTarget.primary, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 6 },
+  // The bar GROWS with its content: items size to their label (never a fixed quarter of the width), and when the labels no longer
+  // fit one row (large text on a narrow screen) the items wrap onto a second row instead of overlapping or pushing the page sideways.
+  bar: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  item: { flexGrow: 1, flexShrink: 0, flexBasis: 'auto', minWidth: 72, maxWidth: '100%', minHeight: touchTarget.primary, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 6 },
   pill: { width: 56, height: 30, borderRadius: radii.pill, alignItems: 'center', justifyContent: 'center' },
   pillOn: { backgroundColor: tiles.blue.bg },
   label: { fontSize: typography.label.fontSize, lineHeight: typography.label.lineHeight, fontWeight: typography.label.fontWeight, textAlign: 'center' },

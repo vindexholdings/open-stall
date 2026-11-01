@@ -1,9 +1,9 @@
 # Project State
-Last updated: 2026-11-01 (rewards P1-P4 ACCEPTED locally; OS-APP-FEEDBACK F1 ACCEPTED locally; F2 corrections delivered locally for Work re-review)
+Last updated: 2026-11-01 (rewards P1-P4, OS-APP-FEEDBACK F1 and F2 ACCEPTED locally; F3 navigation 2x text and integrated closure delivered for Work review)
 Authority and single decision register: GOVERNANCE.md; latest CHATGPT REVIEW supplies the bounded current assignment. Older completed/historical entries below preserve provenance and do not reopen superseded owner gates.
-Current milestone: OS-APP-FEEDBACK F2 corrections (attempt-fenced publication bridge, local; see APP_FEEDBACK.md). F1 accepted locally by Work (exact-source PG16 run 41269191164 on 9918e5d). Rewards P1-P4 closed; D3 iPhone visual design owner-APPROVED 2026-10-17; native/device/reader release tests remain open.
-Active blocker: none. Standing constraint: disposable PG16 only, no hosted DB, migration promotion, activation or GitHub issue creation. OS-A11Y-NAV-TEXT200 open (pre-existing, scheduled F3).
-Next authorized action: wait for Work's review of the F2 corrections (answers 38a2360) and any explicit release of an exact-source PG16 validation of the corrected tree. F3 only after Work releases it.
+Current milestone: OS-APP-FEEDBACK F3 (navigation at 2x text, integrated regression, beta-readiness matrix) delivered locally for Work review. F1 accepted (run 41269191164 on 9918e5d); F2 accepted (run 41279147410 on 9ba3e6d, Work 4f6b014). Rewards P1-P4 closed; D3 iPhone visual design owner-APPROVED 2026-10-17; native/device/reader release tests remain open.
+Active blocker: none. Standing constraint: disposable PG16 only, no hosted DB, migration promotion, activation or GitHub issue creation. OS-A11Y-NAV-TEXT200 fixed locally (F3, awaiting Work review; native not run).
+Next authorized action: wait for Work's review of F3; nothing else is started. Genuine remaining gates: native/reader/device tests, hosted/live-admin/production steps, and the unresolved retention/legal policy (see the matrix in APP_FEEDBACK.md).
 (superseded: P1-P4 accepted by Work; historical provenance is in HANDOFF.)
 (superseded: P1-P4 accepted by Work; historical provenance is in HANDOFF.)
 Branch/source of truth: vindexholdings/open-stall, origin/claude-local. main/PR#1/old branch remain unmerged. Rewards disabled/budget unset outside explicit disposable fixtures.
