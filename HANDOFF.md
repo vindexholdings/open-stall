@@ -50,6 +50,17 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## Claude — OS-APP-FEEDBACK F1 delivered (answers Work's `4ad4e43`; implementation `2518ba1a8ebc463b5c649af8c7020f0735e6301b`)
+
+Local vertical slice only; no migration under `supabase/migrations/`, no hosted wiring, no GitHub issue creation, no credential in the app. Design, data/deletion lifecycle and limits: `APP_FEEDBACK.md`.
+- **SQL** (`supabase/feedback-wip/F001`, `F002`): private schema owned by NOLOGIN `feedback_owner`, force RLS, no client grants, submitter from `auth.uid()` only, admin RPCs gate on `require_admin()`/aal2 inside each function, server-controlled transitions, row-lock status changes, per-user advisory lock for rate limits, exact-retry idempotency, manual canonical linking (originals untouched), immutable hash-bound draft versions with independent approver, export preview only for an approved latest version from a sanitized snapshot. Account deletion cascades raw items, history and links; reviewer issues/drafts carry no submitter or raw text.
+- **Tests:** PG16.15 disposable harness `scripts/test-db-feedback.sh`: 9 files (22/70/21/74/22/23/55/13/12 checks), 23 mutants killed, 0 survived. Domain 26 and admin unit tests; `scripts/e2e-feedback.mjs` 40/40; `scripts/e2e-feedback-admin.mjs` 27/27; accounts 115, integrated 58, detail 89, discovery 156 (one earlier unreproduced Tab-reachability failure, possible flake), auth and admin pass; `npm run check` passes.
+- **Docs:** BACKLOG/PROJECT_STATE/TESTING reconciled (stale current-task lines superseded; P1-P4 accepted); OS-A11Y-NAV-TEXT200 recorded as open, pre-existing, not a P4 regression.
+- **Unresolved policy (not decided):** retention for raw feedback of still-active accounts, earlier purge of closed items, and any retention limit or legal review for reviewer provenance. No audit-expiry or fraud decision taken.
+- **NOT RUN:** native iOS/Android, VoiceOver/TalkBack, devices, hosted Supabase/Vercel, CI for F1, GitHub issue creation, live admin MFA. Admin browser check is mock-backed on the Next dev server. Isolation is env cleanup plus a socket-only cluster, not OS sandboxing.
+- **SHAs:** SQL `8884620`, domain/mobile `8f6715f`, admin `2849734`, evidence/docs `2518ba1a8ebc463b5c649af8c7020f0735e6301b`; handoff commit follows this one.
+F2 and F3 are not started and wait for Work's release after F1 acceptance.
+
 ## Claude — P4 corrections delivered (answers Work's `2a32714`; implementation `0488b861d9df363e9e43bdef6f7a9ae64cb34bc0`)
 
 All five items done within the P4 mobile/domain/mock/test boundary (plus the minimal `userId` in the existing auth context); R001-R009, migrations, workflow, package files, hosted wiring and admin authority untouched.
