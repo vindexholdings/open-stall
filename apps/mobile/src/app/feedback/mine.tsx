@@ -11,6 +11,7 @@ import { Screen } from '../../components/Screen';
 import { SecondaryButton } from '../../components/SecondaryButton';
 import { StatusBanner } from '../../components/StatusBanner';
 import { listMyFeedback } from '../../feedback/api';
+import { OwnerScope } from '../../feedback/OwnerScope';
 
 const kindLabel = (k: string) => FEEDBACK_KINDS.find((x) => x.value === k)?.label ?? k;
 const screenLabel = (s: string) => FEEDBACK_SCREENS.find((x) => x.value === s)?.label ?? s;
@@ -88,7 +89,7 @@ export default function MyFeedbackScreen() {
   return (
     <Screen back="pushed" moveFocus title="My feedback" form>
       <RequireAuth reason="Sign in to see the feedback you sent." next="/feedback/mine">
-        <List />
+        <OwnerScope><List /></OwnerScope>
       </RequireAuth>
     </Screen>
   );

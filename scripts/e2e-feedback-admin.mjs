@@ -177,8 +177,6 @@ const check = (ok, name, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} 
 const text = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false);
 const login = async (page, email) => { await page.goto(`${base}/signin`); await page.getByLabel('Email').fill(email); await page.getByLabel('Password').fill(PW); await page.getByRole('button', { name: 'Sign in' }).click(); };
 const loginAndWait = async (page, email) => { await login(page, email); await page.waitForURL((u) => !u.pathname.endsWith('/signin'), { timeout: 30000 }); };
-const locCalls = () => requests.filter((r) => /admin_(location_counts|list_locations|get_location|apply_location_review)$/.test(r.path));
-const listCalls = () => requests.filter((r) => r.path.endsWith('/admin_list_submissions'));
 
 try {
   await startMock();

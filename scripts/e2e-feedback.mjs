@@ -17,9 +17,13 @@ const ANON = 'mock-anon-key-not-real';
 const SHOTS = join(root, 'docs/evidence/feedback');
 const USER = { id: '11111111-2222-4333-8444-555555555555', email: 'user@test.dev', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' };
 const GOOD_PW = 'correct horse battery';
+const USER_B = { ...USER, id: '99999999-8888-4777-8666-555555555555', email: 'second@test.dev' };
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const JWT = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: USER.id, role: 'authenticated', exp: 4102444800 })}.sig`;
-const session = () => ({ access_token: JWT, token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'refresh-token-1', user: USER });
+const jwtFor = (u) => `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: u.id, role: 'authenticated', exp: 4102444800 })}.sig`;
+const JWT_B = jwtFor(USER_B);
+const session = (u = USER) => ({ access_token: jwtFor(u), token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: u === USER ? 'refresh-token-1' : 'refresh-token-2', user: u });
+const ownerOf = (auth) => { try { return JSON.parse(Buffer.from(String(auth).split('.')[1], 'base64url').toString()).sub ?? null; } catch { return null; } };
 function findChrome() {
   if (process.env.CHROME_BIN && existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
   const base = '/opt/pw-browsers';
@@ -30,9 +34,9 @@ function findChrome() {
 
 // ---------------------------------------------------------------- mock backend (synthetic, in memory)
 const OUTCOME = { received: 'We received this.', reviewing: 'A person is looking at this.', duplicate: 'This was already reported and is being tracked.', resolved: 'This was addressed.' };
-const store = { items: [], submits: [], failNext: null, loseNext: false, delayMs: 0 };
+const store = { items: [], submits: [], submitOwners: [], failNext: null, loseNext: false, delayMs: 0, listDelay: {}, getDelay: {} };
 const requests = [];
-const addItem = (o) => { const n = store.items.length + 1; const it = { id: `3f2b9c1e-8f55-4a52-9d3a-${String(n).padStart(12, '0')}`, kind: 'bug', screen: 'map', title: `Seed ${n}`, description: `Seeded description number ${n} here.`, status: 'received', created_at: `2026-10-${String(1 + (n % 28)).padStart(2, '0')}T10:00:00.${String(n).padStart(6, '0')}+00`, updated_at: '2026-10-31T10:00:00+00', ...o }; store.items.unshift(it); return it; };
+const addItem = (o) => { const n = store.items.length + 1; const it = { id: `3f2b9c1e-8f55-4a52-9d3a-${String(n).padStart(12, '0')}`, kind: 'bug', screen: 'map', title: `Seed ${n}`, description: `Seeded description number ${n} here.`, owner: USER.id, status: 'received', created_at: `2026-10-${String(1 + (n % 28)).padStart(2, '0')}T10:00:00.${String(n).padStart(6, '0')}+00`, updated_at: '2026-10-31T10:00:00+00', ...o }; store.items.unshift(it); return it; };
 const view = (i) => ({ id: i.id, kind: i.kind, screen: i.screen, title: i.title, status: i.status, outcome: OUTCOME[i.status] ?? '', created_at: i.created_at, updated_at: i.updated_at });
 const mock = createServer(async (req, res) => {
   const u = new URL(req.url, `http://127.0.0.1:${MOCK_PORT}`);
@@ -42,30 +46,34 @@ const mock = createServer(async (req, res) => {
   const data = body ? JSON.parse(body) : {};
   const json = (status, obj) => { res.writeHead(status, { 'content-type': 'application/json', ...cors }); res.end(JSON.stringify(obj)); };
   requests.push({ path: u.pathname, auth: req.headers.authorization ?? null, body: data });
-  if (u.pathname === '/auth/v1/token' && u.searchParams.get('grant_type') === 'password') return data.email === USER.email && data.password === GOOD_PW ? json(200, session()) : json(400, { error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
-  if (u.pathname === '/auth/v1/token') return json(200, session());
-  if (u.pathname === '/auth/v1/user') return json(200, USER);
+  if (u.pathname === '/auth/v1/token' && u.searchParams.get('grant_type') === 'password') { const acct = [USER, USER_B].find((x) => x.email === data.email); return acct && data.password === GOOD_PW ? json(200, session(acct)) : json(400, { error_code: 'invalid_credentials', msg: 'Invalid login credentials' }); }
+  if (u.pathname === '/auth/v1/token') return json(200, session(data.refresh_token === 'refresh-token-2' ? USER_B : USER));
+  if (u.pathname === '/auth/v1/user') return json(200, ownerOf(req.headers.authorization) === USER_B.id ? USER_B : USER);
   if (u.pathname === '/auth/v1/logout') { res.writeHead(204, cors); return res.end(); }
   if (u.pathname === '/rest/v1/rpc/nearby_locations' || u.pathname === '/rest/v1/rpc/nearest_verified_location') return json(200, []);
   if (u.pathname === '/rest/v1/rpc/get_my_profile') return json(200, [{ display_name: null, preferred_mode: 'plain', default_transport: 'walk', points_balance: 0 }]);
   if (u.pathname === '/rest/v1/rpc/submit_feedback') {
-    store.submits.push(data);
+    store.submits.push(data); const owner = ownerOf(req.headers.authorization); store.submitOwners.push(owner);
     if (store.delayMs) await new Promise((r) => setTimeout(r, store.delayMs));
     if (store.failNext) { const f = store.failNext; store.failNext = null; return json(f.status, { code: f.code, message: f.message }); }
-    const existing = store.items.find((i) => i.key === data.p_key);
-    const rec = existing ?? addItem({ key: data.p_key, kind: data.p_kind, screen: data.p_screen, title: data.p_title, description: data.p_description });
+    const existing = store.items.find((i) => i.key === data.p_key && i.owner === owner);
+    const rec = existing ?? addItem({ owner, key: data.p_key, kind: data.p_kind, screen: data.p_screen, title: data.p_title, description: data.p_description });
     if (store.loseNext) { store.loseNext = false; return req.socket.destroy(); } // recorded, but the answer is lost
     return json(200, { id: rec.id, status: rec.status, created_at: rec.created_at, replayed: Boolean(existing) });
   }
   if (u.pathname === '/rest/v1/rpc/list_my_feedback') {
-    const all = [...store.items].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const owner = ownerOf(req.headers.authorization);
+    if (store.listDelay[owner]) await new Promise((r) => setTimeout(r, store.listDelay[owner]));
+    const all = store.items.filter((i) => i.owner === owner).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     const after = data.p_cursor ? all.filter((i) => `${i.created_at}|${i.id}` < data.p_cursor) : all;
     const page = after.slice(0, data.p_limit);
     const last = page[page.length - 1];
     return json(200, { items: page.map(view), next_cursor: after.length > page.length && last ? `${last.created_at}|${last.id}` : null });
   }
   if (u.pathname === '/rest/v1/rpc/get_my_feedback') {
-    const it = store.items.find((i) => i.id === data.p_id);
+    const owner = ownerOf(req.headers.authorization);
+    if (store.getDelay[owner]) await new Promise((r) => setTimeout(r, store.getDelay[owner]));
+    const it = store.items.find((i) => i.id === data.p_id && i.owner === owner);
     if (!it) return json(400, { code: 'P0002', message: 'not found' });
     return json(200, { ...view(it), description: it.description, expected: null, actual: null, steps: null, frequency: null, impact: null, app_version: null, platform: 'web', timeline: [{ status: 'received', at: it.created_at }, ...(it.status !== 'received' ? [{ status: it.status, at: it.updated_at }] : [])] });
   }
@@ -104,9 +112,9 @@ const newPage = async ({ width = 390, height = 844 } = {}) => {
 };
 const text = (page, t) => page.getByText(t, { exact: false }).filter({ visible: true }).first().waitFor({ state: 'visible' }).then(() => true, () => false);
 const button = (page, name) => page.getByRole('button', { name, exact: true });
-async function signIn(page, next) {
+async function signIn(page, next, who = USER) {
   await page.goto(`${base}/auth/sign-in?next=${encodeURIComponent(next)}`);
-  await page.getByLabel('Email', { exact: true }).fill(USER.email); await page.getByLabel('Password', { exact: true }).fill(GOOD_PW);
+  await page.getByLabel('Email', { exact: true }).fill(who.email); await page.getByLabel('Password', { exact: true }).fill(GOOD_PW);
   await button(page, 'Sign in').click();
 }
 const feedbackReqs = (fn) => requests.filter((r) => r.path.endsWith(`/${fn}`));
@@ -262,10 +270,154 @@ try {
     await ctx.close();
   }
 
+  // ================= G. account identity: direct A -> B replacement, delayed answers, logout/login, same-account refresh (real rendered screens)
+  {
+    const swapTo = (page, sess) => page.evaluate(({ sess: ss }) => {
+      const key = Object.keys(localStorage).find((k) => /^sb-.*-auth-token$/.test(k));
+      if (!key) return false;
+      localStorage.setItem(key, JSON.stringify(ss));
+      new BroadcastChannel(key).postMessage({ event: 'SIGNED_IN', session: ss });
+      return true;
+    }, { sess });
+    const watch = (page, re) => page.evaluate((src) => { window.__leak = false; const rx = new RegExp(src); new MutationObserver(() => { if (rx.test(document.body.innerText)) window.__leak = true; }).observe(document.body, { subtree: true, childList: true, characterData: true }); }, re.source);
+    const leaked = (page) => page.evaluate(() => window.__leak);
+    store.items = [];
+    addItem({ owner: USER.id, title: 'AlphaPrivateTitle one', description: 'AlphaPrivateDescription never for B.' });
+    addItem({ owner: USER.id, title: 'AlphaPrivateTitle two', description: 'More AlphaPrivateDescription never for B.' });
+    const aDetail = store.items[0].id;
+    addItem({ owner: USER_B.id, title: 'BetaOwnTitle', description: 'BetaOwnDescription belongs to B.' });
+    const A_RE = /AlphaPrivate/;
+
+    // G1. list: ready A, then a DELAYED B answer
+    {
+      const { ctx, page } = await newPage();
+      await signIn(page, '/feedback/mine'); await text(page, 'AlphaPrivateTitle one');
+      store.listDelay[USER_B.id] = 3500;
+      await watch(page, A_RE);
+      check(await swapTo(page, session(USER_B)), 'G1: the stored session was replaced by B\'s with NO signed-out step (a second tab signing in)');
+      await page.waitForTimeout(600);
+      { const body = await page.locator('body').innerText();
+        check(!A_RE.test(body) && /Loading your feedback/.test(body) && !/Show more/.test(body), 'G1: while B\'s answer is pending A\'s titles, statuses, pagination and errors are already gone', body.slice(0, 160)); }
+      check(await text(page, 'BetaOwnTitle') && !(await leaked(page)), 'G1: B then sees only B\'s feedback, and no A text was ever rendered after the replacement (observed continuously)');
+      check(feedbackReqs('list_my_feedback').some((q) => q.auth === `Bearer ${JWT_B}`) && Object.keys(feedbackReqs('list_my_feedback').at(-1).body).sort().join() === 'p_cursor,p_limit', 'G1: B\'s request used B\'s token and carries no identity parameter');
+      delete store.listDelay[USER_B.id];
+      await ctx.close();
+    }
+    // G2. a LATE answer for A can never replace B's list
+    {
+      store.listDelay[USER.id] = 3500;
+      const { ctx, page } = await newPage();
+      await signIn(page, '/feedback/mine');
+      await page.waitForTimeout(500); // A's list request is in flight
+      await watch(page, A_RE);
+      await swapTo(page, session(USER_B));
+      check(await text(page, 'BetaOwnTitle'), 'G2: B\'s list is shown while A\'s answer is still pending');
+      await page.waitForTimeout(3600); // A's late answer arrives now
+      { const body = await page.locator('body').innerText();
+        check(!A_RE.test(body) && /BetaOwnTitle/.test(body) && !(await leaked(page)), 'G2: A\'s late list answer never replaces or joins B\'s list'); }
+      delete store.listDelay[USER.id];
+      await ctx.close();
+    }
+    // G3. detail: owner AND id; B asking for A's id gets "not found", never A's text
+    {
+      const { ctx, page } = await newPage();
+      await signIn(page, `/feedback/${aDetail}`); await text(page, 'AlphaPrivateDescription');
+      await watch(page, A_RE);
+      await swapTo(page, session(USER_B));
+      check(await text(page, 'couldn’t find') || await text(page, 'not found') || await text(page, 'Try again'), 'G3: after A -> B on a detail screen B gets the not-found state for A\'s item');
+      check(!(await leaked(page)) && !A_RE.test(await page.locator('body').innerText()), 'G3: A\'s private text is never shown to B (observed continuously)');
+      await ctx.close();
+    }
+    // G3b. a late DETAIL answer for A never shows for B
+    {
+      store.getDelay[USER.id] = 3500;
+      const { ctx, page } = await newPage();
+      await signIn(page, `/feedback/${aDetail}`);
+      await page.waitForTimeout(500);
+      await watch(page, A_RE);
+      await swapTo(page, session(USER_B));
+      await page.waitForTimeout(3800);
+      check(!(await leaked(page)) && !A_RE.test(await page.locator('body').innerText()), 'G3b: A\'s late detail answer never renders for B');
+      delete store.getDelay[USER.id];
+      await ctx.close();
+    }
+    // G4. the form: A's unsent draft, A's uncertain retry and A's in-flight send never reach or appear for B
+    {
+      const { ctx, page } = await newPage();
+      await signIn(page, '/feedback');
+      await fillGood(page, { title: 'AlphaDraftTitle unsent', description: 'AlphaDraftDescription typed by A but never sent.' });
+      const sent0 = store.submits.length;
+      await swapTo(page, session(USER_B));
+      await page.waitForTimeout(500);
+      check((await page.getByLabel('Short title', { exact: true }).inputValue()) === '' && (await page.getByLabel('What happened or what is your idea?', { exact: true }).inputValue()) === '', 'G4: after A -> B the form is empty (A\'s unsent draft is gone)');
+      await button(page, 'Send feedback').click();
+      check(store.submits.length === sent0 && await text(page, 'Choose'), 'G4: sending under B with nothing typed sends NOTHING (A\'s draft cannot be submitted as B)');
+      await ctx.close();
+    }
+    {
+      // A's send is lost (uncertain): the retry key is A's. After A -> B a fresh form sends B's own content under a NEW key, as B.
+      store.loseNext = true;
+      const { ctx, page } = await newPage();
+      await signIn(page, '/feedback');
+      await fillGood(page, { title: 'AlphaUncertainTitle sent', description: 'AlphaUncertainDescription was sent by A and lost.' });
+      await button(page, 'Send feedback').click();
+      check(await text(page, 'couldn’t confirm'), 'G4b: A\'s lost answer shows the retry notice');
+      const keyA = store.submits.at(-1).p_key;
+      await swapTo(page, session(USER_B));
+      await page.waitForTimeout(500);
+      check(!(await text(page, 'couldn’t confirm')) || (await page.getByText('couldn’t confirm').filter({ visible: true }).count()) === 0, 'G4b: B does not see A\'s retry notice');
+      await fillGood(page, { title: 'BetaFormTitle sent', description: 'BetaFormDescription sent by the second account.' });
+      await button(page, 'Send feedback').click();
+      await text(page, 'Thank you');
+      const last = store.submits.at(-1);
+      check(last.p_key !== keyA && store.submitOwners.at(-1) === USER_B.id && last.p_title === 'BetaFormTitle sent', 'G4b: B\'s send uses a NEW retry key, B\'s own content and B\'s token (A\'s key never reused)');
+      check(!store.items.some((i) => i.owner === USER_B.id && /AlphaUncertain/.test(i.title)), 'G4b: nothing of A\'s content was stored under B');
+      await ctx.close();
+    }
+    {
+      // A's send is IN FLIGHT when B takes over: B must not see A's "Thank you", and B's form is fresh
+      store.delayMs = 3000;
+      const { ctx, page } = await newPage();
+      await signIn(page, '/feedback');
+      await fillGood(page, { title: 'AlphaSlowTitle sent', description: 'AlphaSlowDescription in flight while B arrives.' });
+      await button(page, 'Send feedback').click();
+      await page.waitForTimeout(700);
+      await swapTo(page, session(USER_B));
+      await page.waitForTimeout(3600);
+      store.delayMs = 0;
+      check(!(await text(page, 'We received your feedback')) , 'G4c: A\'s late send success never shows in B\'s screen');
+      check(store.submitOwners.at(-1) === USER.id && (await page.getByLabel('Short title', { exact: true }).inputValue()) === '', 'G4c: the send went out as A only, and B\'s form is empty');
+      await ctx.close();
+    }
+    // G5. same-account refresh: no reset, no fetch storm
+    {
+      const { ctx, page } = await newPage();
+      await signIn(page, '/feedback');
+      await fillGood(page, { title: 'AlphaKeepTitle kept', description: 'AlphaKeepDescription stays after a token refresh.' });
+      const listBefore = feedbackReqs('list_my_feedback').length;
+      await swapTo(page, session(USER));
+      await page.waitForTimeout(800);
+      check((await page.getByLabel('Short title', { exact: true }).inputValue()) === 'AlphaKeepTitle kept', 'G5: a same-account session refresh keeps the draft (no reset)');
+      check(feedbackReqs('list_my_feedback').length === listBefore, 'G5: and makes no new feedback request');
+      await ctx.close();
+    }
+    // G6. logout then login as B: nothing of A
+    {
+      const { ctx, page } = await newPage();
+      await signIn(page, '/feedback/mine'); await text(page, 'AlphaPrivateTitle one');
+      await watch(page, A_RE);
+      await page.evaluate(() => { const key = Object.keys(localStorage).find((k) => /^sb-.*-auth-token$/.test(k)); if (key) { localStorage.removeItem(key); new BroadcastChannel(key).postMessage({ event: 'SIGNED_OUT', session: null }); } });
+      check(await text(page, 'Sign in to see the feedback you sent') && !A_RE.test(await page.locator('body').innerText()), 'G6: after sign-out none of A\'s feedback remains on screen');
+      await signIn(page, '/feedback/mine', USER_B);
+      check(await text(page, 'BetaOwnTitle') && !(await leaked(page)), 'G6: signing in as B shows only B\'s feedback');
+      await ctx.close();
+    }
+  }
+
   // ================= privacy and boundaries
   {
     const all = requests.filter((r) => r.path.includes('/feedback') || /_feedback$/.test(r.path));
-    check(all.every((r) => r.auth === `Bearer ${JWT}`), 'privacy: every feedback request carried the signed-in token only');
+    check(all.every((r) => r.auth === `Bearer ${JWT}` || r.auth === `Bearer ${JWT_B}`), 'privacy: every feedback request carried a signed-in user token only (never anon)');
     check(!requests.some((r) => /nearby_locations/.test(r.path) && r.auth === `Bearer ${JWT}`), 'regression: public discovery reads never carry the user token');
     check(external.length === 0, 'the app made no request outside the local mock', external.slice(0, 3).join(', '));
   }

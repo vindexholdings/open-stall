@@ -6,7 +6,7 @@ import { colors, spacing, typography } from '@open-stall/ui';
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../auth/AuthProvider';
 import { RequireAuth } from '../../auth/RequireAuth';
@@ -18,6 +18,7 @@ import { SecondaryButton } from '../../components/SecondaryButton';
 import { StatusBanner } from '../../components/StatusBanner';
 import { TextField } from '../../components/TextField';
 import { submitFeedback } from '../../feedback/api';
+import { OwnerScope } from '../../feedback/OwnerScope';
 
 const diagnostics = feedbackDiagnostics(Platform.OS, Constants.expoConfig?.version);
 
@@ -30,6 +31,8 @@ function Form() {
   const [failure, setFailure] = useState<{ message: string; uncertain: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const alive = useRef(true); // false once this account's form is gone (account change, sign-out, leaving): nothing may be sent after that
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const keyRef = useRef<string | null>(null); // the retry key of THIS content: an exact retry reuses it; any edit starts a new one
   const set = <K extends keyof FeedbackDraft>(k: K, v: FeedbackDraft[K]) => { setD((x) => ({ ...x, [k]: v })); keyRef.current = null; setErrors((e) => e.filter((x) => x.field !== k)); };
   const err = (f: keyof FeedbackDraft) => errors.find((e) => e.field === f)?.message ?? null;
@@ -54,7 +57,10 @@ function Form() {
     setBusy(true);
     try {
       keyRef.current ??= newFeedbackKey(Array.from(await Crypto.getRandomBytesAsync(20), (b) => b.toString(16).padStart(2, '0')).join(''));
+      // the awaits above must never let this form's content go out under whoever is signed in NOW
+      if (!alive.current) return;
       const r = await submitFeedback(rpc, d, diagnostics, keyRef.current);
+      if (!alive.current) return;
       if (r.ok) setDone(true);
       else setFailure({ message: r.uncertain ? 'We couldn’t confirm that your feedback was sent. It is safe to try again: it will not be sent twice.' : r.message, uncertain: r.uncertain });
     } finally {
@@ -102,7 +108,7 @@ export default function FeedbackScreen() {
   return (
     <Screen back="pushed" moveFocus title="Send app feedback" form>
       <RequireAuth reason="Sign in to send feedback, so we can show you what happens to it. Finding restrooms never needs an account." next="/feedback">
-        <Form />
+        <OwnerScope><Form /></OwnerScope>
       </RequireAuth>
       <SecondaryButton label="My feedback" onPress={() => router.push('/feedback/mine')} />
     </Screen>

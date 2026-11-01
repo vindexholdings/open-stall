@@ -10,6 +10,7 @@ import { Section } from '../../components/Section';
 import { SecondaryButton } from '../../components/SecondaryButton';
 import { StatusBanner } from '../../components/StatusBanner';
 import { getMyFeedback } from '../../feedback/api';
+import { OwnerScope } from '../../feedback/OwnerScope';
 
 function Field({ label, value }: { label: string; value: string | null }) {
   return value ? (<View style={styles.field}><Text style={styles.label}>{label}</Text><Text style={styles.body}>{value}</Text></View>) : null;
@@ -67,7 +68,7 @@ export default function FeedbackDetailScreen() {
   return (
     <Screen back="pushed" moveFocus title="Your feedback" form>
       {id ? (
-        <RequireAuth reason="Sign in to see your feedback." next={`/feedback/${id}`}><Detail key={id} id={id} /></RequireAuth>
+        <RequireAuth reason="Sign in to see your feedback." next={`/feedback/${id}`}><OwnerScope scope={id}><Detail id={id} /></OwnerScope></RequireAuth>
       ) : (
         <StatusBanner tone="warning" title="We couldn’t find that feedback." />
       )}
