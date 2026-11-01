@@ -12,12 +12,12 @@ select pg_temp.ok(not has_schema_privilege('anon', 'feedback', 'usage') and not 
               and not has_schema_privilege('anon', 'feedback', 'create') and not has_schema_privilege('authenticated', 'feedback', 'create') and has_schema_privilege('feedback_owner', 'feedback', 'usage'), 'schema feedback: only feedback_owner can use it; no client role can use or create in it');
 -- tables: exactly five, owned by feedback_owner, row security enabled AND forced
 select pg_temp.ok((select array_agg(c.relname::text order by c.relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'feedback' and c.relkind in ('r', 'p', 'v', 'm', 'f'))
-                  = array['drafts', 'issues', 'item_links', 'items', 'status_history'], 'exactly five tables exist in the feedback schema (no view, no foreign table)');
+                  = array['drafts', 'issues', 'item_links', 'items', 'publication_events', 'publications', 'status_history'], 'exactly seven tables exist in the feedback schema (no view, no foreign table)');
 select pg_temp.ok((select bool_and(pg_get_userbyid(c.relowner) = 'feedback_owner' and c.relrowsecurity and c.relforcerowsecurity) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'feedback' and c.relkind = 'r'),
                   'every table is owned by feedback_owner with row security enabled and FORCED');
-select pg_temp.ok((select count(*) = 16 from pg_policy p join pg_class c on c.oid = p.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'feedback')
+select pg_temp.ok((select count(*) = 21 from pg_policy p join pg_class c on c.oid = p.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'feedback')
               and not exists (select 1 from pg_policy p join pg_class c on c.oid = p.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'feedback'
-                                and not (p.polroles = array[(select oid from pg_roles where rolname = 'feedback_owner')])), 'exactly 16 policies, every one for feedback_owner only');
+                                and not (p.polroles = array[(select oid from pg_roles where rolname = 'feedback_owner')])), 'exactly 21 policies, every one for feedback_owner only');
 select pg_temp.ok(not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace, aclexplode(c.relacl) a where n.nspname = 'feedback' and c.relkind = 'r'
                                 and (a.grantee = 0 or a.grantee <> (select oid from pg_roles where rolname = 'feedback_owner') and a.grantee <> c.relowner)), 'no table is granted to PUBLIC or to any role other than the owner');
 select pg_temp.ok((select array_agg(a.attname::text order by a.attname) from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
@@ -26,12 +26,12 @@ select pg_temp.ok((select array_agg(a.attname::text order by a.attname) from pg_
                     where n.nspname = 'feedback' and c.relname = 'drafts' and a.attacl is not null and exists (select 1 from aclexplode(a.attacl) x where x.privilege_type = 'UPDATE')) = array['approved_at', 'approved_by', 'approved_hash', 'approved_links'], 'drafts: UPDATE is granted on the approval columns only');
 -- functions in the private schema: nothing executable by a client role
 select pg_temp.ok((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'feedback')
-                  = array['export_block', 'guard_append_only', 'guard_drafts', 'guard_issues', 'guard_item_links', 'guard_items', 'guard_truncate', 'link_set', 'nz', 'outcome', 'page_cursor', 'safe_public_text', 'sha', 'text_ok', 'tokens', 'transition_ok'], 'exactly 16 functions exist in the feedback schema');
+                  = array['export_block', 'guard_append_only', 'guard_drafts', 'guard_issues', 'guard_item_links', 'guard_items', 'guard_publications', 'guard_truncate', 'link_set', 'nz', 'outcome', 'page_cursor', 'pub_body', 'pub_expected_hash', 'pub_guard_actor', 'pub_json', 'pub_marker', 'pub_transition_ok', 'safe_public_text', 'sha', 'text_ok', 'tokens', 'transition_ok'], 'exactly 23 functions exist in the feedback schema');
 select pg_temp.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace, unnest(array['anon', 'authenticated', 'service_role']) r where n.nspname = 'feedback' and has_function_privilege(r, p.oid, 'execute')), 'no client role can execute anything in the feedback schema');
 -- the public entry points
 create temp table _pub as select p.oid, p.proname, p.prosecdef, pg_get_userbyid(p.proowner) as owner, p.proconfig, p.prosrc
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and (p.proname in ('submit_feedback', 'list_my_feedback', 'get_my_feedback') or p.proname like 'admin\_feedback\_%');
-select pg_temp.ok((select count(*) = 13 from _pub), 'exactly 13 public feedback entry points (3 submitter + 10 administrator)');
+select pg_temp.ok((select count(*) = 17 from _pub), 'exactly 17 public feedback entry points (3 submitter + 14 administrator)');
 select pg_temp.ok((select bool_and(prosecdef and owner = 'feedback_owner' and proconfig @> array['search_path=""']) from _pub), 'every entry point is SECURITY DEFINER, owned by feedback_owner, with an empty search_path');
 select pg_temp.ok((select bool_and(has_function_privilege('authenticated', oid, 'execute') and not has_function_privilege('anon', oid, 'execute') and not has_function_privilege('service_role', oid, 'execute')
                                    and not has_function_privilege('public', oid, 'execute')) from _pub), 'every entry point: EXECUTE for authenticated only (not anon, service_role or PUBLIC)');
@@ -50,7 +50,7 @@ do $$
 declare r text; t text; v text; q text; refused boolean; st text; u uuid := pg_temp.f('u1')::uuid;
 begin
   foreach r in array array['anon', 'authenticated', 'service_role'] loop
-    foreach t in array array['issues', 'items', 'status_history', 'item_links', 'drafts'] loop
+    foreach t in array array['issues', 'items', 'status_history', 'item_links', 'drafts', 'publications', 'publication_events'] loop
       foreach v in array array['select', 'insert', 'update', 'delete', 'truncate'] loop
         q := case v when 'select' then format('select * from feedback.%I', t) when 'insert' then format('insert into feedback.%I default values', t)
                     when 'update' then format('update feedback.%I set created_at = now()', t) when 'delete' then format('delete from feedback.%I', t) else format('truncate feedback.%I', t) end;
@@ -63,5 +63,5 @@ begin
   end loop;
 end $$;
 select pg_temp.setf('u1', :'u1');
-select pg_temp.ok((select count(*) = 75 and bool_and(refused) from _m), 'executed matrix: 75 of 75 direct statements (3 roles x 5 tables x 5 verbs) are refused with 42501');
+select pg_temp.ok((select count(*) = 105 and bool_and(refused) from _m), 'executed matrix: 105 of 105 direct statements (3 roles x 7 tables x 5 verbs) are refused with 42501');
 select pg_temp.finish();

@@ -23,7 +23,12 @@ sess() { # <sub> <aal> <sql>
 }
 race() { # <outfile-prefix> then pairs: sub|aal|sql ... ; starts all sessions blocked on the gate, then releases them together
   local pfx="$1"; shift
-  "${PSQL[@]}" -A -t -c "select pg_advisory_lock(8771)" -c "select pg_sleep(1.5)" -c "select pg_advisory_unlock(8771)" >"$T/gate" 2>&1 &
+  local n=$#
+  # The gate is released only when EVERY session is actually blocked on it (not after a fixed delay), so a slow machine can never serialize the race
+  # by accident; a 20 s cap keeps a broken session from hanging the test.
+  "${PSQL[@]}" -A -t -c "select pg_advisory_lock(8771)" \
+    -c "do \$\$ begin for i in 1..200 loop exit when (select count(*) from pg_locks where locktype = 'advisory' and objid = 8771 and not granted) >= $n; perform pg_sleep(0.1); end loop; end \$\$" \
+    -c "select pg_advisory_unlock(8771)" >"$T/gate" 2>&1 &
   local gp=$!; sleep 0.4
   local i=0 pids=() spec
   for spec in "$@"; do
@@ -95,6 +100,41 @@ race r6_ "$A2|aal2|select public.admin_feedback_draft_approve('$IS6', 1, '$H6'):
 sess "$A1" aal2 "select public.admin_feedback_export_preview('$IS6')::text;" | "${PSQL[@]}" -A -t -f - >"$T/r6x" 2>&1
 eq "6: after approve-versus-link, the export is refused (never a publication that covers the approver's own feedback)" "$(err "$T/r6x")" "55000"
 eq "6: the link itself succeeded exactly once" "$(q "select count(*) from feedback.item_links where item_id = '$OWN'")" "1"
+
+# 7. F2 publication: two administrators BEGIN the same ready publication at once: exactly one packet is issued
+U7="$(mkuser 7)"
+O7="$(mk "$U7" fb-pub-key-0000001 'Origin for the publication race' 'Origin item for the publication begin race here.')"
+IS7="$(adm "$A1" "((public.admin_feedback_create_issue('$O7', 'Issue for publication race', 'The canonical issue for the publication race test.'))->>'issue_id')")"
+D7="$(adm "$A1" "((public.admin_feedback_draft_save('$IS7', 'Draft for the publication race', 'bug', 'The problem statement for the publication race test.'))->>'hash')")"
+adm "$A2" "((public.admin_feedback_draft_approve('$IS7', 1, '$D7'))->>'approved')" >/dev/null
+race r7a_ "$A3|aal2|select public.admin_feedback_publication_request('$IS7')::text;" "$A3|aal2|select public.admin_feedback_publication_request('$IS7')::text;"
+eq "7: two simultaneous requests leave exactly one publication row" "$(q "select count(*) from feedback.publications where issue_id = '$IS7'")" "1"
+eq "7: and both requests succeeded" "$(err "$T/r7a_1")$(err "$T/r7a_2")" ""
+race r7_ "$A3|aal2|select public.admin_feedback_publication_begin('$IS7')::text;" "$A3|aal2|select public.admin_feedback_publication_begin('$IS7')::text;"
+e1="$(err "$T/r7_1")"; e2="$(err "$T/r7_2")"
+ok "7: exactly one of two simultaneous begins issued a packet; the other was refused 55000" "$( { [ "$e1" = "55000" ] && [ -z "$e2" ]; } || { [ "$e2" = "55000" ] && [ -z "$e1" ]; } && echo t || echo "e1=$e1 e2=$e2")"
+eq "7: the publication counted exactly one attempt" "$(q "select attempts from feedback.publications where issue_id = '$IS7'")" "1"
+
+# 8. two simultaneous reports of the SAME verified result: one publishes, the other finds no transfer awaiting
+MK7="$(q "select marker from feedback.publications where issue_id = '$IS7'")"; EH7="$(q "select expected_hash from feedback.publications where issue_id = '$IS7'")"
+REP="select public.admin_feedback_publication_report('$IS7', 'found', 'vindexholdings/open-stall', 41, 'https://github.com/vindexholdings/open-stall/issues/41', '$MK7', '$EH7')::text;"
+race r8_ "$A3|aal2|$REP" "$A2|aal2|$REP"
+e1="$(err "$T/r8_1")"; e2="$(err "$T/r8_2")"
+ok "8: exactly one report published; the other was refused 55000" "$( { [ "$e1" = "55000" ] && [ -z "$e2" ]; } || { [ "$e2" = "55000" ] && [ -z "$e1" ]; } && echo t || echo "e1=$e1 e2=$e2")"
+eq "8: one published mapping with one event" "$(q "select count(*) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS7' and e.detail = 'published'")" "1"
+
+# 9. a LINK races a BEGIN on a ready publication: never a packet for a snapshot whose eligibility was already revoked
+U9="$(mkuser 9)"; U10="$(mkuser 10)"
+O9="$(mk "$U9" fb-pub-key-0000009 'Origin for the link race' 'Origin item for the begin versus link race here.')"
+L9="$(mk "$U10" fb-pub-key-0000010 'Item linked during the race' 'This item is linked while a transfer begins.')"
+IS9="$(adm "$A1" "((public.admin_feedback_create_issue('$O9', 'Issue for the link race', 'The canonical issue for the begin versus link race.'))->>'issue_id')")"
+D9="$(adm "$A1" "((public.admin_feedback_draft_save('$IS9', 'Draft for the link race', 'bug', 'The problem statement for the begin versus link race.'))->>'hash')")"
+adm "$A2" "((public.admin_feedback_draft_approve('$IS9', 1, '$D9'))->>'approved')" >/dev/null
+adm "$A3" "((public.admin_feedback_publication_request('$IS9'))->>'status')" >/dev/null
+race r9_ "$A3|aal2|select public.admin_feedback_publication_begin('$IS9')::text;" "$A2|aal2|select public.admin_feedback_link_duplicate('$L9', '$IS9')::text;"
+ST9="$(q "select status from feedback.publications where issue_id = '$IS9'")"; EV9="$(q "select count(*) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS9' and e.detail = 'transfer_started'")"
+ok "9: after a begin/link race either the begin won first (awaiting_transfer, packet issued BEFORE the link) or the link won (still ready, no packet issued)" "$( { [ "$ST9" = "awaiting_transfer" ] && [ "$EV9" = "1" ]; } || { [ "$ST9" = "ready" ] && [ "$EV9" = "0" ] && [ "$(err "$T/r9_1")" = "55000" ]; } && echo t || echo "st=$ST9 ev=$EV9")"
+eq "9: the link itself succeeded exactly once" "$(q "select count(*) from feedback.item_links where item_id = '$L9'")" "1"
 
 echo "f1_09: $FAILS failed"
 [ "$FAILS" -eq 0 ]

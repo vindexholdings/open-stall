@@ -25,3 +25,18 @@ fb_export_revalidate_removed	fb_export_revalidate	f1_10_corrections.test.sql	kil
 fb_pool_limit_removed	fb_pool_limit	f1_10_corrections.test.sql	kill
 fb_fingerprint_positions_lost	replace:'expected', ex, 'actual', ac, 'steps', st=>'text', concat_ws(chr(31), ex, ac, st)	f1_10_corrections.test.sql	kill
 fb_export_unapproved_allowed	replace:if blk = 'unapproved' then raise exception 'the latest draft version is not approved' using errcode = '55000'; end if;=>	f1_07_drafts.test.sql	kill
+fb_pub_eligibility_removed	fb_pub_eligibility	f1_11_publication.test.sql	kill
+fb_pub_actor_removed	fb_pub_actor	f1_11_publication.test.sql	kill
+fb_pub_stale_removed	fb_pub_stale	f1_11_publication.test.sql	kill
+fb_pub_verify_removed	fb_pub_verify	f1_11_publication.test.sql	kill
+fb_pub_verify_always_true	replace:ok := p_repo is not distinct from 'vindexholdings/open-stall'=>ok := true or p_repo is not distinct from 'vindexholdings/open-stall'	f1_11_publication.test.sql	kill
+fb_pub_repo_unchecked	replace:ok := p_repo is not distinct from 'vindexholdings/open-stall'=>ok := p_repo is not null	f1_11_publication.test.sql	kill
+fb_pub_mapping_overwritable	replace:if old.issue_number is not null and (new.issue_number=>if false and (new.issue_number	f1_11_publication.test.sql	kill
+fb_pub_number_check_removed	replace:and not exists (select 1 from feedback.publications o where o.issue_number = p_number and o.id <> p.id);=>;	f1_11_publication.test.sql	kill
+fb_pub_transition_unchecked	replace:if new.status is distinct from old.status and not feedback.pub_transition_ok(old.status, new.status) then=>if false then	f1_11_publication.test.sql	kill
+fb_pub_begin_state_unchecked	replace:if p.status <> 'ready' then raise exception 'this publication is not ready to transfer (%)', p.status using errcode = '55000'; end if;=>	f1_11_publication.test.sql	kill
+fb_pub_report_state_unchecked	replace:if p.status not in ('awaiting_transfer', 'uncertain', 'conflict') then raise exception 'no transfer is awaiting a result (%)', p.status using errcode = '55000'; end if;=>	f1_11_publication.test.sql	kill
+fb_pub_replay_removed	replace:elsif p.status = 'published' and p.published_hash = eh then=>elsif false then	f1_11_publication.test.sql	kill
+fb_pub_packet_extra_field	replace:'version', p.draft_version, 'title', d.title,=>'version', p.draft_version, 'issue', p.issue_id, 'title', d.title,	f1_11_publication.test.sql	kill
+fb_pub_create_after_mapping	replace:and (p_outcome <> 'created' or p.issue_number is null)=>	f1_11_publication.test.sql	kill
+fb_pub_none_found_from_awaiting	replace:if p.status <> 'uncertain' then raise exception 'only an uncertain transfer can be reconciled as nothing found' using errcode = '55000'; end if;=>	f1_11_publication.test.sql	kill
