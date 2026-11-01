@@ -1,0 +1,20 @@
+# App Feedback (OS-APP-FEEDBACK) — F1 design, data lifecycle and limits
+
+Status: F1 LOCAL slice delivered for Work's security/privacy review. Not deployed, not in `supabase/migrations/`, no hosted wiring, no GitHub issue is ever created by the app. F2 (publication bridge) and F3 are not started.
+
+## What exists
+- SQL (disposable PG16 only): `supabase/feedback-wip/F001_feedback_core.sql`, `F002_feedback_functions.sql`. Private schema `feedback`, owned by NOLOGIN `feedback_owner`, force RLS, no client table grants. Clients only call authenticated-only SECURITY DEFINER RPCs; admin RPCs call `public.require_admin()` (admin_users + aal2) inside each function.
+- Submitter RPCs: `submit_feedback`, `list_my_feedback` (page <= 20), `get_my_feedback`. Submitter comes only from `auth.uid()`; own-status responses never include internal notes.
+- Admin RPCs: list/get/candidates/set_status/create_issue/link_duplicate/issue_get/draft_save/draft_approve/export_preview. Self-review is refused; the draft approver must differ from the draft author and from any linked item's submitter. Approval is bound to the draft version and body hash; any edit is a new version that needs new approval. The export preview exists only for an approved latest version, built from a separate sanitized snapshot (fixed allowlisted template), never from raw text.
+- Mobile: Settings > App feedback (form, My feedback, status). Admin: `/feedback` queue, item, issue and draft pages. No attachments, contact info, logs, GPS, history or device identifiers; only allowlisted app version and platform are shown before sending and sent.
+- Limits: 5 per hour, 15 per day, 100 total per account (serialized by a per-user advisory lock); exact retry with the same idempotency key returns the same record.
+
+## Data and deletion lifecycle (stated before schema acceptance)
+- Raw submissions (`feedback.items`), their status history and duplicate links belong to the account: `user_id` references `auth.users ON DELETE CASCADE`, so deleting an account (the existing `delete_my_account` path, unchanged) removes that account's raw feedback, status history and linkage. Guard triggers refuse any other delete (direct, truncate, role escalation).
+- Reviewer-authored records (`feedback.issues`, `feedback.drafts`) hold only sanitized, reviewer-written text plus reviewer provenance (author/approver admin ids, hashes, timestamps). They carry no submitter link, no raw text, no identifiers. They are the minimized review provenance and survive account deletion; a draft is rejected if it contains email, phone, coordinates, links, long opaque tokens or control characters.
+- Duplicate links are removed with the duplicate's raw item; the canonical issue survives.
+- No new indefinite raw-retention claim is made. A raw item of an existing account lives until the account is deleted.
+- UNRESOLVED (needs Jake/Work policy, not decided here): whether raw feedback should also expire after a fixed period for accounts that stay active, whether closed items should be purged earlier than account deletion, and whether reviewer provenance needs a retention limit or legal review. No audit-expiry or fraud policy decision is taken.
+
+## Known limits
+Local disposable PG16 and mock-backend browser evidence only. Native runtime, VoiceOver/TalkBack and devices NOT RUN. No CI run for F1. Admin browser check uses a mock backend and the Next dev server.
