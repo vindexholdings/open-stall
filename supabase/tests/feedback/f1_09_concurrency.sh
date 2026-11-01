@@ -101,7 +101,7 @@ sess "$A1" aal2 "select public.admin_feedback_export_preview('$IS6')::text;" | "
 eq "6: after approve-versus-link, the export is refused (never a publication that covers the approver's own feedback)" "$(err "$T/r6x")" "55000"
 eq "6: the link itself succeeded exactly once" "$(q "select count(*) from feedback.item_links where item_id = '$OWN'")" "1"
 
-# 7. F2 publication: two administrators BEGIN the same ready publication at once: exactly one packet is issued
+# 7. F2 publication: simultaneous requests and begins on one publication
 U7="$(mkuser 7)"
 O7="$(mk "$U7" fb-pub-key-0000001 'Origin for the publication race' 'Origin item for the publication begin race here.')"
 IS7="$(adm "$A1" "((public.admin_feedback_create_issue('$O7', 'Issue for publication race', 'The canonical issue for the publication race test.'))->>'issue_id')")"
@@ -110,31 +110,69 @@ adm "$A2" "((public.admin_feedback_draft_approve('$IS7', 1, '$D7'))->>'approved'
 race r7a_ "$A3|aal2|select public.admin_feedback_publication_request('$IS7')::text;" "$A3|aal2|select public.admin_feedback_publication_request('$IS7')::text;"
 eq "7: two simultaneous requests leave exactly one publication row" "$(q "select count(*) from feedback.publications where issue_id = '$IS7'")" "1"
 eq "7: and both requests succeeded" "$(err "$T/r7a_1")$(err "$T/r7a_2")" ""
-race r7_ "$A3|aal2|select public.admin_feedback_publication_begin('$IS7')::text;" "$A3|aal2|select public.admin_feedback_publication_begin('$IS7')::text;"
+race r7_ "$A3|aal2|select public.admin_feedback_publication_begin('$IS7')::text;" "$A2|aal2|select public.admin_feedback_publication_begin('$IS7')::text;"
 e1="$(err "$T/r7_1")"; e2="$(err "$T/r7_2")"
-ok "7: exactly one of two simultaneous begins issued a packet; the other was refused 55000" "$( { [ "$e1" = "55000" ] && [ -z "$e2" ]; } || { [ "$e2" = "55000" ] && [ -z "$e1" ]; } && echo t || echo "e1=$e1 e2=$e2")"
-eq "7: the publication counted exactly one attempt" "$(q "select attempts from feedback.publications where issue_id = '$IS7'")" "1"
+ok "7: exactly one of two simultaneous begins prepared an attempt; the other was refused 55000" "$( { [ "$e1" = "55000" ] && [ -z "$e2" ]; } || { [ "$e2" = "55000" ] && [ -z "$e1" ]; } && echo t || echo "e1=$e1 e2=$e2")"
+eq "7: the publication is on attempt 1, prepared, with exactly one prepared event" "$(q "select attempt || ':' || status from feedback.publications where issue_id = '$IS7'")" "1:prepared"
+eq "7: one prepared event" "$(q "select count(*) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS7' and e.detail = 'prepared'")" "1"
 
-# 8. two simultaneous reports of the SAME verified result: one publishes, the other finds no transfer awaiting
+# 7b. simultaneous DISPATCH of the same attempt: the executable packet is released exactly once
+race r7b_ "$A3|aal2|select public.admin_feedback_publication_dispatch('$IS7', 1)::text;" "$A2|aal2|select public.admin_feedback_publication_dispatch('$IS7', 1)::text;"
+e1="$(err "$T/r7b_1")"; e2="$(err "$T/r7b_2")"
+ok "7b: exactly one simultaneous dispatch released the packet; the other was refused 55000" "$( { [ "$e1" = "55000" ] && [ -z "$e2" ]; } || { [ "$e2" = "55000" ] && [ -z "$e1" ]; } && echo t || echo "e1=$e1 e2=$e2")"
+ok "7b: only the winner's response carries the executable packet" "$( { grep -q '"phase": "transfer"' "$T/r7b_1" && ! grep -q '"phase": "transfer"' "$T/r7b_2"; } || { grep -q '"phase": "transfer"' "$T/r7b_2" && ! grep -q '"phase": "transfer"' "$T/r7b_1"; } && echo t || echo no)"
+eq "7b: one dispatched event" "$(q "select count(*) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS7' and e.detail = 'dispatched'")" "1"
+
+# 8. two simultaneous reports of the SAME verified result: one publishes, the other finds the attempt already resolved
 MK7="$(q "select marker from feedback.publications where issue_id = '$IS7'")"; EH7="$(q "select expected_hash from feedback.publications where issue_id = '$IS7'")"
-REP="select public.admin_feedback_publication_report('$IS7', 'found', 'vindexholdings/open-stall', 41, 'https://github.com/vindexholdings/open-stall/issues/41', '$MK7', '$EH7')::text;"
+REP="select public.admin_feedback_publication_report('$IS7', 1, 'created', 'vindexholdings/open-stall', 41, 'https://github.com/vindexholdings/open-stall/issues/41', '$MK7', '$EH7')::text;"
 race r8_ "$A3|aal2|$REP" "$A2|aal2|$REP"
 e1="$(err "$T/r8_1")"; e2="$(err "$T/r8_2")"
 ok "8: exactly one report published; the other was refused 55000" "$( { [ "$e1" = "55000" ] && [ -z "$e2" ]; } || { [ "$e2" = "55000" ] && [ -z "$e1" ]; } && echo t || echo "e1=$e1 e2=$e2")"
 eq "8: one published mapping with one event" "$(q "select count(*) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS7' and e.detail = 'published'")" "1"
 
-# 9. a LINK races a BEGIN on a ready publication: never a packet for a snapshot whose eligibility was already revoked
-U9="$(mkuser 9)"; U10="$(mkuser 10)"
+# 8b. two operators reconcile the SAME uncertain attempt at once with valid absence evidence: exactly one reopens it
+U8="$(mkuser 8)"
+O8="$(mk "$U8" fb-pub-key-0000008 'Origin for the recovery race' 'Origin item for the simultaneous recovery race here.')"
+IS8="$(adm "$A1" "((public.admin_feedback_create_issue('$O8', 'Issue for recovery race', 'The canonical issue for the simultaneous recovery race.'))->>'issue_id')")"
+D8="$(adm "$A1" "((public.admin_feedback_draft_save('$IS8', 'Draft for the recovery race', 'bug', 'The problem statement for the simultaneous recovery race.'))->>'hash')")"
+adm "$A2" "((public.admin_feedback_draft_approve('$IS8', 1, '$D8'))->>'approved')" >/dev/null
+adm "$A3" "((public.admin_feedback_publication_request('$IS8'))->>'status')" >/dev/null
+adm "$A3" "((public.admin_feedback_publication_begin('$IS8'))->>'status')" >/dev/null
+adm "$A3" "((public.admin_feedback_publication_dispatch('$IS8', 1))->>'phase')" >/dev/null
+adm "$A3" "((public.admin_feedback_publication_report('$IS8', 1, 'uncertain'))->>'status')" >/dev/null
+SINCE8="$(q "select (dispatched_at - interval '10 minutes')::text from feedback.publications where issue_id = '$IS8'")"
+NF="select public.admin_feedback_publication_report('$IS8', 1, 'none_found', null, null, null, null, null, '$SINCE8', 3, 50, true)::text;"
+race r8b_ "$A3|aal2|$NF" "$A2|aal2|$NF"
+e1="$(err "$T/r8b_1")"; e2="$(err "$T/r8b_2")"
+ok "8b: exactly one of two simultaneous recovery operators reopened the attempt; the other was refused 55000" "$( { [ "$e1" = "55000" ] && [ -z "$e2" ]; } || { [ "$e2" = "55000" ] && [ -z "$e1" ]; } && echo t || echo "e1=$e1 e2=$e2")"
+eq "8b: one absence_verified event and the publication is ready" "$(q "select count(*) || ':' || max(p.status) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS8' and e.detail = 'absence_verified'")" "1:ready"
+
+# 9. a LINK races a BEGIN on a ready publication, then a DISPATCH of the prepared attempt: never a release for a snapshot whose eligibility was already revoked
+U9="$(mkuser 9)"; U10="$(mkuser 10)"; U11="$(mkuser 11)"
 O9="$(mk "$U9" fb-pub-key-0000009 'Origin for the link race' 'Origin item for the begin versus link race here.')"
 L9="$(mk "$U10" fb-pub-key-0000010 'Item linked during the race' 'This item is linked while a transfer begins.')"
+L9b="$(mk "$U11" fb-pub-key-0000011 'Item linked during the second race' 'This item is linked while a transfer is released.')"
 IS9="$(adm "$A1" "((public.admin_feedback_create_issue('$O9', 'Issue for the link race', 'The canonical issue for the begin versus link race.'))->>'issue_id')")"
 D9="$(adm "$A1" "((public.admin_feedback_draft_save('$IS9', 'Draft for the link race', 'bug', 'The problem statement for the begin versus link race.'))->>'hash')")"
 adm "$A2" "((public.admin_feedback_draft_approve('$IS9', 1, '$D9'))->>'approved')" >/dev/null
 adm "$A3" "((public.admin_feedback_publication_request('$IS9'))->>'status')" >/dev/null
 race r9_ "$A3|aal2|select public.admin_feedback_publication_begin('$IS9')::text;" "$A2|aal2|select public.admin_feedback_link_duplicate('$L9', '$IS9')::text;"
-ST9="$(q "select status from feedback.publications where issue_id = '$IS9'")"; EV9="$(q "select count(*) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS9' and e.detail = 'transfer_started'")"
-ok "9: after a begin/link race either the begin won first (awaiting_transfer, packet issued BEFORE the link) or the link won (still ready, no packet issued)" "$( { [ "$ST9" = "awaiting_transfer" ] && [ "$EV9" = "1" ]; } || { [ "$ST9" = "ready" ] && [ "$EV9" = "0" ] && [ "$(err "$T/r9_1")" = "55000" ]; } && echo t || echo "st=$ST9 ev=$EV9")"
+ST9="$(q "select status from feedback.publications where issue_id = '$IS9'")"; EV9="$(q "select count(*) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS9' and e.detail = 'prepared'")"
+ok "9: after a begin/link race either the begin won first (prepared, one attempt) or the link won (still ready, nothing prepared, begin refused 55000)" "$( { [ "$ST9" = "prepared" ] && [ "$EV9" = "1" ]; } || { [ "$ST9" = "ready" ] && [ "$EV9" = "0" ] && [ "$(err "$T/r9_1")" = "55000" ]; } && echo t || echo "st=$ST9 ev=$EV9")"
 eq "9: the link itself succeeded exactly once" "$(q "select count(*) from feedback.item_links where item_id = '$L9'")" "1"
+# the same race against the DISPATCH of a prepared attempt
+U13="$(mkuser 13)"
+O10="$(mk "$U13" fb-pub-key-0000013 'Origin for the dispatch race' 'Origin item for the dispatch versus link race here.')"
+IS10="$(adm "$A1" "((public.admin_feedback_create_issue('$O10', 'Issue for the dispatch race', 'The canonical issue for the dispatch versus link race.'))->>'issue_id')")"
+D10="$(adm "$A1" "((public.admin_feedback_draft_save('$IS10', 'Draft for the dispatch race', 'bug', 'The problem statement for the dispatch versus link race.'))->>'hash')")"
+adm "$A2" "((public.admin_feedback_draft_approve('$IS10', 1, '$D10'))->>'approved')" >/dev/null
+adm "$A3" "((public.admin_feedback_publication_request('$IS10'))->>'status')" >/dev/null
+adm "$A3" "((public.admin_feedback_publication_begin('$IS10'))->>'status')" >/dev/null
+race r10_ "$A3|aal2|select public.admin_feedback_publication_dispatch('$IS10', 1)::text;" "$A2|aal2|select public.admin_feedback_link_duplicate('$L9b', '$IS10')::text;"
+ST10="$(q "select status from feedback.publications where issue_id = '$IS10'")"; EV10="$(q "select count(*) from feedback.publication_events e join feedback.publications p on p.id = e.publication_id where p.issue_id = '$IS10' and e.detail = 'dispatched'")"
+ok "9b: after a dispatch/link race either the release won first (dispatched, exactly one release) or the link won (still prepared, nothing released, dispatch refused 55000)" "$( { [ "$ST10" = "dispatched" ] && [ "$EV10" = "1" ]; } || { [ "$ST10" = "prepared" ] && [ "$EV10" = "0" ] && [ "$(err "$T/r10_1")" = "55000" ]; } && echo t || echo "st=$ST10 ev=$EV10")"
+eq "9b: the link itself succeeded exactly once" "$(q "select count(*) from feedback.item_links where item_id = '$L9b'")" "1"
 
 echo "f1_09: $FAILS failed"
 [ "$FAILS" -eq 0 ]

@@ -34,9 +34,19 @@ fb_pub_repo_unchecked	replace:ok := p_repo is not distinct from 'vindexholdings/
 fb_pub_mapping_overwritable	replace:if old.issue_number is not null and (new.issue_number=>if false and (new.issue_number	f1_11_publication.test.sql	kill
 fb_pub_number_check_removed	replace:and not exists (select 1 from feedback.publications o where o.issue_number = p_number and o.id <> p.id);=>;	f1_11_publication.test.sql	kill
 fb_pub_transition_unchecked	replace:if new.status is distinct from old.status and not feedback.pub_transition_ok(old.status, new.status) then=>if false then	f1_11_publication.test.sql	kill
-fb_pub_begin_state_unchecked	replace:if p.status <> 'ready' then raise exception 'this publication is not ready to transfer (%)', p.status using errcode = '55000'; end if;=>	f1_11_publication.test.sql	kill
-fb_pub_report_state_unchecked	replace:if p.status not in ('awaiting_transfer', 'uncertain', 'conflict') then raise exception 'no transfer is awaiting a result (%)', p.status using errcode = '55000'; end if;=>	f1_11_publication.test.sql	kill
 fb_pub_replay_removed	replace:elsif p.status = 'published' and p.published_hash = eh then=>elsif false then	f1_11_publication.test.sql	kill
-fb_pub_packet_extra_field	replace:'version', p.draft_version, 'title', d.title,=>'version', p.draft_version, 'issue', p.issue_id, 'title', d.title,	f1_11_publication.test.sql	kill
 fb_pub_create_after_mapping	replace:and (p_outcome <> 'created' or p.issue_number is null)=>	f1_11_publication.test.sql	kill
-fb_pub_none_found_from_awaiting	replace:if p.status <> 'uncertain' then raise exception 'only an uncertain transfer can be reconciled as nothing found' using errcode = '55000'; end if;=>	f1_11_publication.test.sql	kill
+fb_pub_begin_state_unchecked	replace:if p.status <> 'ready' then raise exception 'this publication is not ready to transfer (%)', p.status using errcode = '55000'; end if;=>	f1_11_publication.test.sql	kill
+fb_pub_report_state_unchecked	replace:if not (p.status = any (allowed)) then raise exception 'this result does not apply to the current state (%)', p.status using errcode = '55000'; end if;=>	f1_11_publication.test.sql	kill
+fb_pub_none_found_from_dispatched	replace:else array['uncertain', 'failed'] end;=>else array['dispatched', 'uncertain', 'failed'] end;	f1_11_publication.test.sql	kill
+fb_pub_packet_extra_field	replace:'phase', p_phase, 'title', d.title,=>'phase', p_phase, 'issue', p.issue_id, 'title', d.title,	f1_11_publication.test.sql	kill
+fb_pub_attempt_fence_removed	fb_pub_attempt_fence	f1_11_publication.test.sql	kill
+fb_pub_attempt_fence_report_removed	fb_pub_attempt_fence_report	f1_11_publication.test.sql	kill
+fb_pub_dispatch_once_removed	fb_pub_dispatch_once	f1_11_publication.test.sql	kill
+fb_pub_stale_dispatch_removed	fb_pub_stale_dispatch	f1_11_publication.test.sql	kill
+fb_pub_absence_removed	fb_pub_absence	f1_11_publication.test.sql	kill
+fb_pub_absence_complete_ignored	replace:if p_complete is not true or p_pages is null=>if p_pages is null	f1_11_publication.test.sql	kill
+fb_pub_absence_window_ignored	replace:or p_since is null or p_since > p.dispatched_at - interval '10 minutes' or p_since < p.dispatched_at - interval '7 days' then=>then	f1_11_publication.test.sql	kill
+fb_pub_cancel_after_dispatch	replace:when 'cancelled' then array['prepared'] when=>when 'cancelled' then array['prepared', 'dispatched'] when	f1_11_publication.test.sql	kill
+fb_pub_failed_reopened_by_request	replace:elsif p.status in ('prepared', 'dispatched', 'uncertain', 'failed', 'conflict') then=>elsif p.status in ('prepared', 'dispatched', 'uncertain', 'conflict') then	f1_11_publication.test.sql	kill
+fb_pub_attempt_jump_allowed	replace:if new.attempt is distinct from old.attempt and not (old.status = 'ready' and new.status = 'prepared' and new.attempt = old.attempt + 1) then=>if false then	f1_11_publication.test.sql	kill
