@@ -1,10 +1,12 @@
 import { TRANSPORT_MODES, validateDisplayName, type DisplayMode, type TransportMode } from '@open-stall/domain';
+import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { colors, typography } from '@open-stall/ui';
 import { usePreferences } from '../../account/preferences';
 import { RadioGroup } from '../../components/RadioGroup';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { SecondaryButton } from '../../components/SecondaryButton';
 import { Screen } from '../../components/Screen';
 import { Section } from '../../components/Section';
 import { StatusBanner } from '../../components/StatusBanner';
@@ -18,6 +20,7 @@ const TRANSPORT_LABEL: Record<TransportMode, string> = { walk: 'Walk', bike: 'Bi
 
 export default function SettingsScreen() {
   const { prefs, update, signedIn } = usePreferences();
+  const router = useRouter();
   const [draft, setName] = useState<string | null>(null);
   const name = draft ?? prefs.displayName ?? '';
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
@@ -76,6 +79,11 @@ export default function SettingsScreen() {
           value={prefs.transport}
           onChange={(transport) => void run({ ...prefs, transport })}
         />
+      </Section>
+
+      <Section title="App feedback" hint="Tell us about a bug, something hard to use, or an idea for the app. This is separate from reporting a problem with a restroom.">
+        <PrimaryButton label="Send app feedback" onPress={() => router.push('/feedback')} accessibilityHint="Opens the feedback form. Signing in is needed to send it." />
+        <SecondaryButton label="My feedback" onPress={() => router.push('/feedback/mine')} />
       </Section>
 
       {signedIn ? (

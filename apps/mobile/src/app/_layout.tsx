@@ -25,6 +25,9 @@ export default function RootLayout() {
         <Stack.Screen name="location/[id]" options={{ title: 'Restroom' }} />
         <Stack.Screen name="contribute" options={{ title: 'Add restroom' }} />
         <Stack.Screen name="report" options={{ title: 'Report a problem' }} />
+        <Stack.Screen name="feedback/index" options={{ title: 'App feedback' }} />
+        <Stack.Screen name="feedback/mine" options={{ title: 'My feedback' }} />
+        <Stack.Screen name="feedback/[id]" options={{ title: 'Your feedback' }} />
         <Stack.Screen name="auth/sign-in" options={{ title: 'Sign in' }} />
         <Stack.Screen name="auth/callback" options={{ title: 'Signing in' }} />
         <Stack.Screen name="auth/reset" options={{ title: 'Reset password' }} />

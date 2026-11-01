@@ -12,3 +12,4 @@ export * from './auth';
 export * from './account';
 export * from './reviewDetails';
 export * from './rewardsProgress';
+export * from './feedback';
