@@ -106,6 +106,10 @@ export function feedbackAdminError(err: { code?: string; message?: string } | nu
   if (m.includes('administrators cannot publish')) return 'You cannot publish a snapshot built from your own feedback. Another administrator must.';
   if (m.includes('already in progress or unresolved')) return 'A transfer is already in progress or unresolved. Record its result or reconcile it first.';
   if (m.includes('not ready to transfer')) return 'This publication is not ready to transfer. Check its state below.';
+  if (m.includes('stale attempt')) return 'That result belongs to an older attempt and was ignored. Reload the page and use the current attempt.';
+  if (m.includes('is not prepared')) return 'This attempt was already released or is no longer current. A released packet is never released twice: reconcile instead.';
+  if (m.includes('absence is not verified')) return 'Nothing can be recorded as missing without a COMPLETE listing that started before the transfer was released. Keep it as unknown, or finish the listing.';
+  if (m.includes('does not apply to the current state')) return 'That result does not apply to the current state. Reload the page.';
   if (m.includes('snapshot or its eligibility changed')) return 'The approved snapshot or its eligibility changed. Request the publication again.';
   if (m.includes('no transfer is awaiting')) return 'No transfer is awaiting a result.';
   if (m.includes('only an uncertain transfer')) return 'None-found only applies to reconciling an uncertain transfer.';
@@ -117,16 +121,17 @@ export function feedbackAdminError(err: { code?: string; message?: string } | nu
 
 
 // ---------------------------------------------------------------- F2: reviewer-approved publication bridge (private state; no GitHub credential exists in this app)
-export const PUBLICATION_STATES = ['none', 'ready', 'awaiting_transfer', 'uncertain', 'published', 'failed', 'conflict'] as const;
+export const PUBLICATION_STATES = ['none', 'ready', 'prepared', 'dispatched', 'uncertain', 'published', 'failed', 'conflict'] as const;
 export type PublicationState = (typeof PUBLICATION_STATES)[number];
 export const PUBLICATION_LABEL: Record<PublicationState, string> = {
-  none: 'No publication requested', ready: 'Ready for transfer', awaiting_transfer: 'Transfer started, waiting for the result', uncertain: 'Outcome UNCERTAIN: reconcile before any retry',
-  published: 'Published and verified', failed: 'Failed (nothing was created)', conflict: 'CONFLICT: needs manual resolution',
+  none: 'No publication requested', ready: 'Ready: no attempt in progress', prepared: 'Attempt prepared: nothing has been released', dispatched: 'Packet RELEASED: the outcome is not recorded yet',
+  uncertain: 'Outcome UNCERTAIN: reconcile before anything else', published: 'Published and verified', failed: 'Failed attempt: reconcile before any retry', conflict: 'CONFLICT: needs verified evidence or manual resolution',
 };
 export type PublicationView = {
-  status: PublicationState; operation?: 'create' | 'update'; version?: number; marker?: string; expected_hash?: string; issue_number?: number | null; issue_url?: string | null;
-  attempts?: number; published_hash?: string | null; current?: boolean; eligible: boolean; block: string | null; repo: string; packet?: TransferPacket | null;
+  status: PublicationState; operation?: 'create' | 'update'; version?: number; attempt?: number; marker?: string; expected_hash?: string; issue_number?: number | null; issue_url?: string | null;
+  published_hash?: string | null; dispatched_at?: string | null; since?: string | null; current?: boolean; eligible: boolean; block: string | null; repo: string; packet?: TransferPacket | null;
 };
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}(:\d{2})?)$/;
 /** Defensive read of the server's publication view: anything unexpected reads as "none", never as invented state. The packet is re-validated field by field. */
 export function parsePublication(v: unknown): PublicationView {
   const none: PublicationView = { status: 'none', eligible: false, block: null, repo: PUBLICATION_REPO };
@@ -136,34 +141,58 @@ export function parsePublication(v: unknown): PublicationView {
   const packet = o.packet ? parsePacket(o.packet) : null;
   return {
     status: o.status as PublicationState, operation: o.operation === 'update' ? 'update' : o.operation === 'create' ? 'create' : undefined,
-    version: typeof o.version === 'number' ? o.version : undefined, marker: typeof o.marker === 'string' ? o.marker : undefined,
+    version: typeof o.version === 'number' ? o.version : undefined, attempt: typeof o.attempt === 'number' ? o.attempt : undefined, marker: typeof o.marker === 'string' ? o.marker : undefined,
     expected_hash: typeof o.expected_hash === 'string' ? o.expected_hash : undefined, issue_number: typeof o.issue_number === 'number' ? o.issue_number : null,
     issue_url: typeof o.issue_url === 'string' && /^https:\/\/github\.com\/vindexholdings\/open-stall\/issues\/[0-9]+$/.test(o.issue_url) ? o.issue_url : null,
-    attempts: typeof o.attempts === 'number' ? o.attempts : undefined, published_hash: typeof o.published_hash === 'string' ? o.published_hash : null,
+    published_hash: typeof o.published_hash === 'string' ? o.published_hash : null,
+    dispatched_at: typeof o.dispatched_at === 'string' && ISO.test(o.dispatched_at) ? o.dispatched_at : null, since: typeof o.since === 'string' && ISO.test(o.since) ? o.since : null,
     current: o.current === true, eligible: o.eligible === true, block: typeof o.block === 'string' ? o.block : null, repo: PUBLICATION_REPO, packet,
   };
 }
 export const REPORT_OUTCOMES = [
   { value: 'created', label: 'I created the issue (read-back below)' }, { value: 'updated', label: 'I updated the issue (read-back below)' },
-  { value: 'found', label: 'Reconciliation found exactly one issue (read-back below)' }, { value: 'none_found', label: 'Reconciliation found NO issue' },
+  { value: 'found', label: 'Reconciliation found exactly one issue (read-back below)' },
+  { value: 'none_found', label: 'Reconciliation found NO issue after a COMPLETE listing (evidence below)' },
   { value: 'multiple', label: 'Reconciliation found several issues' }, { value: 'uncertain', label: 'The outcome is unknown (timeout or no answer)' },
-  { value: 'failed', label: 'The connector refused and nothing was created' },
+  { value: 'failed', label: 'The connector refused and nothing was created' }, { value: 'cancelled', label: 'Cancel this attempt (the packet was never released)' },
 ] as const;
+export type ReportOutcome = (typeof REPORT_OUTCOMES)[number]['value'];
+/** Which results make sense in which state (the DATABASE decides; this only offers sensible choices and never offers a create after a released attempt). */
+export const OUTCOMES_FOR: Record<PublicationState, readonly ReportOutcome[]> = {
+  none: [], ready: [], published: [], prepared: ['cancelled'],
+  dispatched: ['created', 'updated', 'uncertain', 'failed'],
+  uncertain: ['found', 'none_found', 'multiple', 'uncertain'], failed: ['found', 'none_found', 'multiple'], conflict: ['found', 'multiple'],
+};
 const EVIDENCE_OUTCOMES = ['created', 'updated', 'found'];
 /** Builds the report arguments from what the person read BACK from GitHub (repo, number, title, body); the hash and marker are computed here from that text, never typed. */
 export function parseReportForm(f: FormLike, sha: Sha256Hex): Parsed<ReportArgs & { p_issue: string }> {
-  const issue = parseId(s(f, 'issue')); const outcome = s(f, 'outcome');
+  const issue = parseId(s(f, 'issue')); const outcome = s(f, 'outcome'); const attempt = Number(s(f, 'attempt'));
   if (!issue) return { ok: false, error: 'Invalid issue id.' };
+  if (!Number.isInteger(attempt) || attempt < 1 || attempt > 1_000_000) return { ok: false, error: 'Invalid attempt.' };
   if (!REPORT_OUTCOMES.some((o) => o.value === outcome)) return { ok: false, error: 'Choose what happened.' };
-  if (!EVIDENCE_OUTCOMES.includes(outcome)) return { ok: true, args: { p_issue: issue, p_outcome: outcome as ReportArgs['p_outcome'] } };
+  if (outcome === 'none_found') {
+    const pages = Number(s(f, 'pages')); const scanned = Number(s(f, 'scanned')); const since = s(f, 'since');
+    if (s(f, 'complete') !== 'yes') return { ok: false, error: 'No issue can be recorded as missing unless you listed ALL pages of issues created since the time shown, and confirm that.' };
+    if (!Number.isInteger(pages) || pages < 1 || pages > 50) return { ok: false, error: 'Enter how many pages of the listing you read (1 to 50).' };
+    if (s(f, 'scanned') === '' || !Number.isInteger(scanned) || scanned < 0 || scanned > 100000) return { ok: false, error: 'Enter how many issues you looked at (0 to 100000).' };
+    if (!ISO.test(since) || Number.isNaN(Date.parse(since))) return { ok: false, error: 'The listing start time is missing. Reload the page.' };
+    return { ok: true, args: { p_issue: issue, p_attempt: attempt, p_outcome: 'none_found', p_since: since, p_pages: pages, p_scanned: scanned, p_complete: true } };
+  }
+  if (!EVIDENCE_OUTCOMES.includes(outcome)) return { ok: true, args: { p_issue: issue, p_attempt: attempt, p_outcome: outcome as ReportArgs['p_outcome'] } };
   const repo = s(f, 'repo'); const number = Number(s(f, 'number')); const title = s(f, 'rb_title'); const body = typeof f.get('rb_body') === 'string' ? (f.get('rb_body') as string) : '';
   if (!/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(repo)) return { ok: false, error: 'Enter the repository the issue is in (owner/name).' };
   if (!Number.isInteger(number) || number < 1 || number > 100000000) return { ok: false, error: 'Enter the GitHub issue number.' };
   if (title.length < 1 || title.length > 300 || body.trim().length < 1 || body.length > 20000) return { ok: false, error: 'Paste the issue title and body exactly as GitHub shows them now (the read-back).' };
-  const ev = evidenceFrom(outcome as 'created' | 'found' | 'updated', { repo, number, url: `https://github.com/${repo}/issues/${number}`, title, body }, sha);
+  const ev = evidenceFrom(attempt, outcome as 'created' | 'found' | 'updated', { repo, number, url: `https://github.com/${repo}/issues/${number}`, title, body }, sha);
   return { ok: true, args: { p_issue: issue, ...ev } };
 }
 export function parseIssueOnlyForm(f: FormLike): Parsed<{ p_issue: string }> {
   const issue = parseId(s(f, 'issue'));
   return issue ? { ok: true, args: { p_issue: issue } } : { ok: false, error: 'Invalid issue id.' };
+}
+export function parseAttemptForm(f: FormLike): Parsed<{ p_issue: string; p_attempt: number }> {
+  const issue = parseId(s(f, 'issue')); const attempt = Number(s(f, 'attempt'));
+  if (!issue) return { ok: false, error: 'Invalid issue id.' };
+  if (!Number.isInteger(attempt) || attempt < 1 || attempt > 1_000_000) return { ok: false, error: 'Invalid attempt.' };
+  return { ok: true, args: { p_issue: issue, p_attempt: attempt } };
 }

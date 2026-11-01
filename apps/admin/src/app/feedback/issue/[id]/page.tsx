@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CATEGORIES, PLATFORMS, PUBLICATION_LABEL, REPORT_OUTCOMES, eligibilityMessage, feedbackAdminError, parseId, parsePublication, type IssueView } from '@/lib/feedback';
+import { CATEGORIES, OUTCOMES_FOR, PLATFORMS, PUBLICATION_LABEL, REPORT_OUTCOMES, eligibilityMessage, feedbackAdminError, parseId, parsePublication, type IssueView } from '@/lib/feedback';
 import { requireAdminSession } from '@/lib/requireAdmin';
-import { approveDraft, beginPublication, reportPublication, requestPublication, saveDraft } from '../../actions';
+import { approveDraft, beginPublication, dispatchPublication, reportPublication, requestPublication, saveDraft } from '../../actions';
 
 export default async function FeedbackIssue({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; notice?: string }> }) {
   const id = parseId((await params).id);
@@ -20,8 +20,9 @@ export default async function FeedbackIssue({ params, searchParams }: { params: 
   const pubRes = d ? await db.rpc('admin_feedback_publication_get', { p_issue: id }) : null;
   const pub = parsePublication(pubRes?.data ?? null);
   const pubError = pubRes?.error ? feedbackAdminError(pubRes.error) : null;
-  const inProgress = pub.status === 'awaiting_transfer' || pub.status === 'uncertain' || pub.status === 'conflict';
-  const canRequest = Boolean(d?.eligible) && (pub.status === 'none' || pub.status === 'failed' || (pub.status === 'published' && pub.version !== d?.version));
+  const reconcileOnly = pub.status === 'uncertain' || pub.status === 'failed' || pub.status === 'conflict';
+  const outcomes = REPORT_OUTCOMES.filter((o) => OUTCOMES_FOR[pub.status].includes(o.value));
+  const canRequest = Boolean(d?.eligible) && (pub.status === 'none' || (pub.status === 'published' && pub.version !== d?.version));
   const ineligible = d?.approved && !d.eligible ? eligibilityMessage(d.block) ?? 'This version is approved, but it is not eligible for export right now.' : null;
 
   return (
@@ -78,15 +79,17 @@ export default async function FeedbackIssue({ params, searchParams }: { params: 
       <section aria-label="Publication to GitHub">
         <h2>Publication to GitHub</h2>
         <p className="muted">
-          This app holds no GitHub credential and never creates an issue. A person transfers the exact packet below through the existing authorized connector, to {pub.repo} only, and the result is
-          verified here. A timeout is never proof that nothing was created: the state becomes uncertain and must be reconciled by the reference below before any retry. Publishing does not approve any work.
+          This app holds no GitHub credential and never creates an issue. A person transfers the approved text through the existing authorized connector, to {pub.repo} only, and the result is
+          verified here. A timeout is never proof that nothing was created. Each attempt has a number; its packet is released only ONCE; and after a released attempt the only safe next step is to
+          reconcile (look for the reference below), never to send it again. Publishing does not approve any work.
         </p>
         {pubError ? <p role="alert">{pubError}</p> : null}
-        <p role="status">State: {PUBLICATION_LABEL[pub.status]}{pub.attempts ? ` · attempts: ${pub.attempts}` : ''}{pub.version ? ` · snapshot version ${pub.version}` : ''}</p>
+        <p role="status">State: {PUBLICATION_LABEL[pub.status]}{pub.attempt ? ` · attempt ${pub.attempt}` : ''}{pub.version ? ` · snapshot version ${pub.version}` : ''}</p>
         {pub.status === 'published' && pub.issue_url ? <p>GitHub issue {pub.issue_number} in {pub.repo} (verified read-back): {pub.issue_url}</p> : null}
         {pub.marker ? <p className="muted">Public reference: {pub.marker}</p> : null}
         {!d ? <p className="muted">Write and approve a sanitized draft first.</p> : null}
-        {d && !d.eligible && pub.status !== 'published' ? <p className="muted">{eligibilityMessage(d.block) ?? 'Only a currently approved, eligible version can be requested.'}</p> : null}
+        {d && !d.eligible && pub.status !== 'published' && pub.status !== 'none' && !reconcileOnly ? <p className="muted">{eligibilityMessage(d.block) ?? 'Only a currently approved, eligible version can proceed.'}</p> : null}
+        {d && !d.eligible && pub.status === 'none' ? <p className="muted">{eligibilityMessage(d.block) ?? 'Only a currently approved, eligible version can be requested.'}</p> : null}
         {pub.status === 'published' && d && pub.version !== d.version && !d.eligible ? <p className="muted">A newer version exists. Once an independent administrator approves it, it can be requested as an update of the same GitHub issue.</p> : null}
         {canRequest ? (
           <form action={requestPublication}>
@@ -97,29 +100,70 @@ export default async function FeedbackIssue({ params, searchParams }: { params: 
         {pub.status === 'ready' ? (
           <form action={beginPublication}>
             <input type="hidden" name="issue" value={issue.id} />
-            <button type="submit">Prepare the transfer packet</button>
+            <button type="submit">Prepare a new attempt (nothing is released yet)</button>
           </form>
         ) : null}
-        {inProgress && pub.packet ? (
+
+        {pub.status === 'prepared' && pub.packet ? (
           <>
-            <h3>Transfer packet (version {pub.packet.version}): {pub.packet.operation === 'update' ? `update GitHub issue ${pub.packet.issue_number}` : 'create a new issue'} in {pub.packet.repo}</h3>
-            <p className="muted">Transfer exactly this title and body, unchanged. Do not add anything. Then paste back what GitHub shows now.</p>
+            <h3>Attempt {pub.attempt} is prepared: {pub.packet.operation === 'update' ? `an update of GitHub issue ${pub.packet.issue_number}` : 'a new issue'} in {pub.packet.repo}</h3>
+            <p className="muted">Nothing has been released. Check that this is exactly the approved text. Releasing it can be done only once for this attempt; after that a reload will only offer reconciliation.</p>
             <p><strong>{pub.packet.title}</strong></p>
             <pre style={{ whiteSpace: 'pre-wrap' }}>{pub.packet.body}</pre>
-            {pub.status !== 'conflict' ? null : <p role="alert">The last result could not be verified. Record verified evidence (or reconcile) to resolve it.</p>}
+            <form action={dispatchPublication}>
+              <input type="hidden" name="issue" value={issue.id} /><input type="hidden" name="attempt" value={pub.attempt} />
+              <button type="submit">Release this attempt now (only once)</button>
+            </form>
             <form action={reportPublication}>
-              <input type="hidden" name="issue" value={issue.id} />
-              <fieldset>
-                <legend>Record the result</legend>
-                <label>What happened{' '}<select name="outcome" defaultValue={pub.status === 'awaiting_transfer' ? (pub.packet.operation === 'update' ? 'updated' : 'created') : 'found'}>{REPORT_OUTCOMES.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}</select></label>
-                <label>Repository <input name="repo" defaultValue={pub.repo} /></label>
-                <label>Issue number <input name="number" inputMode="numeric" pattern="[0-9]*" /></label>
-                <label>Read-back title <input name="rb_title" /></label>
-                <label>Read-back body <textarea name="rb_body" rows={8} /></label>
-                <button type="submit">Record result</button>
-              </fieldset>
+              <input type="hidden" name="issue" value={issue.id} /><input type="hidden" name="attempt" value={pub.attempt} /><input type="hidden" name="outcome" value="cancelled" />
+              <button type="submit">Cancel this attempt (nothing was sent)</button>
             </form>
           </>
+        ) : null}
+
+        {pub.status === 'dispatched' && pub.packet ? (
+          <>
+            <h3>Attempt {pub.attempt} was released: {pub.packet.operation === 'update' ? `update GitHub issue ${pub.packet.issue_number}` : 'create one issue'} in {pub.packet.repo}</h3>
+            <p role="alert">Transfer this exact title and body ONCE and record the result. If you already sent it, or are not sure whether it went through, do NOT send it again: record that the outcome is unknown, then reconcile.</p>
+            <p><strong>{pub.packet.title}</strong></p>
+            <pre style={{ whiteSpace: 'pre-wrap' }}>{pub.packet.body}</pre>
+          </>
+        ) : null}
+
+        {reconcileOnly && pub.packet ? (
+          <>
+            <h3>Reconcile attempt {pub.attempt}: do NOT create anything</h3>
+            <p role="alert">
+              A transfer for this attempt was released and its result is {pub.status === 'conflict' ? 'in conflict' : pub.status === 'failed' ? 'recorded as refused' : 'unknown'}. It may already have created an issue even if no answer came back.
+              Never send it again. First look for what exists: (1) search {pub.repo} for the reference {pub.marker}; (2) list EVERY page of issues in {pub.repo} created since {pub.since ?? 'the release time'} and check each for the reference.
+              An empty search result, or a partial listing, is NOT proof that nothing exists.
+            </p>
+            <p className="muted">For comparing a read-back only (not to be sent): the exact approved title and body of version {pub.packet.version}.</p>
+            <p><strong>{pub.packet.title}</strong></p>
+            <pre style={{ whiteSpace: 'pre-wrap' }}>{pub.packet.body}</pre>
+          </>
+        ) : null}
+
+        {outcomes.length > 0 && (pub.status === 'dispatched' || reconcileOnly) ? (
+          <form action={reportPublication}>
+            <input type="hidden" name="issue" value={issue.id} /><input type="hidden" name="attempt" value={pub.attempt} /><input type="hidden" name="since" value={pub.since ?? ''} />
+            <fieldset>
+              <legend>Record the result of attempt {pub.attempt}</legend>
+              <label>What happened{' '}<select name="outcome" defaultValue={outcomes[0]?.value}>{outcomes.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}</select></label>
+              <label>Repository <input name="repo" defaultValue={pub.repo} /></label>
+              <label>Issue number <input name="number" inputMode="numeric" pattern="[0-9]*" /></label>
+              <label>Read-back title <input name="rb_title" /></label>
+              <label>Read-back body <textarea name="rb_body" rows={8} /></label>
+              {reconcileOnly ? (
+                <>
+                  <label>Pages of the listing you read <input name="pages" inputMode="numeric" pattern="[0-9]*" /></label>
+                  <label>Issues you looked at <input name="scanned" inputMode="numeric" pattern="[0-9]*" /></label>
+                  <label><input type="checkbox" name="complete" value="yes" /> I listed ALL pages of issues created since {pub.since ?? 'the time shown'} and none carries the reference.</label>
+                </>
+              ) : null}
+              <button type="submit">Record result</button>
+            </fieldset>
+          </form>
         ) : null}
       </section>
       {exp ? (

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createHash } from 'node:crypto';
-import { feedbackAdminError, parseApproveForm, parseDraftForm, parseId, parseIssueForm, parseIssueOnlyForm, parseLinkForm, parseReportForm, parseStatusForm } from '@/lib/feedback';
+import { feedbackAdminError, parseApproveForm, parseDraftForm, parseId, parseIssueForm, parseAttemptForm, parseIssueOnlyForm, parseLinkForm, parseReportForm, parseStatusForm } from '@/lib/feedback';
 import { requireAdminSession } from '@/lib/requireAdmin';
 
 const go = (path: string, m: string, ok = false): never => redirect(`${path}${path.includes('?') ? '&' : '?'}${ok ? 'notice' : 'error'}=${encodeURIComponent(m)}`);
@@ -85,7 +85,18 @@ export async function beginPublication(formData: FormData): Promise<void> {
   const db = await requireAdminSession();
   const { error } = await db.rpc('admin_feedback_publication_begin', p.args);
   if (error) return go(back, feedbackAdminError(error));
-  return go(back, 'Transfer started. The packet is shown below; transfer it exactly, then record the result.', true);
+  return go(back, 'A new attempt was prepared. Nothing has been released yet: check the exact text below, then release it (once) or cancel.', true);
+}
+
+/** Releases the executable packet for exactly the named attempt, ONCE. Afterwards a reload only ever shows reconciliation guidance. */
+export async function dispatchPublication(formData: FormData): Promise<void> {
+  const back = issuePath(formData.get('issue'));
+  const p = parseAttemptForm(formData);
+  if (!p.ok) return go(back, p.error);
+  const db = await requireAdminSession();
+  const { error } = await db.rpc('admin_feedback_publication_dispatch', p.args);
+  if (error) return go(back, feedbackAdminError(error));
+  return go(back, 'The packet was released for this attempt. Transfer it ONCE, then record the result. If you are unsure whether it was sent, do not send it again: record that and reconcile.', true);
 }
 
 export async function reportPublication(formData: FormData): Promise<void> {
