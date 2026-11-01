@@ -372,8 +372,15 @@ try {
     await button(page, 'Send report').click();
     check(await text(page, 'Choose what’s wrong.') && acct.reports.length === 0, 'report needs an issue and sends nothing without one');
     const group = page.getByRole('radiogroup', { name: 'What’s wrong' });
-    await group.getByRole('radio').first().focus();
-    await page.keyboard.press('ArrowDown');
+    // CI showed this key press occasionally not taking effect (twice, identical signature; never locally). Wait for the RESULT instead of racing it:
+    // pressing ArrowDown from the first radio always selects the second one, so repeating the press from the first radio is idempotent.
+    const first = group.getByRole('radio').first();
+    const wrong = group.getByRole('radio', { name: 'It’s in the wrong place' });
+    for (let i = 0; i < 3; i++) {
+      await first.focus();
+      await page.keyboard.press('ArrowDown');
+      if (await wrong.waitFor({ state: 'visible' }).then(() => page.waitForFunction(() => [...document.querySelectorAll('[role="radio"]')].some((r) => /wrong place/.test(r.getAttribute('aria-label') ?? r.textContent ?? '') && r.getAttribute('aria-checked') === 'true'), null, { timeout: 3000 }).then(() => true, () => false))) break;
+    }
     check((await group.getByRole('radio', { name: 'It’s in the wrong place' }).getAttribute('aria-checked')) === 'true', 'arrow keys choose the report issue');
     await page.getByLabel('Add a note (optional)', { exact: true }).fill('see http://spam.example');
     await button(page, 'Send report').click();
