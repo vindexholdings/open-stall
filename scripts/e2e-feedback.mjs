@@ -387,6 +387,7 @@ try {
       store.delayMs = 0;
       check(!(await text(page, 'We received your feedback')) , 'G4c: A\'s late send success never shows in B\'s screen');
       check(store.submitOwners.at(-1) === USER.id && (await page.getByLabel('Short title', { exact: true }).inputValue()) === '', 'G4c: the send went out as A only, and B\'s form is empty');
+      check(feedbackReqs('submit_feedback').at(-1)?.auth === `Bearer ${JWT}` && !feedbackReqs('submit_feedback').some((q) => q.auth === `Bearer ${JWT_B}` && /AlphaSlow/.test(q.body.p_title ?? '')), 'G4c: A\'s content travelled with A\'s token (bound at dispatch) and never with B\'s');
       await ctx.close();
     }
     // G5. same-account refresh: no reset, no fetch storm

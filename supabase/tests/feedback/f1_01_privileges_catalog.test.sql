@@ -26,7 +26,7 @@ select pg_temp.ok((select array_agg(a.attname::text order by a.attname) from pg_
                     where n.nspname = 'feedback' and c.relname = 'drafts' and a.attacl is not null and exists (select 1 from aclexplode(a.attacl) x where x.privilege_type = 'UPDATE')) = array['approved_at', 'approved_by', 'approved_hash', 'approved_links'], 'drafts: UPDATE is granted on the approval columns only');
 -- functions in the private schema: nothing executable by a client role
 select pg_temp.ok((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'feedback')
-                  = array['guard_append_only', 'guard_drafts', 'guard_issues', 'guard_item_links', 'guard_items', 'guard_truncate', 'link_set', 'nz', 'outcome', 'page_cursor', 'safe_public_text', 'sha', 'text_ok', 'tokens', 'transition_ok'], 'exactly 15 functions exist in the feedback schema');
+                  = array['export_block', 'guard_append_only', 'guard_drafts', 'guard_issues', 'guard_item_links', 'guard_items', 'guard_truncate', 'link_set', 'nz', 'outcome', 'page_cursor', 'safe_public_text', 'sha', 'text_ok', 'tokens', 'transition_ok'], 'exactly 16 functions exist in the feedback schema');
 select pg_temp.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace, unnest(array['anon', 'authenticated', 'service_role']) r where n.nspname = 'feedback' and has_function_privilege(r, p.oid, 'execute')), 'no client role can execute anything in the feedback schema');
 -- the public entry points
 create temp table _pub as select p.oid, p.proname, p.prosecdef, pg_get_userbyid(p.proowner) as owner, p.proconfig, p.prosrc

@@ -1,12 +1,11 @@
 import {
-  EMPTY_FEEDBACK, FEEDBACK_FREQUENCIES, FEEDBACK_IMPACTS, FEEDBACK_KINDS, FEEDBACK_LIMITS, FEEDBACK_PRIVACY_NOTE, FEEDBACK_SCREENS, diagnosticsLines, feedbackDiagnostics, newFeedbackKey,
+  EMPTY_FEEDBACK, FEEDBACK_FREQUENCIES, FEEDBACK_IMPACTS, FEEDBACK_KINDS, FEEDBACK_LIMITS, FEEDBACK_PRIVACY_NOTE, FEEDBACK_SCREENS, diagnosticsLines, feedbackDiagnostics,
   validateFeedbackDraft, type FeedbackDraft, type FeedbackFieldError,
 } from '@open-stall/domain';
 import { colors, spacing, typography } from '@open-stall/ui';
 import Constants from 'expo-constants';
-import * as Crypto from 'expo-crypto';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../auth/AuthProvider';
 import { RequireAuth } from '../../auth/RequireAuth';
@@ -17,24 +16,24 @@ import { Section } from '../../components/Section';
 import { SecondaryButton } from '../../components/SecondaryButton';
 import { StatusBanner } from '../../components/StatusBanner';
 import { TextField } from '../../components/TextField';
-import { submitFeedback } from '../../feedback/api';
 import { OwnerScope } from '../../feedback/OwnerScope';
+import { FeedbackSender } from '../../feedback/sender';
+import { liveSenderDeps } from '../../feedback/transport';
 
 const diagnostics = feedbackDiagnostics(Platform.OS, Constants.expoConfig?.version);
 
 function Form() {
-  const { rpc } = useAuth();
+  const { userId } = useAuth();
   const router = useRouter();
-  const sending = useRef(false); // synchronous lock: a double tap must never send two items
   const [d, setD] = useState<FeedbackDraft>(EMPTY_FEEDBACK);
   const [errors, setErrors] = useState<FeedbackFieldError[]>([]);
   const [failure, setFailure] = useState<{ message: string; uncertain: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
-  const alive = useRef(true); // false once this account's form is gone (account change, sign-out, leaving): nothing may be sent after that
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  const keyRef = useRef<string | null>(null); // the retry key of THIS content: an exact retry reuses it; any edit starts a new one
-  const set = <K extends keyof FeedbackDraft>(k: K, v: FeedbackDraft[K]) => { setD((x) => ({ ...x, [k]: v })); keyRef.current = null; setErrors((e) => e.filter((x) => x.field !== k)); };
+  // One sender per account form: it owns the retry key and the synchronous send lock, and binds every send to the account's own verified session.
+  const [sender] = useState(() => (userId ? new FeedbackSender(liveSenderDeps(userId)) : null));
+  useEffect(() => { sender?.attach(); return () => sender?.dispose(); }, [sender]);
+  const set = <K extends keyof FeedbackDraft>(k: K, v: FeedbackDraft[K]) => { setD((x) => ({ ...x, [k]: v })); sender?.forgetKey(); setErrors((e) => e.filter((x) => x.field !== k)); };
   const err = (f: keyof FeedbackDraft) => errors.find((e) => e.field === f)?.message ?? null;
 
   if (done) {
@@ -42,29 +41,30 @@ function Form() {
       <View style={styles.stack}>
         <StatusBanner tone="success" title="Thank you. We received your feedback." message="A person reads every one. You can follow what happens to it under My feedback." />
         <PrimaryButton label="See my feedback" onPress={() => router.replace('/feedback/mine')} />
-        <SecondaryButton label="Send something else" onPress={() => { setD(EMPTY_FEEDBACK); keyRef.current = null; setDone(false); }} />
+        <SecondaryButton label="Send something else" onPress={() => { setD(EMPTY_FEEDBACK); sender?.forgetKey(); setDone(false); }} />
       </View>
     );
   }
 
   const send = async () => {
-    if (sending.current || !rpc) return;
+    if (!sender) return;
     const problems = validateFeedbackDraft(d);
     setErrors(problems);
     setFailure(null);
     if (problems.length > 0) return;
-    sending.current = true;
     setBusy(true);
     try {
-      keyRef.current ??= newFeedbackKey(Array.from(await Crypto.getRandomBytesAsync(20), (b) => b.toString(16).padStart(2, '0')).join(''));
-      // the awaits above must never let this form's content go out under whoever is signed in NOW
-      if (!alive.current) return;
-      const r = await submitFeedback(rpc, d, diagnostics, keyRef.current);
-      if (!alive.current) return;
-      if (r.ok) setDone(true);
-      else setFailure({ message: r.uncertain ? 'We couldn’t confirm that your feedback was sent. It is safe to try again: it will not be sent twice.' : r.message, uncertain: r.uncertain });
+      const r = await sender.send(d, diagnostics);
+      if (r.kind === 'done') {
+        if (r.outcome.ok) setDone(true);
+        else setFailure({ message: r.outcome.uncertain ? 'We couldn’t confirm that your feedback was sent. It is safe to try again: it will not be sent twice.' : r.outcome.message, uncertain: r.outcome.uncertain });
+      } else if (r.kind === 'refused' && r.reason === 'account-changed') {
+        setFailure({ message: 'Your sign-in changed, so nothing was sent. Check that you are signed in to the right account and try again.', uncertain: false });
+      } else if (r.kind === 'refused' && r.reason === 'unavailable') {
+        setFailure({ message: 'Sending is not available right now. Nothing was sent.', uncertain: false });
+      }
+      // busy, disposed or discarded: nothing to show (this form is gone, or another send is already running)
     } finally {
-      sending.current = false;
       setBusy(false);
     }
   };

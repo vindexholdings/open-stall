@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NEXT_STATUS, parseCandidates, feedbackAdminError, parseApproveForm, parseCursor, parseDraftForm, parseId, parseIssueForm, parseLinkForm, parseStatusFilter, parseStatusForm } from './feedback';
+import { NEXT_STATUS, eligibilityMessage, parseCandidates, feedbackAdminError, parseApproveForm, parseCursor, parseDraftForm, parseId, parseIssueForm, parseLinkForm, parseStatusFilter, parseStatusForm } from './feedback';
 
 const ID = '3f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d5e';
 const form = (o: Record<string, string>) => ({ get: (k: string) => o[k] ?? null });
@@ -66,6 +66,13 @@ describe('error wording', () => {
     expect(parseCandidates([{ id: 'x' }])).toEqual({ candidates: [], searched: 0, complete: false });
     const r = parseCandidates({ candidates: [{ id: 'a', title: 'T', kind: 'bug', status: 'received', issue_id: null }, { id: 5 }], searched: 200, complete: false });
     expect(r.candidates).toHaveLength(1); expect(r.searched).toBe(200); expect(r.complete).toBe(false);
+  });
+  it('distinguishes approval history from current eligibility', () => {
+    expect(eligibilityMessage(null)).toBeNull();
+    expect(eligibilityMessage('unapproved')).toBeNull();
+    expect(eligibilityMessage('links_changed')).toMatch(/linked to the issue after that approval/);
+    expect(eligibilityMessage('links_changed')).toMatch(/Save a new version/);
+    expect(eligibilityMessage('not_independent')).toMatch(/no longer independent/);
   });
   it('explains an approval revoked by a later link', () => {
     expect(feedbackAdminError({ message: 'feedback was linked after approval; a new independent approval is required' })).toMatch(/new version/);

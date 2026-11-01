@@ -21,7 +21,14 @@ export type Detail = {
   own: boolean; issue_id: string | null; link_role: string | null; history: { from: string | null; to: string; by: string; note: string | null; at: string }[];
 };
 export type Candidate = { id: string; kind: string; title: string; status: string; issue_id: string | null };
-export type IssueView = { id: string; title: string; summary: string; created_at: string; items: number; latest_draft: { version: number; hash: string; approved: boolean; author_is_me: boolean; title: string; body: string } | null };
+export type IssueView = { id: string; title: string; summary: string; created_at: string; items: number; latest_draft: { version: number; hash: string; approved: boolean; author_is_me: boolean; title: string; body: string; eligible: boolean; block: EligibilityBlock | null } | null };
+/** Why an approved version is NOT currently eligible for export (approval itself stays immutable history). */
+export type EligibilityBlock = 'unapproved' | 'links_changed' | 'not_independent';
+export function eligibilityMessage(block: string | null | undefined): string | null {
+  if (block === 'links_changed') return 'This version was approved, but feedback was linked to the issue after that approval, so the approval no longer covers what would be published. Nothing can be exported from it. Save a new version with your own words; a different administrator, who is not the submitter of any covered feedback, must approve it.';
+  if (block === 'not_independent') return 'This version was approved, but the approval is no longer independent of the feedback it covers. Nothing can be exported from it. Save a new version; a different administrator must approve it.';
+  return null;
+}
 export type CandidateResult = { candidates: Candidate[]; searched: number; complete: boolean };
 /** The server answer for duplicate candidates; anything unexpected reads as 'none found, incomplete' (never a crash, never invented rows). */
 export function parseCandidates(v: unknown): CandidateResult {
@@ -91,7 +98,8 @@ export function feedbackAdminError(err: { code?: string; message?: string } | nu
   if (m.includes('already linked')) return 'That feedback is already linked to an issue.';
   if (m.includes('invalid status transition')) return 'That status change is not allowed from the current status. Refresh and check.';
   if (m.includes('safe public text') || m.includes('verified as safe')) return 'That text could not be verified as safe for public use. Use plain words only: no links, e-mail addresses, numbers runs, names or places.';
-  if (m.includes('linked after approval') || m.includes('no longer independent')) return 'Feedback was linked after approval, so the earlier approval no longer covers this publication. Save a new version; a different administrator must approve it.';
+  if (m.includes('linked after approval')) return eligibilityMessage('links_changed') ?? '';
+  if (m.includes('no longer independent')) return eligibilityMessage('not_independent') ?? '';
   if (m.includes('not approved')) return 'The latest draft version is not approved yet.';
   if (m.includes('only the latest')) return 'Only the latest draft version can be approved.';
   if (m.includes('already approved')) return 'That version is already approved.';

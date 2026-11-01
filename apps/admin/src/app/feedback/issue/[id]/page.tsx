@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CATEGORIES, PLATFORMS, feedbackAdminError, parseId, type IssueView } from '@/lib/feedback';
+import { CATEGORIES, PLATFORMS, eligibilityMessage, feedbackAdminError, parseId, type IssueView } from '@/lib/feedback';
 import { requireAdminSession } from '@/lib/requireAdmin';
 import { approveDraft, saveDraft } from '../../actions';
 
@@ -13,8 +13,11 @@ export default async function FeedbackIssue({ params, searchParams }: { params: 
   if (got.error) return (<main className="wrap"><h1>Issue</h1><p role="alert">{feedbackAdminError(got.error)}</p><p><Link href="/feedback">Back to the list</Link></p></main>);
   const issue = got.data as IssueView;
   const d = issue.latest_draft;
-  const preview = d?.approved ? await db.rpc('admin_feedback_export_preview', { p_issue: id }) : null;
+  // The export is requested only for a CURRENTLY eligible version; any refusal is shown, never swallowed.
+  const preview = d?.eligible ? await db.rpc('admin_feedback_export_preview', { p_issue: id }) : null;
   const exp = (preview?.data ?? null) as { title: string; body: string; version: number; publication_key: string } | null;
+  const previewError = preview?.error ? feedbackAdminError(preview.error) : null;
+  const ineligible = d?.approved && !d.eligible ? eligibilityMessage(d.block) ?? 'This version is approved, but it is not eligible for export right now.' : null;
 
   return (
     <main className="wrap">
@@ -27,7 +30,16 @@ export default async function FeedbackIssue({ params, searchParams }: { params: 
 
       <h2>Sanitized publication draft</h2>
       <p className="muted">A fixed template of allowlisted fields written in your own words. An edit is a NEW version and must be approved again by a different administrator. Nothing is sent anywhere from here.</p>
-      {d ? <p>Latest version: {d.version} · {d.approved ? 'APPROVED' : 'not approved'}{d.author_is_me ? ' · you wrote it, so another administrator must approve it' : ''}</p> : <p className="muted">No draft yet.</p>}
+      {d ? <p>Latest version: {d.version} · {d.approved ? (d.eligible ? 'APPROVED and eligible for export' : 'approved earlier, NOT eligible for export now') : 'not approved'}{d.author_is_me ? ' · you wrote it, so another administrator must approve it' : ''}</p> : <p className="muted">No draft yet.</p>}
+      {ineligible ? <p role="alert">{ineligible}</p> : null}
+      {previewError ? <p role="alert">{previewError}</p> : null}
+      {d && d.approved && !d.eligible ? (
+        <section aria-label="Approved version, no longer eligible">
+          <h3>Exact text of version {d.version} (private to administrators, history only)</h3>
+          <p><strong>{d.title}</strong></p>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{d.body}</pre>
+        </section>
+      ) : null}
       {d && !d.approved ? (
         <section aria-label="Draft awaiting review">
           <h3>Exact text to review (version {d.version}, private to administrators)</h3>

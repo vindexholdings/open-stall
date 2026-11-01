@@ -81,10 +81,15 @@ select pg_temp.fails_as('authenticated', :'ad2'::uuid, 'aal1', format('select pu
 -- ===== 3. a later link revokes eligibility (sequential)
 select pg_temp.adm(:'ad2'::uuid, format('select public.admin_feedback_draft_approve(%L, 1, %L)::text', :'iss', :'ds'::jsonb ->> 'hash')) as _ \gset
 select pg_temp.ok((pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_export_preview(%L)::text', :'iss'))::jsonb ->> 'title') = 'Pin jumps when zooming', 'an approved, unchanged publication exports its preview');
+select pg_temp.adm(:'ad2'::uuid, format('select public.admin_feedback_issue_get(%L)::text', :'iss'))::jsonb as ig1 \gset
+select pg_temp.ok((:'ig1'::jsonb #>> '{latest_draft,approved}') = 'true' and (:'ig1'::jsonb #>> '{latest_draft,eligible}') = 'true' and (:'ig1'::jsonb #> '{latest_draft,block}') = 'null'::jsonb, 'the issue read of an approved, unchanged version: approved (history) AND eligible (current), no block');
 -- the approver's own feedback is linked afterwards by a third administrator
 select pg_temp.submit(:'ad2'::uuid, pg_temp.key(30), 'Pin jumps while zooming now', 'The approving administrator also saw the pin jump while zooming.', 'bug', 'map') ->> 'id' as own \gset
 select pg_temp.adm(:'ad3'::uuid, format('select public.admin_feedback_link_duplicate(%L, %L)::text', :'own', :'iss')) as _ \gset
 select pg_temp.fails_as('authenticated', :'ad'::uuid, 'aal2', format('select public.admin_feedback_export_preview(%L)', :'iss'), '55000', 'after linking the approver''s own feedback the old approval no longer exports');
+select pg_temp.adm(:'ad4'::uuid, format('select public.admin_feedback_issue_get(%L)::text', :'iss'))::jsonb as ig2 \gset
+select pg_temp.ok((:'ig2'::jsonb #>> '{latest_draft,approved}') = 'true' and (:'ig2'::jsonb #>> '{latest_draft,eligible}') = 'false' and (:'ig2'::jsonb #>> '{latest_draft,block}') = 'links_changed', 'the issue read keeps approval as HISTORY (approved) but reports it NOT eligible now, with the reason code (links_changed)');
+select pg_temp.ok((:'ig2'::jsonb #>> '{latest_draft,body}') = :'ds'::jsonb ->> 'body', 'the exact text stays privately readable while ineligible');
 select pg_temp.fails_as('authenticated', :'ad2'::uuid, 'aal2', format('select public.admin_feedback_draft_approve(%L, 1, %L)', :'iss', :'ds'::jsonb ->> 'hash'), '55000,42501', 'the version cannot simply be approved again');
 -- immutable history: the old approval row is untouched; a NEW version needs a NEW independent approval
 select pg_temp.ok((select approved_by from feedback.drafts where issue_id = :'iss'::uuid and version = 1) = :'ad2'::uuid, 'the earlier approval stays in history unchanged');
@@ -92,8 +97,14 @@ select pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_draft_save(
 select pg_temp.fails_as('authenticated', :'ad2'::uuid, 'aal2', format('select public.admin_feedback_draft_approve(%L, 2, %L)', :'iss', :'ds2'::jsonb ->> 'hash'), '42501', 'the approver whose own feedback is linked cannot approve the new version');
 select pg_temp.adm(:'ad4'::uuid, format('select public.admin_feedback_draft_approve(%L, 2, %L)::text', :'iss', :'ds2'::jsonb ->> 'hash')) as _ \gset
 select pg_temp.ok((pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_export_preview(%L)::text', :'iss'))::jsonb ->> 'version') = '2', 'an independent approval of the new version exports it');
+select pg_temp.ok((pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_issue_get(%L)::text', :'iss'))::jsonb #>> '{latest_draft,eligible}') = 'true', 'after the independent re-approval the issue read reports eligible again');
+select pg_temp.ok((pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_issue_get(%L)::text', :'iss'))::jsonb #>> '{latest_draft,version}') = '2', 'the read is of the latest version (the old approved version 1 stays in history untouched)');
 -- linking ANY item afterwards revokes again (the published set changed after approval)
 select pg_temp.submit(:'u3'::uuid, pg_temp.key(31), 'Pin jumps zooming once more', 'Another user reports that the pin jumps while zooming.', 'bug', 'map') ->> 'id' as more \gset
 select pg_temp.adm(:'ad3'::uuid, format('select public.admin_feedback_link_duplicate(%L, %L)::text', :'more', :'iss')) as _ \gset
 select pg_temp.fails_as('authenticated', :'ad'::uuid, 'aal2', format('select public.admin_feedback_export_preview(%L)', :'iss'), '55000', 'linking any item after approval revokes eligibility until a fresh approval');
+select pg_temp.ok((pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_issue_get(%L)::text', :'iss'))::jsonb #>> '{latest_draft,block}') = 'links_changed', 'the issue read agrees with the export (one shared eligibility rule)');
+-- a never-approved edit reports unapproved, not eligible
+select pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_draft_save(%L, ''Pin jumps when zooming'', ''bug'', ''The pin jumps when zooming on the map screen again'')::text', :'iss')) as _ \gset
+select pg_temp.ok((pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_issue_get(%L)::text', :'iss'))::jsonb #>> '{latest_draft,block}') = 'unapproved' and (pg_temp.adm(:'ad'::uuid, format('select public.admin_feedback_issue_get(%L)::text', :'iss'))::jsonb #>> '{latest_draft,approved}') = 'false', 'a fresh edit is unapproved and not eligible');
 select pg_temp.finish();

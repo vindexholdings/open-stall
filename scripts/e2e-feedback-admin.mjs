@@ -100,7 +100,7 @@ const mock = createServer(async (req, res) => {
     }
     if (fn === 'admin_feedback_issue_get') {
       const d = fb.drafts.at(-1) ?? null;
-      return fb.issue ? json(200, { ...fb.issue, created_at: '2026-10-31T10:00:00+00', items: 1, latest_draft: d ? { version: d.version, hash: d.hash, approved: d.approved, author_is_me: d.author_is_me, title: d.title, body: d.body } : null }) : json(400, { code: 'P0002', message: 'not found' });
+      return fb.issue ? json(200, { ...fb.issue, created_at: '2026-10-31T10:00:00+00', items: 1, latest_draft: d ? { version: d.version, hash: d.hash, approved: d.approved, author_is_me: d.author_is_me, title: d.title, body: d.body, eligible: d.approved && !d.revoked, block: d.approved ? (d.revoked ? 'links_changed' : null) : 'unapproved' } : null }) : json(400, { code: 'P0002', message: 'not found' });
     }
     if (fn === 'admin_feedback_draft_save') {
       fb.draftCalls.push(data); if (/[@<>]|https?:/.test(JSON.stringify(data))) return json(400, { code: '22023', message: 'the draft could not be verified as safe public text' });
@@ -112,7 +112,7 @@ const mock = createServer(async (req, res) => {
       if (d.author_is_me) return json(403, { code: '42501', message: 'a different administrator must approve this draft' });
       d.approved = true; return json(200, { approved: true });
     }
-    if (fn === 'admin_feedback_export_preview') { const d = fb.drafts.at(-1); return d?.approved ? json(200, { title: d.title, body: d.body, version: d.version, hash: d.hash, publication_key: '9f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d11', issue_id: ISS }) : json(400, { code: '55000', message: 'the latest draft version is not approved' }); }
+    if (fn === 'admin_feedback_export_preview') { const d = fb.drafts.at(-1); if (d?.approved && fb.exportFail) return json(403, { code: '55000', message: 'the approval is no longer independent; a new independent approval is required' }); return d?.approved && !d.revoked ? json(200, { title: d.title, body: d.body, version: d.version, hash: d.hash, publication_key: '9f2b9c1e-8f55-4a52-9d3a-0c1a2b3c4d11', issue_id: ISS }) : json(400, { code: '55000', message: 'the latest draft version is not approved' }); }
   }
   return json(404, { msg: 'not mocked' });
 });
@@ -247,6 +247,18 @@ try {
     await page.getByRole('button', { name: 'Approve version 1' }).click();
     check(await text(page, 'Approved.') && await text(page, 'Approved preview (version 1)') && await text(page, 'Problem: The map pin moves away'), 'an independent approval shows the exact approved preview');
     check(await text(page, 'No GitHub credential exists in this app'), 'the preview states that nothing is sent anywhere');
+    // CURRENT eligibility is not approval history: after a later link the old approval stays visible as history but cannot export, and the page says why
+    fb.drafts[0].revoked = true;
+    await page.goto(`${base}/feedback/issue/${ISS}`);
+    check(await text(page, 'approved earlier, NOT eligible for export now') && await text(page, 'feedback was linked to the issue after that approval'), 'after a later link the page shows the approval as history that is NOT eligible, with the reason and the way forward');
+    check((await page.getByText('Approved preview').count()) === 0 && (await page.getByRole('button', { name: 'Approve version 1' }).count()) === 0, 'an ineligible approval shows no export preview and no approve button');
+    check(await text(page, 'Exact text of version 1') && await text(page, 'Problem: The map pin moves away'), 'the exact text stays privately reviewable while ineligible');
+    fb.drafts[0].revoked = false; fb.exportFail = true;
+    await page.goto(`${base}/feedback/issue/${ISS}`);
+    check((await page.getByText('Approved preview').count()) === 0 && await text(page, 'no longer independent') , 'a refused preview is shown as an error, never silently dropped or shown as success');
+    fb.exportFail = false;
+    await page.goto(`${base}/feedback/issue/${ISS}`);
+    check(await text(page, 'Approved preview (version 1)'), 'when eligibility is real again the preview returns');
     await page.getByLabel('Problem (your words)').fill('The pin still moves away while zooming in.');
     await page.getByRole('button', { name: 'Save as a new version' }).click();
     await text(page, 'Draft saved');

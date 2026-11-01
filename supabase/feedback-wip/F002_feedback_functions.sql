@@ -26,6 +26,21 @@ create function feedback.link_set(p_issue uuid) returns text language sql stable
   select feedback.sha(coalesce((select string_agg(item_id::text, ',' order by item_id) from feedback.item_links where issue_id = p_issue), ''))
 $$;
 
+-- CURRENT export eligibility of a draft version, in ONE place (the issue read and the export both use it, so they cannot disagree).
+-- NULL = eligible. Approval history (approved_*) is immutable; eligibility is re-proved from the current state every time.
+create function feedback.export_block(p_issue uuid, p_draft_id uuid) returns text language plpgsql stable set search_path = '' as $$
+declare d feedback.drafts%rowtype;
+begin
+  select * into d from feedback.drafts where id = p_draft_id;
+  if d.id is null or d.approved_hash is distinct from d.body_hash then return 'unapproved'; end if;
+  -- MUTABLE:fb_export_revalidate begin
+  if d.approved_links is distinct from feedback.link_set(p_issue) then return 'links_changed'; end if;
+  if d.approved_by = d.created_by or exists (select 1 from feedback.item_links l join feedback.items it on it.id = l.item_id where l.issue_id = p_issue and it.user_id = d.approved_by) then
+    return 'not_independent'; end if;
+  -- MUTABLE:fb_export_revalidate end
+  return null;
+end $$;
+
 create function public.submit_feedback(
   p_key text, p_kind text, p_screen text, p_title text, p_description text,
   p_expected text default null, p_actual text default null, p_steps text default null, p_frequency text default null, p_impact text default null,
@@ -237,6 +252,7 @@ begin
   return jsonb_build_object('id', i.id, 'title', i.title, 'summary', i.summary, 'created_at', i.created_at,
     'items', (select count(*) from feedback.item_links where issue_id = i.id),
     'latest_draft', case when d.id is null then null else jsonb_build_object('version', d.version, 'hash', d.body_hash, 'approved', d.approved_hash is not distinct from d.body_hash, 'author_is_me', d.created_by = a,
+      'eligible', feedback.export_block(i.id, d.id) is null, 'block', feedback.export_block(i.id, d.id),
       'title', d.title, 'body', d.body) end);
 end $$;
 
@@ -291,21 +307,17 @@ end $$;
 -- The only export in F1: a PREVIEW of the latest version, and only when that exact version is approved. Nothing is sent anywhere; no credential exists here.
 create function public.admin_feedback_export_preview(p_issue uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare a uuid := public.require_admin(); d feedback.drafts%rowtype; i feedback.issues%rowtype;
+declare a uuid := public.require_admin(); d feedback.drafts%rowtype; i feedback.issues%rowtype; blk text;
 begin
   perform pg_advisory_xact_lock(hashtextextended('feedback:issue:' || p_issue::text, 0));
   select * into i from feedback.issues where id = p_issue;
   select * into d from feedback.drafts where issue_id = p_issue order by version desc limit 1;
   if i.id is null or d.id is null then raise exception 'not found' using errcode = 'P0002'; end if;
-  -- MUTABLE:fb_export_gate begin
-  if d.approved_hash is distinct from d.body_hash then raise exception 'the latest draft version is not approved' using errcode = '55000'; end if;
-  -- MUTABLE:fb_export_gate end
-  -- Eligibility is re-proved here, not remembered: the approval must still cover the CURRENT linked set, and the independence rules must still hold.
-  -- MUTABLE:fb_export_revalidate begin
-  if d.approved_links is distinct from feedback.link_set(p_issue) then raise exception 'feedback was linked after approval; a new independent approval is required' using errcode = '55000'; end if;
-  if d.approved_by = d.created_by or exists (select 1 from feedback.item_links l join feedback.items it on it.id = l.item_id where l.issue_id = p_issue and it.user_id = d.approved_by) then
-    raise exception 'the approval is no longer independent; a new independent approval is required' using errcode = '55000'; end if;
-  -- MUTABLE:fb_export_revalidate end
+  -- Eligibility is re-proved here, not remembered (the same helper the issue read uses).
+  blk := feedback.export_block(p_issue, d.id);
+  if blk = 'unapproved' then raise exception 'the latest draft version is not approved' using errcode = '55000'; end if;
+  if blk = 'links_changed' then raise exception 'feedback was linked after approval; a new independent approval is required' using errcode = '55000'; end if;
+  if blk = 'not_independent' then raise exception 'the approval is no longer independent; a new independent approval is required' using errcode = '55000'; end if;
   return jsonb_build_object('issue_id', i.id, 'version', d.version, 'title', d.title, 'body', d.body, 'hash', d.body_hash, 'publication_key', i.publication_key);
 end $$;
 
@@ -315,6 +327,7 @@ alter function feedback.nz(text) owner to feedback_owner;
 alter function feedback.sha(text) owner to feedback_owner;
 alter function feedback.page_cursor(text) owner to feedback_owner;
 alter function feedback.link_set(uuid) owner to feedback_owner;
+alter function feedback.export_block(uuid, uuid) owner to feedback_owner;
 alter function public.submit_feedback(text, text, text, text, text, text, text, text, text, text, text, text) owner to feedback_owner;
 alter function public.list_my_feedback(text, integer) owner to feedback_owner;
 alter function public.get_my_feedback(uuid) owner to feedback_owner;
@@ -328,8 +341,8 @@ alter function public.admin_feedback_issue_get(uuid) owner to feedback_owner;
 alter function public.admin_feedback_draft_save(uuid, text, text, text, text, text, text, text, text) owner to feedback_owner;
 alter function public.admin_feedback_draft_approve(uuid, integer, text) owner to feedback_owner;
 alter function public.admin_feedback_export_preview(uuid) owner to feedback_owner;
-revoke all on function feedback.outcome(text), feedback.nz(text), feedback.sha(text), feedback.page_cursor(text), feedback.link_set(uuid) from public, anon, authenticated, service_role;
-grant execute on function feedback.outcome(text), feedback.nz(text), feedback.sha(text), feedback.page_cursor(text), feedback.link_set(uuid) to feedback_owner;
+revoke all on function feedback.outcome(text), feedback.nz(text), feedback.sha(text), feedback.page_cursor(text), feedback.link_set(uuid), feedback.export_block(uuid, uuid) from public, anon, authenticated, service_role;
+grant execute on function feedback.outcome(text), feedback.nz(text), feedback.sha(text), feedback.page_cursor(text), feedback.link_set(uuid), feedback.export_block(uuid, uuid) to feedback_owner;
 revoke all on function
   public.submit_feedback(text, text, text, text, text, text, text, text, text, text, text, text), public.list_my_feedback(text, integer), public.get_my_feedback(uuid),
   public.admin_feedback_list(text, text, integer), public.admin_feedback_get(uuid), public.admin_feedback_candidates(uuid, integer),

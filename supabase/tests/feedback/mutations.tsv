@@ -15,8 +15,6 @@ fb_candidates_cross_screen	replace:where i.screen = r.screen and i.id <> r.id=>w
 fb_draft_sanitize_removed	fb_draft_sanitize	f1_07_drafts.test.sql	kill
 fb_hash_bound_removed	fb_hash_bound	f1_07_drafts.test.sql	kill
 fb_independent_review_removed	fb_independent_review	f1_07_drafts.test.sql	kill
-# fb_export_gate_removed is equivalent: approval presence is also refused by the approved_links revalidation; the gate stays as a readable first check
-fb_export_gate_removed	fb_export_gate	f1_07_drafts.test.sql	equivalent
 fb_cascade_to_restrict	replace:user_id uuid not null references auth.users (id) on delete cascade=>user_id uuid not null references auth.users (id) on delete restrict	f1_08_deletion.test.sql	kill
 fb_grant_client_table	append:grant select on feedback.items to authenticated;	f1_01_privileges_catalog.test.sql	kill
 fb_grant_anon_admin_rpc	append:grant execute on function public.admin_feedback_list(text, text, integer) to anon;	f1_01_privileges_catalog.test.sql	kill
@@ -26,3 +24,4 @@ fb_default_privilege	append:alter default privileges in schema feedback grant al
 fb_export_revalidate_removed	fb_export_revalidate	f1_10_corrections.test.sql	kill
 fb_pool_limit_removed	fb_pool_limit	f1_10_corrections.test.sql	kill
 fb_fingerprint_positions_lost	replace:'expected', ex, 'actual', ac, 'steps', st=>'text', concat_ws(chr(31), ex, ac, st)	f1_10_corrections.test.sql	kill
+fb_export_unapproved_allowed	replace:if blk = 'unapproved' then raise exception 'the latest draft version is not approved' using errcode = '55000'; end if;=>	f1_07_drafts.test.sql	kill
