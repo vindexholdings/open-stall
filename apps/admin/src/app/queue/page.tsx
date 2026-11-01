@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { adminAccess, adminErrorMessage, REJECTION_REASONS, type AdminStatus } from '@/lib/moderation';
 import { sessionClient } from '@/lib/supabase/server';
@@ -38,6 +39,7 @@ export default async function Queue({ searchParams }: { searchParams: Promise<{ 
   return (
     <main className="wrap">
       <h1>Review queue</h1>
+      <p><Link href="/feedback">App feedback</Link></p>
       <form action={signOutAdmin}><button type="submit">Sign out</button></form>
       {notice ? <p role="status">{notice.slice(0, 200)}</p> : null}
       {error ? <p role="alert">{error.slice(0, 300)}</p> : null}
