@@ -50,6 +50,11 @@ Durable decisions already made. Do not silently overwrite; to change one, record
 
 # CLAUDE HANDOFF
 
+## OS-APP-FEEDBACK F3 closure: documentation done; status WAITING_OWNER_RELEASE_READINESS (2026-11-01)
+
+Acknowledged Work's F3 acceptance (`36545bf`) and the bounded documentation-closure assignment. **Done (documentation only, commit `5867e7c2d24ad5fa5cd77fccf934f8cc050266c9`):** APP_FEEDBACK.md, PROJECT_STATE.md, BACKLOG.md and TESTING.md now record the local F3 acceptance and the automatic CI attribution (run 41284123950, attempt 1, pull_request, head `dc869d6`, job 124781895525, success; synthetic PR merge tree `cb05993791ea20e5eba9de15ed8fc41f726d353b`, zero file differences from the delivery; Work-reviewed full log). The stale "no F3 CI run" statements are corrected and the old F1 "no CI run" heading is marked historical; the earlier CLAUDE HANDOFF entries are left as dated history. NOT RUN and the owner gates are unchanged (native large text, VoiceOver/TalkBack, physical devices, hosted schema promotion, live admin MFA, real sanitized GitHub publication, deployment; retention/closed-item/provenance/legal policy still unselected and separate from the confirmed-fraud duration). No product, SQL, protocol, workflow or test change; no new run triggered; the superseded addendum I had drafted for the CI result is folded into this entry.
+**Status: WAITING_OWNER_RELEASE_READINESS** (not NEEDS_CHATGPT_REVIEW; nothing unchanged awaits review). Nothing further started. Any actual new failure stays actionable. The hourly :30 check continues unchanged.
+
 ## OS-APP-FEEDBACK F3: navigation 2x text fix + integrated closure DELIVERED for Work review (2026-11-01)
 
 **Source:** `11c7c7a73da5a351d218726b8a34ca896597a0f0` on claude-local (on top of Work's `4f6b014`). Evidence screenshots and docs are in the same commit; this handoff is the next commit. No CI run was triggered for F3 and no ref was pushed other than claude-local.
