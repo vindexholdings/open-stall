@@ -1,0 +1,81 @@
+# source: f2530c8328e9c0e6170ef461a19818c1bd308547 (p3_09_bounds_timing.test.sql; EXPLAIN (ANALYZE, BUFFERS) output; synthetic bulk data seeded with triggers disabled for the SEED ONLY)
+==== EVIDENCE: standing-award read for the big user (3,285 lifetime rows), whole history
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=2.857..2.860 rows=1 loops=1)
+   Buffers: shared hit=78
+   ->  Sort (actual time=2.066..2.237 rows=3285 loops=1)
+         Sort Key: l.location_id
+         Sort Method: quicksort  Memory: 250kB
+         Buffers: shared hit=78
+         ->  Hash Right Anti Join (actual time=1.274..1.605 rows=3285 loops=1)
+               Hash Cond: (r.reverses_entry_id = l.id)
+               Buffers: shared hit=78
+               ->  Index Only Scan using reward_ledger_one_reversal_per_entry on reward_ledger r (actual time=0.004..0.005 rows=0 loops=1)
+                     Heap Fetches: 0
+                     Buffers: shared hit=1
+               ->  Hash (actual time=1.263..1.264 rows=3285 loops=1)
+                     Buckets: 4096  Batches: 1  Memory Usage: 263kB
+                     Buffers: shared hit=77
+                     ->  Bitmap Heap Scan on reward_ledger l (actual time=0.070..0.739 rows=3285 loops=1)
+                           Recheck Cond: ((user_id = '00000000-0000-0000-0000-000000009001'::uuid) AND (kind = 'lifetime'::text))
+                           Filter: (entry_type = 'award'::text)
+                           Heap Blocks: exact=73
+                           Buffers: shared hit=77
+                           ->  Bitmap Index Scan on reward_ledger_user_kind_idx (actual time=0.055..0.056 rows=3285 loops=1)
+                                 Index Cond: ((user_id = '00000000-0000-0000-0000-000000009001'::uuid) AND (kind = 'lifetime'::text))
+                                 Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=47
+ Planning Time: 0.233 ms
+ Execution Time: 2.888 ms
+(27 rows)
+
+==== EVIDENCE: the same read for ONE of the 2,000 small users (30 rows) inside a 63,285-row ledger
+                                                                 QUERY PLAN                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=0.402..0.403 rows=1 loops=1)
+   Buffers: shared hit=166
+   InitPlan 1 (returns $0)
+     ->  Limit (actual time=0.279..0.279 rows=1 loops=1)
+           Buffers: shared hit=74
+           ->  Seq Scan on reward_ledger (actual time=0.278..0.278 rows=1 loops=1)
+                 Filter: (user_id <> '00000000-0000-0000-0000-000000009001'::uuid)
+                 Rows Removed by Filter: 3285
+                 Buffers: shared hit=74
+   ->  Sort (actual time=0.388..0.390 rows=30 loops=1)
+         Sort Key: l.location_id
+         Sort Method: quicksort  Memory: 26kB
+         Buffers: shared hit=166
+         ->  Nested Loop Anti Join (actual time=0.312..0.378 rows=30 loops=1)
+               Buffers: shared hit=166
+               ->  Bitmap Heap Scan on reward_ledger l (actual time=0.307..0.352 rows=30 loops=1)
+                     Recheck Cond: ((user_id = $0) AND (kind = 'lifetime'::text))
+                     Filter: (entry_type = 'award'::text)
+                     Heap Blocks: exact=30
+                     Buffers: shared hit=106
+                     ->  Bitmap Index Scan on reward_ledger_user_kind_idx (actual time=0.299..0.299 rows=30 loops=1)
+                           Index Cond: ((user_id = $0) AND (kind = 'lifetime'::text))
+                           Buffers: shared hit=76
+               ->  Index Only Scan using reward_ledger_one_reversal_per_entry on reward_ledger r (actual time=0.000..0.000 rows=0 loops=30)
+                     Index Cond: (reverses_entry_id = l.id)
+                     Heap Fetches: 0
+                     Buffers: shared hit=60
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.310 ms
+ Execution Time: 0.453 ms
+
+# measured results from the same run
+ok - seeded: 3,285 awards for the big user over 36 months, 63,285 ledger rows in all (60,000 for 2,000 other users)
+ok - setup: 109 chains of scope (36 months x 3 keys + the lifetime key)
+ok - a call examines at most 3,285 ledger rows for the ~3,000-row user (3285 <= the proposed 5,000-row bound)
+ok - the big user is inside the proposed row bound
+ok - one evaluation of 50 chains for the big user took 41 ms (< the 2 s hypothesis bound)
+ok - the evaluation awarded real chains from the seeded history
+ok - a second page of 50 chains took 40 ms (< 2 s)
+ok - a 50-chain progress page for the big user took 53 ms (< 2 s)
+ok - the 2,000 small users are present
+ok - evaluating four chains for each of 2,000 users took 1722 ms in total (0.86 ms per user)
+ok - the small users earned real chains from their seeded history
+ok - a 109-chain backlog drained in three bounded steps in 67 ms, then the queue row was deleted

@@ -1,0 +1,24 @@
+# Fail-closed demonstrations (harness at the final source). None of these may print "all checks passed" or exit 0.
+
+$ PATH=/nonexistent /bin/bash scripts/test-db-rewards.sh --isolation
+missing prerequisite: env (nothing was started)
+exit=2
+
+$ OPEN_STALL_PGBIN=<dir with real postgres/initdb/pg_ctl and a psql that exits 127> bash scripts/test-db-rewards.sh --isolation
+harness: postgres (PostgreSQL) 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)
+exit=127
+
+$ OPEN_STALL_PGBIN=<dir whose postgres reports PostgreSQL 18.3> bash scripts/test-db-rewards.sh --isolation   (version guard: never ignored, never replaced)
+OPEN_STALL_PGBIN is not a PostgreSQL 16 bin directory: <tmpdir>
+PostgreSQL 16 server binaries not found (need version 16 exactly; set OPEN_STALL_PGBIN to a 16 bin directory)
+exit=2
+
+$ (the PREVIOUS probe, which ran `env PGCONNECT_TIMEOUT=3 ... psql` without a clean environment, run through the same harness)
+ok - isolation: the stub ran and recorded the probe's environment
+not ok - isolation: probe environment: no service, passfile, password, options, database, user, port, sslmode, URL or key variable (expected '', got 'SUPABASE_URL PGPORT DATABASE_URL PGPASSFILE PGDATABASE PGSERVICE PGSSLMODE PGSERVICEFILE PGPASSWORD PGUSER PGOPTIONS ')
+not ok - isolation: probe environment: HOME is the harness's own temporary HOME (expected '<harness-dir>/home', got '/nonexistent/home')
+not ok - isolation: probe environment: the only connection variables are the explicit socket and the timeout (expected 'PGCONNECT_TIMEOUT PGHOST ', got 'PGCONNECT_TIMEOUT PGDATABASE PGHOST PGOPTIONS PGPASSFILE PGPASSWORD PGPORT PGSERVICE PGSERVICEFILE PGSSLMODE PGUSER ')
+not ok - isolation: real psql, inherited service poisoned: it still tried ONLY the explicit socket (expected '1/0', got '0/1')
+exit=1   # 4 of the new checks fail: the leak Work reproduced is detected
+
+# The in-harness isolation negative controls (run every time) are in p1-test-run.txt: a poisoned PGHOST (an unreachable path inside the harness directory) is counted as refused only when psql ITSELF, started in the clean child environment, exits 2 with its own connection error; a missing psql, an exit-127 stub and an exit-2 stub with no connection error are each shown NOT to count; a stub records that the probe receives only HOME=<harness home>, PGHOST and PGCONNECT_TIMEOUT while PGSERVICE, PGSERVICEFILE, PGPASSFILE, PGPASSWORD, PGOPTIONS and the rest are exported poisoned; the real psql still targets only the explicit socket under an inherited poisoned service, and an unclean run is shown to be redirected by it.

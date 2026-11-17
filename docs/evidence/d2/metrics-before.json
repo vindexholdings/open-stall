@@ -1,0 +1,79 @@
+{
+  "label": "before",
+  "measured": "2026-10-11",
+  "note": "Chromium, emulated viewports, local QA mock. y values are pixels from the top of the page content; \"scale\" 1.5 is a text-only enlargement emulation, not OS text scaling.",
+  "runs": {
+    "phone-390x844": {
+      "hero": {
+        "y": 92,
+        "h": 378,
+        "w": 358
+      },
+      "search": {
+        "y": 728,
+        "h": 48,
+        "w": 358
+      },
+      "quickActions": {
+        "y": 486,
+        "h": 204,
+        "w": 358
+      },
+      "firstCard": {
+        "y": 1034,
+        "h": 296,
+        "w": 358
+      },
+      "pageHeight": 1994,
+      "horizontalOverflow": false
+    },
+    "phone-390x844-text-1.5x": {
+      "hero": {
+        "y": 153,
+        "h": 540,
+        "w": 358
+      },
+      "search": {
+        "y": 1122,
+        "h": 48,
+        "w": 358
+      },
+      "quickActions": {
+        "y": 709,
+        "h": 366,
+        "w": 358
+      },
+      "firstCard": {
+        "y": 1498,
+        "h": 496,
+        "w": 358
+      },
+      "pageHeight": 3002,
+      "horizontalOverflow": false
+    },
+    "narrow-320x640": {
+      "hero": {
+        "y": 92,
+        "h": 506,
+        "w": 288
+      },
+      "search": {
+        "y": 964,
+        "h": 48,
+        "w": 288
+      },
+      "quickActions": {
+        "y": 614,
+        "h": 312,
+        "w": 288
+      },
+      "firstCard": {
+        "y": 1296,
+        "h": 330,
+        "w": 288
+      },
+      "pageHeight": 2320,
+      "horizontalOverflow": false
+    }
+  }
+}

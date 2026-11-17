@@ -1,0 +1,47 @@
+[
+  {
+    "ref": "os111-maverik-cody",
+    "name": "Maverik",
+    "street": "2321 Big Horn Ave",
+    "city": "Cody",
+    "region": "WY",
+    "postal_code": "82414",
+    "evidence_url": "REPLACE with the public web page that states restrooms exist here",
+    "evidence_summary": "REPLACE with one sentence: what the page says (facts only, do not paste text)",
+    "researched_on": "YYYY-MM-DD",
+    "researched_by": "REPLACE with your name",
+    "notes": null,
+    "evidence_is_public_web_source": false,
+    "no_map_database_content": false
+  },
+  {
+    "ref": "os111-conoco-cody",
+    "name": "Conoco",
+    "street": "1737 17th St",
+    "city": "Cody",
+    "region": "WY",
+    "postal_code": "82414",
+    "evidence_url": "REPLACE with the public web page that states restrooms exist here",
+    "evidence_summary": "REPLACE with one sentence: what the page says (facts only, do not paste text)",
+    "researched_on": "YYYY-MM-DD",
+    "researched_by": "REPLACE with your name",
+    "notes": null,
+    "evidence_is_public_web_source": false,
+    "no_map_database_content": false
+  },
+  {
+    "ref": "os111-exxon-good2go-cody",
+    "name": "Exxon (Good 2 Go)",
+    "street": "1543 Depot Dr",
+    "city": "Cody",
+    "region": "WY",
+    "postal_code": "82414",
+    "evidence_url": "REPLACE with the public web page that states restrooms exist here",
+    "evidence_summary": "REPLACE with one sentence: what the page says (facts only, do not paste text)",
+    "researched_on": "YYYY-MM-DD",
+    "researched_by": "REPLACE with your name",
+    "notes": null,
+    "evidence_is_public_web_source": false,
+    "no_map_database_content": false
+  }
+]

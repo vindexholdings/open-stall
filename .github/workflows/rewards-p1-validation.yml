@@ -1,0 +1,81 @@
+# Rewards P1 validation: TEST-ONLY. Runs the existing local PostgreSQL 16 harness on a standard public
+# GitHub-hosted runner. No secrets, no deploy, no artifact upload, no install, no network service.
+# Trigger: ONLY a push to work/p1-validation/**. Do not create such a branch until Work has reviewed
+# this workflow and the exact source commit and authorizes execution.
+name: Rewards P1 validation
+
+on:
+  push:
+    branches:
+      - 'work/p1-validation/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rewards-p1-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  p1-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the exact pushed commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified by Work
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Record source and prove the checkout is the pushed commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          echo "HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git status --porcelain
+          test -z "$(git status --porcelain)"
+
+      - name: Prove runner and preinstalled PostgreSQL 16 (fail if absent or not 16)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner: $(. /etc/os-release; echo "$PRETTY_NAME") $(uname -m)"
+          echo "user: $(id -un) uid=$(id -u)"
+          test "$(id -u)" != 0
+          PGBIN=/usr/lib/postgresql/16/bin
+          test -x "$PGBIN/postgres" || { echo "PostgreSQL 16 server binaries are absent"; exit 1; }
+          "$PGBIN/postgres" --version
+          "$PGBIN/postgres" --version | grep -Eq ' 16\.[0-9]+'
+          "$PGBIN/psql" --version
+          node --version
+
+      - name: Rewards P1 isolation, then full suite, then mutations (sequential)
+        shell: bash
+        env:
+          WORK_TMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          # Explicit allowlist environment and a fresh temporary HOME; nothing else is inherited.
+          P1_HOME="$WORK_TMP/p1-home"
+          mkdir -p "$P1_HOME"
+          NODE_DIR="$(dirname "$(command -v node)")"
+          run_p1() {
+            env -i PATH="$NODE_DIR:/usr/lib/postgresql/16/bin:/usr/local/bin:/usr/bin:/bin" \
+              HOME="$P1_HOME" LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC \
+              OPEN_STALL_PGBIN=/usr/lib/postgresql/16/bin "$@"
+          }
+          echo "::group::isolation"
+          run_p1 bash scripts/test-db-rewards.sh --isolation
+          echo "::endgroup::"
+          echo "::group::boundary (selftest and current-tree check)"
+          run_p1 node scripts/check-rewards-boundary.mjs --selftest
+          run_p1 node scripts/check-rewards-boundary.mjs
+          echo "::endgroup::"
+          echo "::group::full suite"
+          run_p1 env SHOW_LOG=1 bash scripts/test-db-rewards.sh
+          echo "::endgroup::"
+          echo "::group::mutations"
+          run_p1 bash scripts/test-db-rewards.sh --mutations
+          echo "::endgroup::"
